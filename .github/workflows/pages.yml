@@ -2,6 +2,7 @@ name: pages
 on:
   push:
     branches: [landing-9-first-path]
+  workflow_dispatch:
 permissions:
   contents: read
   pages: write
