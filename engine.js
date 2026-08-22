@@ -4,15 +4,15 @@
 
 const CORTEX_KIND = {
   ingest: "DOCUMENT_REF",
-  connector: "TOOL_CALL",
+  connector: "DOCUMENT_REF",
   ontology: "DOCUMENT_REF",
-  insight: "RAG_ANSWER",
-  foundry: "DETERMINISTIC_RULE",
+  insight: "DOCUMENT_REF",
+  foundry: "DOCUMENT_REF",
   app: "EMIT",
   agent: "AGENT_TASK",
-  hypothesize: "LLM_JUDGED",
-  improve: "AGENT_TASK",
-  audit: "EMIT",
+  hypothesize: "DOCUMENT_REF",
+  improve: "DOCUMENT_REF",
+  audit: "DOCUMENT_REF",
   tool_call: "TOOL_CALL",
 };
 
@@ -56,8 +56,8 @@ function cortexOrigin() {
   const host = location.hostname;
   const path = location.pathname;
   if (host === "app.netie.ai" && path.indexOf("/cortex") === 0) return true;
-  if ((host === "127.0.0.1" || host === "localhost") && location.port === "8010") {
-    return path.indexOf("/cortex") === 0;
+  if ((host === "127.0.0.1" || host === "localhost") && path.indexOf("/cortex") === 0) {
+    return true;
   }
   return false;
 }
@@ -73,16 +73,28 @@ function scoreApproach(row) {
 }
 
 function compileIR(state) {
+  const output =
+    [...state.nodes].reverse().find((n) => n.kind === "app") ||
+    [...state.nodes].reverse().find((n) => n.kind === "audit") ||
+    state.nodes[state.nodes.length - 1];
   return {
+    version: "1.0",
     engine: "cortex",
     ghost: !!window.Constructor.ghost,
-    nodes: state.nodes.map((n) => ({
-      id: n.id,
-      kind: CORTEX_KIND[n.kind] || "DOCUMENT_REF",
-      constructor_kind: n.kind,
-      note: n.note,
-      requires_confirm: n.kind === "tool_call" || n.kind === "connector",
-    })),
+    entry_node_id: state.nodes[0].id,
+    output_node_id: output.id,
+    nodes: state.nodes.map((n) => {
+      let kind = CORTEX_KIND[n.kind] || "DOCUMENT_REF";
+      if (n.id === output.id) kind = "EMIT";
+      else if (kind === "EMIT") kind = "DETERMINISTIC_RULE";
+      return {
+        id: n.id,
+        kind: kind,
+        constructor_kind: n.kind,
+        note: n.note,
+        requires_confirm: n.kind === "tool_call",
+      };
+    }),
     edges: state.edges.slice(),
   };
 }
@@ -110,7 +122,25 @@ function topo(state) {
   return out;
 }
 
-function ghostRun() {
+async function ghostRun() {
+  const C = window.Constructor;
+  const state = C.getState();
+  if (cortexOrigin()) {
+    const remote = await cortexPost("/cortex/constructor/ghost", {
+      nodes: state.nodes,
+      edges: state.edges,
+    });
+    C.showAudit({ mode: "cortex-ghost", remote: remote });
+    if (remote && remote.ok) {
+      C.markGhostWalk((remote.nodes || []).map((n) => n.id));
+      return "Cortex ghost compile ok. EMIT=" + remote.output_node_id + ". No writes.";
+    }
+    return "Cortex ghost blocked (" + (remote && (remote.status || remote.error) || "offline") + "). Local walk instead. " + localGhostWalk();
+  }
+  return localGhostWalk();
+}
+
+function localGhostWalk() {
   const C = window.Constructor;
   const state = C.getState();
   const order = topo(state);
@@ -141,7 +171,43 @@ function ghostRun() {
   );
 }
 
-function rankApproaches() {
+async function rankApproaches() {
+  if (cortexOrigin()) {
+    const remote = await cortexPost("/cortex/constructor/recommend", {
+      nodes: window.Constructor.getState().nodes,
+      edges: window.Constructor.getState().edges,
+    });
+    if (remote && remote.ok && Array.isArray(remote.approaches)) {
+      const recId = remote.recommendation && remote.recommendation.pattern;
+      const box = document.getElementById("approaches");
+      box.innerHTML = remote.approaches
+        .map((row) => {
+          const win = row.id === recId;
+          return (
+            '<article class="approach' +
+            (win ? " winner" : "") +
+            '"><div class="eyebrow">' +
+            (win ? "WINNER" : "ALT") +
+            " / " +
+            String(row.cortex_status || "").toUpperCase() +
+            "</div><h3>" +
+            row.name +
+            "</h3><p>" +
+            row.blurb +
+            '</p><p class="hint">' +
+            row.cortex_path +
+            "</p></article>"
+          );
+        })
+        .join("");
+      const ranked = remote.approaches.map((row) =>
+        Object.assign({}, row, { score: row.id === recId ? 99 : 0 })
+      );
+      ranked.sort((a, b) => b.score - a.score);
+      window.Constructor.lastRanking = ranked;
+      return ranked;
+    }
+  }
   const ranked = APPROACHES.map((row) => Object.assign({}, row, { score: scoreApproach(row) })).sort(
     (a, b) => b.score - a.score
   );
@@ -232,17 +298,17 @@ function chatSay(role, text) {
   log.scrollTop = log.scrollHeight;
 }
 
-function handleChat(raw) {
+async function handleChat(raw) {
   const text = raw.trim();
   const t = text.toLowerCase();
   const C = window.Constructor;
   if (!t) return "Say what to build.";
   if (t === "help") {
-    return "add <kind>. ghost on/off. ghost run. propose 3. maximize. foundry path. wire <id> to <id>. run.";
+    return "foundry path. ghost on/off. ghost run. propose 3. maximize. run. add <kind>. wire <id> to <id>.";
   }
   if (/ghost off/.test(t)) {
     C.setGhost(false);
-    return "Ghost off. Live walk may write on tool_call/app nodes. Cortex writes still need steward.";
+    return "Ghost off. Live walk may write on tool_call/app nodes. Cortex writes still need a key.";
   }
   if (/ghost on|ghost mode/.test(t)) {
     C.setGhost(true);
@@ -250,22 +316,32 @@ function handleChat(raw) {
   }
   if (/^ghost( run)?$/.test(t) || /dry.?run/.test(t)) {
     C.setGhost(true);
-    return ghostRun();
+    return await ghostRun();
   }
   if (/propose|bakeoff|approach/.test(t)) {
-    const ranked = rankApproaches();
-    return "Ranked 3 Cortex patterns. Winner: " + ranked[0].name + " (score " + ranked[0].score + "). Parked patterns (teams/bus) stay out.";
+    const ranked = await rankApproaches();
+    return (
+      "Ranked 3 Cortex patterns. Winner: " +
+      ranked[0].name +
+      " (score " +
+      ranked[0].score +
+      "). Parked patterns (teams/bus) stay out."
+    );
   }
   if (/maximi[sz]e|pick winner|best/.test(t)) {
-    const ranked = rankApproaches();
+    const ranked = await rankApproaches();
     applyWinner(ranked[0].id);
     return "Applied " + ranked[0].name + ". Graph compiled toward " + ranked[0].cortex_path + ".";
   }
   if (/foundry|ontology path|create app/.test(t)) {
     C.loadFoundryPath();
     C.setGhost(true);
-    rankApproaches();
-    return "Loaded connector -> ontology -> insight -> foundry -> app. Ontology pack is a stub until you create one. Ghost is on.";
+    const ranked = await rankApproaches();
+    return (
+      "Loaded connector -> ontology -> insight -> foundry -> app. Ghost on. Winner: " +
+      ranked[0].name +
+      "."
+    );
   }
   const add = t.match(/^add ([a-z_]+)$/);
   if (add) {
@@ -279,12 +355,16 @@ function handleChat(raw) {
     return ok ? "Wired " + wire[1] + " -> " + wire[2] : "Need two existing node ids.";
   }
   if (/^run$/.test(t) || /live run|execute/.test(t)) {
-    return liveOrGhost();
+    return await liveOrGhost();
   }
   C.loadFoundryPath();
   C.setGhost(true);
-  rankApproaches();
-  return "Interpreted as: build the foundry workflow, ghost it, rank 3 Cortex approaches. Refine with: maximize / run / add agent.";
+  const ranked = await rankApproaches();
+  return (
+    "Built the foundry path and ghost-ranked 3 Cortex approaches. Winner: " +
+    ranked[0].name +
+    ". Next: maximize / run / add agent."
+  );
 }
 
 function bindChat() {
@@ -310,9 +390,15 @@ function bindChat() {
   document.getElementById("maximize").addEventListener("click", async () => {
     chatSay("assistant", await handleChat("maximize"));
   });
+  const runBtn = document.getElementById("run-graph");
+  if (runBtn) {
+    runBtn.addEventListener("click", async () => {
+      chatSay("assistant", await handleChat("run"));
+    });
+  }
   chatSay(
     "assistant",
-    "ChatGPT control is local. Cortex powers ranking (single agent / generator-verifier / orchestrator-subagent). Pages never fetch. Try: foundry path"
+    "Stranger path is already on the canvas: connector -> ontology -> insight -> foundry -> app. Ghost is on. Try: ghost run, then propose 3, then maximize. Pages never fetch. Live run needs Cortex + OpenVault key."
   );
   rankApproaches();
 }

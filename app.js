@@ -1,11 +1,11 @@
-const STORAGE_KEY = "netie.constructor.v0";
+const STORAGE_KEY = "netie.constructor.v1";
 const KINDS = {
   ingest: { label: "Ingest", note: "Read operations into the graph." },
-  connector: { label: "Connector", note: "Stub until the app ontology exists." },
-  ontology: { label: "Ontology", note: "Object/link/action types. Pack comes later." },
-  insight: { label: "Insight", note: "Cite ontology + ledger. RAG_ANSWER on Cortex." },
-  foundry: { label: "Foundry", note: "Compile a governed app from insights." },
-  app: { label: "App", note: "Emit the app/workflow a stranger can run." },
+  connector: { label: "Connector", note: "First-party Cortex input. No n8n." },
+  ontology: { label: "Ontology", note: "Object/link/action types on this graph." },
+  insight: { label: "Insight", note: "Cite ontology + ledger." },
+  foundry: { label: "Foundry", note: "Compile a governed Cortex app from insights." },
+  app: { label: "App", note: "Emit the app a stranger can run inside Cortex." },
   agent: { label: "Agent", note: "AGENT_TASK loop. One bounded worker." },
   hypothesize: { label: "Hypothesize", note: "Surface a testable claim." },
   improve: { label: "Improve", note: "Change a product from the claim." },
@@ -24,30 +24,59 @@ let armedPort = null;
 let drag = null;
 
 function sample() {
-  return {
-    nodes: [
-      { id: "n1", kind: "ingest", x: 48, y: 72, note: KINDS.ingest.note },
-      { id: "n2", kind: "hypothesize", x: 280, y: 72, note: KINDS.hypothesize.note },
-      { id: "n3", kind: "improve", x: 512, y: 72, note: KINDS.improve.note },
-      { id: "n4", kind: "audit", x: 280, y: 220, note: KINDS.audit.note },
-    ],
-    edges: [
-      { from: "n1", to: "n2" },
-      { from: "n2", to: "n3" },
-      { from: "n3", to: "n4" },
-    ],
-  };
+  return foundrySample();
 }
 
 function foundrySample() {
   return {
     nodes: [
-      { id: "c1", kind: "connector", x: 32, y: 48, note: KINDS.connector.note },
-      { id: "o1", kind: "ontology", x: 240, y: 48, note: KINDS.ontology.note },
-      { id: "i1", kind: "insight", x: 448, y: 48, note: KINDS.insight.note },
-      { id: "f1", kind: "foundry", x: 240, y: 200, note: KINDS.foundry.note },
-      { id: "a1", kind: "app", x: 448, y: 200, note: KINDS.app.note },
-      { id: "g1", kind: "audit", x: 32, y: 200, note: KINDS.audit.note },
+      {
+        id: "c1",
+        kind: "connector",
+        x: 32,
+        y: 48,
+        object_type: "Source",
+        note: "First-party Cortex input. No n8n. WhatsApp stays a draft, not a send.",
+      },
+      {
+        id: "o1",
+        kind: "ontology",
+        x: 240,
+        y: 48,
+        object_type: "Supplier",
+        note: "Objects: Source, Supplier, Insight, App. Actions: cite, compile, emit.",
+      },
+      {
+        id: "i1",
+        kind: "insight",
+        x: 448,
+        y: 48,
+        object_type: "Insight",
+        note: "Cite ontology + ledger. What you may claim from those objects.",
+      },
+      {
+        id: "f1",
+        kind: "foundry",
+        x: 240,
+        y: 200,
+        action_type: "compile",
+        note: "Compile insights into a governed Cortex app. Not an Activepieces clone.",
+      },
+      {
+        id: "a1",
+        kind: "app",
+        x: 448,
+        y: 200,
+        action_type: "emit",
+        note: "Runnable output. Hosted inside Cortex at /cortex/constructor/.",
+      },
+      {
+        id: "g1",
+        kind: "audit",
+        x: 32,
+        y: 200,
+        note: "Why this node exists. Ghost ledgers would-call, not a second EMIT.",
+      },
     ],
     edges: [
       { from: "c1", to: "o1" },
@@ -158,6 +187,8 @@ function showInspect() {
       id: node.id,
       kind: node.kind,
       note: node.note,
+      object_type: node.object_type || null,
+      action_type: node.action_type || null,
       inbound: state.edges.filter((e) => e.to === node.id).map((e) => e.from),
       outbound: state.edges.filter((e) => e.from === node.id).map((e) => e.to),
     },
@@ -268,8 +299,8 @@ function cortexOrigin() {
   const host = location.hostname;
   const path = location.pathname;
   if (host === "app.netie.ai" && path.indexOf("/cortex") === 0) return true;
-  if ((host === "127.0.0.1" || host === "localhost") && location.port === "8010") {
-    return path.indexOf("/cortex") === 0;
+  if ((host === "127.0.0.1" || host === "localhost") && path.indexOf("/cortex") === 0) {
+    return true;
   }
   return false;
 }
@@ -352,8 +383,8 @@ window.Constructor = {
 const power = document.getElementById("power");
 if (power) {
   power.textContent = cortexOrigin()
-    ? "Powered by Cortex. API key required."
-    : "Sketch only. No fetch from github.io. Engine: https://app.netie.ai/cortex (key).";
+    ? "Powered by Cortex. Paste an OpenVault ov_ key, then Run. Ghost stays a dry-run."
+    : "Sketch (no fetch). Try: ghost run / propose 3 / maximize. Live engine: https://app.netie.ai/cortex";
 }
 const keyBox = document.getElementById("cortex-key");
 if (keyBox && !cortexOrigin()) keyBox.hidden = true;

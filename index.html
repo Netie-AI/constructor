@@ -12,15 +12,17 @@
         <div class="eyebrow">NETIE / CONSTRUCTOR</div>
         <h1>Constructor</h1>
         <p class="lede">
-          Chat builds a DAG. Ghost mode dry-runs it. Cortex is the only engine.
+          Chat builds a DAG. Ghost dry-runs it. Cortex is the only engine.
+          Path: connector -&gt; ontology -&gt; insight -&gt; foundry -&gt; app.
         </p>
         <p class="hint" id="power">Checking origin.</p>
       </div>
       <div class="actions">
-        <input id="cortex-key" type="password" autocomplete="off" placeholder="Cortex API key" />
+        <input id="cortex-key" type="password" autocomplete="off" placeholder="OpenVault key (ov_...)" />
         <button type="button" id="ghost-toggle" class="ghost">Ghost off</button>
         <button type="button" id="propose">Propose 3</button>
         <button type="button" id="maximize">Maximize</button>
+        <button type="button" id="run-graph">Run</button>
         <button type="button" id="export-json">Export JSON</button>
         <button type="button" id="reset-graph" class="ghost">Reset sample</button>
       </div>
@@ -66,7 +68,7 @@
         <textarea
           id="chat-input"
           rows="2"
-          placeholder="Build a foundry path. Ghost run. Propose 3 approaches. Maximize."
+          placeholder="foundry path. ghost run. propose 3. maximize. run."
         ></textarea>
         <button type="submit">Send</button>
       </form>
