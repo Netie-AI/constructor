@@ -123,8 +123,8 @@ function render() {
       "</div><h2>" +
       meta.label +
       '</h2><div class="ports">' +
-      '<button type="button" class="port" data-port="out" aria-label="output port"></button>' +
       '<button type="button" class="port" data-port="in" aria-label="input port"></button>' +
+      '<button type="button" class="port" data-port="out" aria-label="output port"></button>' +
       "</div>";
     nodesEl.appendChild(el);
   }
@@ -137,14 +137,17 @@ function nodeCenter(id, port) {
   if (!el) return { x: 0, y: 0 };
   const r = el.getBoundingClientRect();
   const stage = document.getElementById("stage").getBoundingClientRect();
-  const x = r.left - stage.left + (port === "in" ? r.width - 18 : 18);
+  const x = r.left - stage.left + (port === "out" ? r.width - 18 : 18);
   const y = r.top - stage.top + r.height - 18;
   return { x, y };
 }
 
 function drawWires() {
   const stage = document.getElementById("stage");
+  wiresEl.setAttribute("width", String(stage.clientWidth));
+  wiresEl.setAttribute("height", String(stage.clientHeight));
   wiresEl.setAttribute("viewBox", "0 0 " + stage.clientWidth + " " + stage.clientHeight);
+  wiresEl.setAttribute("preserveAspectRatio", "none");
   const parts = [];
   for (const edge of state.edges) {
     const a = nodeCenter(edge.from, "out");

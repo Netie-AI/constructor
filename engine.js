@@ -208,9 +208,15 @@ async function rankApproaches() {
       return ranked;
     }
   }
-  const ranked = APPROACHES.map((row) => Object.assign({}, row, { score: scoreApproach(row) })).sort(
-    (a, b) => b.score - a.score
-  );
+  const kinds = new Set(window.Constructor.getState().nodes.map((n) => n.kind));
+  const foundry = ["ontology", "insight", "foundry", "app"].every((k) => kinds.has(k));
+  const verify = kinds.has("hypothesize") && kinds.has("audit") && !foundry;
+  const ranked = APPROACHES.map((row) => {
+    let score = scoreApproach(row);
+    if (foundry && row.id === "orchestrator_subagent") score += 20;
+    if (verify && row.id === "generator_verifier") score += 20;
+    return Object.assign({}, row, { score: score });
+  }).sort((a, b) => b.score - a.score);
   const box = document.getElementById("approaches");
   box.innerHTML = ranked
     .map((row, i) => {
