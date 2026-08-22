@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Constructor — Netie</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div>
+        <div class="eyebrow">NETIE / CONSTRUCTOR</div>
+        <h1>Constructor</h1>
+        <p class="lede">
+          A DAG of nodes you can audit. No login. Nothing leaves this browser.
+        </p>
+      </div>
+      <div class="actions">
+        <button type="button" id="export-json">Export JSON</button>
+        <button type="button" id="reset-graph" class="ghost">Reset sample</button>
+      </div>
+    </header>
+
+    <div class="shell">
+      <aside class="rail">
+        <div class="eyebrow">ADD NODE</div>
+        <button type="button" data-add="ingest">Ingest</button>
+        <button type="button" data-add="hypothesize">Hypothesize</button>
+        <button type="button" data-add="improve">Improve</button>
+        <button type="button" data-add="audit">Audit</button>
+        <p class="hint">
+          Drag a node. Click a port, then another port, to wire an edge.
+        </p>
+      </aside>
+
+      <main class="stage" id="stage">
+        <svg id="wires" aria-hidden="true"></svg>
+        <div id="nodes"></div>
+      </main>
+
+      <aside class="inspect" id="inspect">
+        <div class="eyebrow">AUDIT</div>
+        <p class="hint" id="inspect-empty">Select a node to read its record.</p>
+        <pre id="inspect-json" hidden></pre>
+      </aside>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
