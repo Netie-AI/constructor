@@ -1,13 +1,11 @@
 Paste this into a new Cursor chat in `D:\Constructor` if the current agent stops:
 
-Continue landing#9. Auto execute. Do not stop until a stranger can open Constructor.
+Constructor is a Cortex consumer. Pages https://netie-ai.github.io/constructor/ stays HTTP 200, 0 fetch, 0 keys.
+Engine is https://app.netie.ai/cortex (and local http://127.0.0.1:8010/cortex). Keys required.
+Do not invent a host. Do not merge landing. No Supabase. No n8n.
 
-Repo: https://github.com/Netie-AI/constructor
-Branch: landing-9-first-path
-Local: D:\Constructor
-Do not merge landing. Do not point OPEN CONSTRUCTOR at /contact/. Do not invent a host. No Supabase. No n8n. No Activepieces clone.
+Cortex branch cursor/constructor-cortex-mount: /cortex/login + /cortex/constructor + POST /cortex/constructor/run.
+LiteSpeed app.netie.ai still 404s /cortex until it reverse-proxies to :8010/cortex.
 
-Done when https://netie-ai.github.io/constructor/ returns HTTP 200 and shows the node canvas.
-If Pages is not live, fix the workflow, push, and wait. Write `.constructor-live` only after the 200.
-Leave landing#9 open. Leave landing#8 open.
-Give UX the live Pages URL. Do not clone ZeroClaw/Hermes/OpenClaw into this product repo.
+Verify: pytest tests/dms/test_constructor_graph.py -p no:playwright
+Pages: Invoke-WebRequest https://netie-ai.github.io/constructor/ StatusCode 200
