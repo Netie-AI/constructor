@@ -9,7 +9,7 @@ const KINDS = {
   agent: { label: "Agent", note: "AGENT_TASK loop. One bounded worker." },
   hypothesize: { label: "Hypothesize", note: "Surface a testable claim." },
   improve: { label: "Improve", note: "Change a product from the claim." },
-  audit: { label: "Audit", note: "Show why this node exists. EMIT." },
+  audit: { label: "Audit", note: "Show why this node exists. DETERMINISTIC_RULE, not a second EMIT." },
   tool_call: { label: "Tool call", note: "Governed write. requires_confirm." },
 };
 
