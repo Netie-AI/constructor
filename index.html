@@ -12,10 +12,15 @@
         <div class="eyebrow">NETIE / CONSTRUCTOR</div>
         <h1>Constructor</h1>
         <p class="lede">
-          A DAG of nodes you can audit. No login. Nothing leaves this browser.
+          Chat builds a DAG. Ghost mode dry-runs it. Cortex is the only engine.
         </p>
+        <p class="hint" id="power">Checking origin.</p>
       </div>
       <div class="actions">
+        <input id="cortex-key" type="password" autocomplete="off" placeholder="Cortex API key" />
+        <button type="button" id="ghost-toggle" class="ghost">Ghost off</button>
+        <button type="button" id="propose">Propose 3</button>
+        <button type="button" id="maximize">Maximize</button>
         <button type="button" id="export-json">Export JSON</button>
         <button type="button" id="reset-graph" class="ghost">Reset sample</button>
       </div>
@@ -23,13 +28,20 @@
 
     <div class="shell">
       <aside class="rail">
-        <div class="eyebrow">ADD NODE</div>
+        <div class="eyebrow">NODES</div>
         <button type="button" data-add="ingest">Ingest</button>
+        <button type="button" data-add="connector">Connector</button>
+        <button type="button" data-add="ontology">Ontology</button>
+        <button type="button" data-add="insight">Insight</button>
+        <button type="button" data-add="foundry">Foundry</button>
+        <button type="button" data-add="app">App</button>
+        <button type="button" data-add="agent">Agent</button>
         <button type="button" data-add="hypothesize">Hypothesize</button>
         <button type="button" data-add="improve">Improve</button>
         <button type="button" data-add="audit">Audit</button>
+        <button type="button" data-add="tool_call">Tool call</button>
         <p class="hint">
-          Drag a node. Click a port, then another port, to wire an edge.
+          Drag. Port-to-port to wire. Chat can do the same.
         </p>
       </aside>
 
@@ -40,11 +52,27 @@
 
       <aside class="inspect" id="inspect">
         <div class="eyebrow">AUDIT</div>
-        <p class="hint" id="inspect-empty">Select a node to read its record.</p>
+        <p class="hint" id="inspect-empty">Select a node, or ghost-run the graph.</p>
         <pre id="inspect-json" hidden></pre>
+        <div class="eyebrow">APPROACHES</div>
+        <div id="approaches" class="approaches"></div>
       </aside>
     </div>
 
+    <section class="chat" aria-label="ChatGPT-style Constructor control">
+      <div class="eyebrow">CHATGPT CONTROL</div>
+      <div id="chat-log" class="chat-log"></div>
+      <form id="chat-form" class="chat-form">
+        <textarea
+          id="chat-input"
+          rows="2"
+          placeholder="Build a foundry path. Ghost run. Propose 3 approaches. Maximize."
+        ></textarea>
+        <button type="submit">Send</button>
+      </form>
+    </section>
+
     <script src="app.js"></script>
+    <script src="engine.js"></script>
   </body>
 </html>

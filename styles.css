@@ -77,8 +77,8 @@ h1 {
 
 .shell {
   display: grid;
-  grid-template-columns: 180px 1fr 280px;
-  min-height: calc(100vh - 108px);
+  grid-template-columns: 180px 1fr 300px;
+  min-height: calc(100vh - 280px);
 }
 
 .rail,
@@ -170,6 +170,90 @@ h1 {
   font-size: 12px;
   line-height: 1.45;
   color: var(--text);
+}
+
+.node.ghosting {
+  outline: 1px dashed var(--accent);
+}
+
+body.ghost-mode .top {
+  border-bottom-color: #666;
+}
+
+.approaches {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  overflow: auto;
+}
+
+.approach {
+  border: 1px solid var(--border);
+  padding: 0.6rem;
+}
+
+.approach.winner {
+  border-color: var(--accent);
+}
+
+.approach h3 {
+  margin: 0.2rem 0;
+  font-weight: 400;
+  font-size: 0.95rem;
+}
+
+.approach p {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.chat {
+  border-top: 1px solid var(--border);
+  background: var(--dark);
+  padding: 0.8rem 1.5rem 1rem;
+}
+
+.chat-log {
+  max-height: 140px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0.5rem 0;
+}
+
+.bubble {
+  max-width: 70%;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--border);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.bubble.user {
+  align-self: flex-end;
+  background: var(--panel);
+}
+
+.bubble.assistant {
+  align-self: flex-start;
+}
+
+.chat-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.chat-form textarea {
+  flex: 1;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 0.5rem 0.7rem;
+  font: inherit;
+  resize: vertical;
 }
 
 @media (max-width: 900px) {

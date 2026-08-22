@@ -1,9 +1,16 @@
 const STORAGE_KEY = "netie.constructor.v0";
 const KINDS = {
   ingest: { label: "Ingest", note: "Read operations into the graph." },
+  connector: { label: "Connector", note: "Stub until the app ontology exists." },
+  ontology: { label: "Ontology", note: "Object/link/action types. Pack comes later." },
+  insight: { label: "Insight", note: "Cite ontology + ledger. RAG_ANSWER on Cortex." },
+  foundry: { label: "Foundry", note: "Compile a governed app from insights." },
+  app: { label: "App", note: "Emit the app/workflow a stranger can run." },
+  agent: { label: "Agent", note: "AGENT_TASK loop. One bounded worker." },
   hypothesize: { label: "Hypothesize", note: "Surface a testable claim." },
   improve: { label: "Improve", note: "Change a product from the claim." },
-  audit: { label: "Audit", note: "Show why this node exists." },
+  audit: { label: "Audit", note: "Show why this node exists. EMIT." },
+  tool_call: { label: "Tool call", note: "Governed write. requires_confirm." },
 };
 
 const nodesEl = document.getElementById("nodes");
@@ -28,6 +35,26 @@ function sample() {
       { from: "n1", to: "n2" },
       { from: "n2", to: "n3" },
       { from: "n3", to: "n4" },
+    ],
+  };
+}
+
+function foundrySample() {
+  return {
+    nodes: [
+      { id: "c1", kind: "connector", x: 32, y: 48, note: KINDS.connector.note },
+      { id: "o1", kind: "ontology", x: 240, y: 48, note: KINDS.ontology.note },
+      { id: "i1", kind: "insight", x: 448, y: 48, note: KINDS.insight.note },
+      { id: "f1", kind: "foundry", x: 240, y: 200, note: KINDS.foundry.note },
+      { id: "a1", kind: "app", x: 448, y: 200, note: KINDS.app.note },
+      { id: "g1", kind: "audit", x: 32, y: 200, note: KINDS.audit.note },
+    ],
+    edges: [
+      { from: "c1", to: "o1" },
+      { from: "o1", to: "i1" },
+      { from: "i1", to: "f1" },
+      { from: "f1", to: "a1" },
+      { from: "f1", to: "g1" },
     ],
   };
 }
@@ -60,11 +87,12 @@ function render() {
     el.dataset.id = node.id;
     el.style.left = node.x + "px";
     el.style.top = node.y + "px";
+    const meta = KINDS[node.kind] || { label: node.kind };
     el.innerHTML =
       '<div class="kind">' +
       node.kind.toUpperCase() +
       "</div><h2>" +
-      KINDS[node.kind].label +
+      meta.label +
       '</h2><div class="ports">' +
       '<button type="button" class="port" data-port="out" aria-label="output port"></button>' +
       '<button type="button" class="port" data-port="in" aria-label="input port"></button>' +
@@ -235,4 +263,100 @@ document.getElementById("reset-graph").addEventListener("click", () => {
 });
 
 window.addEventListener("resize", drawWires);
+
+function cortexOrigin() {
+  const host = location.hostname;
+  const path = location.pathname;
+  if (host === "app.netie.ai" && path.indexOf("/cortex") === 0) return true;
+  if ((host === "127.0.0.1" || host === "localhost") && location.port === "8010") {
+    return path.indexOf("/cortex") === 0;
+  }
+  return false;
+}
+
+function addNode(kind, x, y) {
+  const meta = KINDS[kind];
+  if (!meta) return null;
+  const node = {
+    id: uid(),
+    kind,
+    x: x != null ? x : 80 + state.nodes.length * 16,
+    y: y != null ? y : 80 + state.nodes.length * 16,
+    note: meta.note,
+  };
+  state.nodes.push(node);
+  selectedId = node.id;
+  save();
+  render();
+  return node;
+}
+
+function wire(from, to) {
+  if (!state.nodes.some((n) => n.id === from) || !state.nodes.some((n) => n.id === to)) return false;
+  if (from === to) return false;
+  if (!state.edges.some((e) => e.from === from && e.to === to)) state.edges.push({ from, to });
+  save();
+  render();
+  return true;
+}
+
+function setGhost(on) {
+  window.Constructor.ghost = !!on;
+  document.body.classList.toggle("ghost-mode", window.Constructor.ghost);
+  const btn = document.getElementById("ghost-toggle");
+  if (btn) btn.textContent = window.Constructor.ghost ? "Ghost on" : "Ghost off";
+}
+
+function showAudit(obj) {
+  inspectEmpty.hidden = true;
+  inspectJson.hidden = false;
+  inspectJson.textContent = JSON.stringify(obj, null, 2);
+}
+
+function markGhostWalk(ids) {
+  for (const el of nodesEl.querySelectorAll(".node")) {
+    el.classList.toggle("ghosting", ids.indexOf(el.dataset.id) !== -1);
+  }
+}
+
+function loadFoundryPath() {
+  const next = foundrySample();
+  state.nodes = next.nodes;
+  state.edges = next.edges;
+  selectedId = state.nodes[0].id;
+  save();
+  render();
+}
+
+function ensureKinds(kinds) {
+  for (const kind of kinds) {
+    if (!state.nodes.some((n) => n.kind === kind)) addNode(kind);
+  }
+}
+
+window.Constructor = {
+  KINDS,
+  ghost: true,
+  getState: () => state,
+  addNode,
+  wire,
+  setGhost,
+  showAudit,
+  markGhostWalk,
+  loadFoundryPath,
+  ensureKinds,
+  render,
+  save,
+};
+
+const power = document.getElementById("power");
+if (power) {
+  power.textContent = cortexOrigin()
+    ? "Powered by Cortex. API key required."
+    : "Sketch only. No fetch from github.io. Engine: https://app.netie.ai/cortex (key).";
+}
+const keyBox = document.getElementById("cortex-key");
+if (keyBox && !cortexOrigin()) keyBox.hidden = true;
+
+setGhost(true);
 render();
