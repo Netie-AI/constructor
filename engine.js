@@ -11,6 +11,7 @@ const CORTEX_KIND = {
   app: "EMIT",
   agent: "AGENT_TASK",
   hypothesize: "DOCUMENT_REF",
+  enhance: "DOCUMENT_REF",
   improve: "DOCUMENT_REF",
   audit: "DOCUMENT_REF",
   tool_call: "TOOL_CALL",
@@ -449,7 +450,7 @@ async function handleChat(raw) {
   const C = window.Constructor;
   if (!t) return "Say the object, point, action, or run all.";
   if (t === "help") {
-    return "Chat a whole desk: ingest from a place table, cloud sign-in (ghost), or database link, then ontology -> insight -> foundry -> app. Or: issue key. set object inventory|venues|contacts|incidents. set action export_pptx. fetch. foundry path. ghost on/off. automate on/off. propose 3. maximize. run all. why. bench. add <kind>. wire <id> to <id>. Ctrl+/ toggles chat.";
+    return "Chat a whole desk: warehouse, venue/CRM, case rows, or a police suspect desk (owned images -> enhance local model or online API -> match owned.watchlist -> app). Or: issue key. set object images|suspects|matches|inventory. set action suspect.match|image.enhance|export_pptx. ghost on/off. propose 3. maximize. run all. why. add <kind>. Ctrl+/ toggles chat.";
   }
   if (/^issue( key)?$/.test(t) || /generate key|openvault key/.test(t)) {
     return await issueOpenVaultKey();
@@ -479,7 +480,9 @@ async function handleChat(raw) {
   }
   const setAct = t.match(/^set action (\S+)$/);
   if (setAct) {
-    if (C.ACTIONS.indexOf(setAct[1]) < 0) return "Action must be export_pptx, item.intake, or agent.checked.";
+    if (C.ACTIONS.indexOf(setAct[1]) < 0) {
+      return "Action must be export_pptx, item.intake, agent.checked, image.enhance, or suspect.match.";
+    }
     return C.patchSelected("action_type", setAct[1]) ? "Action " + setAct[1] + "." : "Select a node first.";
   }
   const setFetch = t.match(/^set fetch (.+)$/);
@@ -644,6 +647,9 @@ function objectsInPrompt(text) {
     ["transactions", ["transaction", "txn", "movement"]],
     ["alerts", ["alert", "alarm"]],
     ["incidents", ["incident", "case desk", "case file", "ops desk"]],
+    ["images", ["image", "images", "footage", "cctv", "camera"]],
+    ["suspects", ["suspect", "watchlist", "police"]],
+    ["matches", ["match", "face match", "similarity"]],
   ];
   const found = [];
   for (const row of rows) {
@@ -661,34 +667,21 @@ function refusePrompt(text) {
     "brothel",
     "sex work",
     "sexworker",
-    "cctv",
-    "camera feed",
-    "webcam",
-    "facial",
-    "face match",
-    "face similar",
-    "face id",
-    "label face",
-    "label his face",
-    "biometr",
-    "recognise face",
-    "recognize face",
-    "spot a ppl",
-    "spot people",
-    "spot a person",
-    "identify people",
-    "identify him",
-    "identify her",
-    "police face",
     "stalk",
     "doxx",
     "scrape the internet",
     "scrape internet",
     "scrap intenr",
+    "public webcam",
+    "scrape camera",
   ];
   return hits.some(function (h) {
     return low.indexOf(h) >= 0;
   });
+}
+
+function isSuspectDesk(low) {
+  return /suspect|watchlist|face|cctv|camera|police|comfy|image enhance|enhance image|label face/.test(low || "");
 }
 
 function fetchPlaceFor(obj) {
@@ -697,6 +690,9 @@ function fetchPlaceFor(obj) {
   if (obj === "contacts") return "crm.contacts";
   if (obj === "leads") return "crm.leads";
   if (obj === "incidents") return "db.incidents";
+  if (obj === "images") return "owned.images";
+  if (obj === "suspects") return "owned.watchlist";
+  if (obj === "matches") return "owned.matches";
   return "warehouse." + obj;
 }
 
@@ -708,7 +704,7 @@ function generateLocal(prompt) {
       ok: false,
       refused: true,
       summary:
-        "Refused. Constructor will not compile CCTV, cameras, face match, internet stalking, or sex-work targeting. For a Palantir-style desk, name an owned source: warehouse table, cloud sign-in (ghost), or a database link such as db.incidents. Then I compile ingest -> connector -> ontology -> insight -> foundry -> app.",
+        "Refused. Constructor will not compile internet stalking, doxxing, public-webcam scrape, or sex-work targeting. A police suspect desk is allowed on owned images + owned.watchlist. Chat: police suspect desk, local model enhance, match watchlist.",
     };
   }
   let objects = objectsInPrompt(prompt);
@@ -729,23 +725,43 @@ function generateLocal(prompt) {
     contacts: "contact_id",
     leads: "lead_id",
     incidents: "incident_id",
+    images: "image_id",
+    suspects: "suspect_id",
+    matches: "match_id",
   };
   let sourceKind = "place";
   if (/cloud|sign[- ]?in|oauth/.test(low)) sourceKind = "cloud";
   if (/database|db link|postgres|add link|db\./.test(low)) sourceKind = "database";
+  if (/local model|comfy|onnx|ollama/.test(low)) sourceKind = "local_model";
+  if (/online api|http api|replicate/.test(low)) sourceKind = "online_api";
+  const suspectish = isSuspectDesk(low);
+  if (suspectish) {
+    objects = ["images", "suspects", "matches"];
+    assumed = false;
+  }
   let action = "export_pptx";
   if (low.indexOf("intake") >= 0) action = "item.intake";
   else if (low.indexOf("agent.checked") >= 0 || (low.indexOf("check") >= 0 && low.indexOf("agent") >= 0)) {
     action = "agent.checked";
+  } else if (suspectish || /suspect\.match/.test(low)) {
+    action = "suspect.match";
+  } else if (/image\.enhance|enhance/.test(low) && suspectish) {
+    action = "suspect.match";
   }
   const verify = /verify|audit|hypothes|claim|fact-?check/.test(low);
   const agentish = /single agent|one agent|worker loop/.test(low);
-  const foundryish = /foundry|create app|whole (app|workflow|desk)|generate whole|pptx|export|ontology|insight|\bapp\b|maps|club|venue|contact|customer|incident|case desk/.test(
+  const foundryish = /foundry|create app|whole (app|workflow|desk)|generate whole|pptx|export|ontology|insight|\bapp\b|maps|club|venue|contact|customer|incident|case desk|suspect|face|cctv|enhance|comfy|police|watchlist/.test(
     low
   );
   let pattern = "orchestrator_subagent";
   let kinds = ["ingest", "connector", "ontology", "insight", "foundry", "app", "tool_call"];
-  if (verify && !foundryish) {
+  let enhanceBind = "local_model";
+  if (/online api|http api|replicate/.test(low)) enhanceBind = "online_api";
+  if (suspectish) {
+    kinds = ["ingest", "enhance", "ontology", "insight", "foundry", "app", "tool_call"];
+    if (sourceKind === "local_model" || sourceKind === "online_api") enhanceBind = sourceKind;
+    sourceKind = "database";
+  } else if (verify && !foundryish) {
     pattern = "generator_verifier";
     kinds = ["ingest", "hypothesize", "audit"];
   } else if (agentish && !foundryish) {
@@ -756,16 +772,24 @@ function generateLocal(prompt) {
     return o === "places" || o === "venues" || o === "contacts" || o === "leads";
   });
   const firstObj = objects[0];
-  const sourcePlace = sourceKind === "cloud" ? "cloud.signed_in" : fetchPlaceFor(firstObj);
+  const sourcePlace =
+    sourceKind === "cloud"
+      ? "cloud.signed_in"
+      : sourceKind === "local_model"
+        ? "local.model"
+        : sourceKind === "online_api"
+          ? "api.enhance"
+          : fetchPlaceFor(firstObj);
   const doing = {
-    ingest:
-      "Hop 0. Load " +
-      objects.join("/") +
-      " rows from " +
-      sourcePlace +
-      " (" +
-      sourceKind +
-      "). Ghost on Pages. No write. No CCTV.",
+    ingest: suspectish
+      ? "Hop 0. Load owned images from owned.images (station archive or operator upload). Ghost on Pages. No write. No internet scrape."
+      : "Hop 0. Load " +
+        objects.join("/") +
+        " rows from " +
+        sourcePlace +
+        " (" +
+        sourceKind +
+        "). Ghost on Pages. No write.",
     connector:
       sourceKind === "cloud"
         ? "Ghost cloud sign-in. Bind the signed-in catalog to an object. No OAuth. No fetch on Pages."
@@ -774,21 +798,31 @@ function generateLocal(prompt) {
           : venueish
             ? "Bind Place/Venue fields to Cortex objects. Ghost on Pages. No live scrape."
             : "First-party Cortex input bound to the ingested object.",
-    ontology: venueish
-      ? "Object types " +
-        objects.join(", ") +
-        ". Links venue_at_place, contact_at_venue, lead_of_contact."
-      : objects.indexOf("incidents") >= 0
-        ? "Object types " + objects.join(", ") + ". Link incident_at_location. Owned rows, not cameras."
-        : "Cortex ontology objects/links/actions. Not a custom type picker.",
-    insight: venueish
-      ? "Cite nearby venues by Place lat/lng, contacts at those venues, leads from contacts."
-      : objects.indexOf("incidents") >= 0
-        ? "Cite incident rows + location links. What you may claim from the owned ledger."
-        : "Cite ontology + ledger. What you may claim from those objects.",
+    enhance:
+      "Comfy-style enhance. Bind a " +
+      enhanceBind +
+      ". Ghost on Pages. Distill Comfy, do not clone. Zoom/refresh/improve quality. No public scrape.",
+    ontology: suspectish
+      ? "Object types images, suspects, matches. Links image_at_location, suspect_image, match_of_image, match_of_suspect. Owned watchlist only."
+      : venueish
+        ? "Object types " +
+          objects.join(", ") +
+          ". Links venue_at_place, contact_at_venue, lead_of_contact."
+        : objects.indexOf("incidents") >= 0
+          ? "Object types " + objects.join(", ") + ". Link incident_at_location. Owned rows."
+          : "Cortex ontology objects/links/actions. Not a custom type picker.",
+    insight: suspectish
+      ? "Cite enhanced image vs owned.watchlist. Score is a claim, steward reviews. Not a conviction."
+      : venueish
+        ? "Cite nearby venues by Place lat/lng, contacts at those venues, leads from contacts."
+        : objects.indexOf("incidents") >= 0
+          ? "Cite incident rows + location links. What you may claim from the owned ledger."
+          : "Cite ontology + ledger. What you may claim from those objects.",
     foundry: "Compile insights into a governed Cortex app. Not an n8n clone.",
     app: "Runnable output. Hosted inside Cortex at /cortex/constructor/.",
-    tool_call: "F8 governed write. requires_confirm. Real tool is export_pptx.",
+    tool_call: suspectish
+      ? "F8 governed write. requires_confirm. Action suspect.match against owned.watchlist."
+      : "F8 governed write. requires_confirm. Real tool is export_pptx.",
     hypothesize: "Surface a testable claim.",
     audit: "Why this node exists. DETERMINISTIC_RULE, not a second EMIT.",
     agent: "AGENT_TASK loop. One bounded worker.",
@@ -810,13 +844,21 @@ function generateLocal(prompt) {
       tier: "T0",
       stream: false,
     };
-    if (kind === "ingest" || kind === "connector" || kind === "ontology" || kind === "tool_call" || kind === "insight") {
+    if (kind === "ingest" || kind === "connector" || kind === "ontology" || kind === "tool_call" || kind === "insight" || kind === "enhance") {
       node.object_type = obj;
       node.data_point = points[obj] || "sku";
       node.data_type = "string";
       node.fetch_from = sourceKind === "cloud" ? "cloud.signed_in" : fetchPlaceFor(obj);
       node.source_kind = sourceKind;
       node.source_link = sourceKind === "cloud" ? "signed-in" : sourceKind === "database" ? node.fetch_from : "";
+    }
+    if (kind === "enhance") {
+      node.object_type = "images";
+      node.data_point = "image_id";
+      node.source_kind = enhanceBind;
+      node.fetch_from = enhanceBind === "online_api" ? "api.enhance" : "local.model";
+      node.source_link = enhanceBind === "online_api" ? "api.enhance" : "local://enhance";
+      node.action_type = "image.enhance";
     }
     if (kind === "tool_call" || kind === "foundry") node.action_type = action;
     if (kind === "app") node.action_type = "emit";
@@ -1018,7 +1060,7 @@ function bindChat() {
   }
   chatSay(
     "assistant",
-    "Chat a warehouse, venue/CRM, or owned case-desk ask. Name the source (place table, cloud sign-in, or database link). I compile ingest -> app. Ctrl+/ toggles this dock. I will not compile CCTV, face match, stalking, or sex-work graphs. Type help."
+    "Chat warehouse, venue/CRM, case desk, or a police suspect desk. Owned images -> enhance (local model or online API) -> match owned.watchlist -> app. Ctrl+/ toggles. I will not compile stalking, doxxing, public-webcam scrape, or sex-work graphs. Type help."
   );
   window.Constructor.pressNode = pressNode;
   loadOntology();

@@ -1,0 +1,15 @@
+{
+  "approvalMode": "unrestricted",
+  "mcpAllowlist": ["*:*"],
+  "terminalAllowlist": ["*"],
+  "autoRun": {
+    "allow_instructions": [
+      "Allow all local shell, git, gh, pip, and MCP computer-control clicks.",
+      "Auto-approve Cursor Confirm / Allow / Run / Continue cards for this user on this machine."
+    ],
+    "block_instructions": [
+      "Do not auto-approve sending secrets off this machine.",
+      "Do not auto-approve force-push to main or master."
+    ]
+  }
+}

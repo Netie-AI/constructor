@@ -1,6 +1,6 @@
 const STORAGE_KEY = "netie.constructor.v4";
 const CHAT_DOCK_KEY = "netie.constructor.chatdock.v1";
-const SOURCE_KINDS = ["place", "cloud", "database"];
+const SOURCE_KINDS = ["place", "cloud", "database", "local_model", "online_api"];
 
 function ico(paths) {
   return (
@@ -69,6 +69,13 @@ const KINDS = {
     note: "Surface a testable claim.",
     icon: ico('<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 114 2c-.8.8-1.5 1.2-1.5 3"/><path d="M12 17.5h.01"/>'),
   },
+  enhance: {
+    label: "Enhance",
+    persona: "enhancer",
+    color: "#c4a0e8",
+    note: "Comfy-style. Local model or online API. Ghost on Pages.",
+    icon: ico('<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 14l3-3 2 2 3-4"/><circle cx="9" cy="8" r="1.2"/>'),
+  },
   improve: {
     label: "Improve",
     persona: "editor",
@@ -92,11 +99,13 @@ const KINDS = {
   },
 };
 
-const PERSONAS = ["loader", "source", "modeler", "analyst", "compiler", "operator", "worker", "skeptic", "editor", "steward", "writer"];
+const PERSONAS = ["loader", "source", "modeler", "analyst", "compiler", "operator", "worker", "skeptic", "editor", "enhancer", "steward", "writer"];
 const ACTION_META = [
   { id: "export_pptx", objects: ["*"], label: "export_pptx (any object)" },
   { id: "item.intake", objects: ["inventory"], label: "item.intake (inventory)" },
   { id: "agent.checked", objects: ["*"], label: "agent.checked (ledger)" },
+  { id: "image.enhance", objects: ["images", "matches"], label: "image.enhance (images)" },
+  { id: "suspect.match", objects: ["suspects", "matches", "images"], label: "suspect.match (watchlist)" },
 ];
 
 
@@ -188,6 +197,33 @@ const OBJECTS = {
       summary: "string",
     },
   },
+  images: {
+    points: {
+      image_id: "string",
+      captured_at: "date",
+      location_id: "string",
+      asset_uri: "string",
+      quality: "number",
+    },
+  },
+  suspects: {
+    points: {
+      suspect_id: "string",
+      name: "string",
+      watchlist: "string",
+      image_id: "string",
+      notes: "string",
+    },
+  },
+  matches: {
+    points: {
+      match_id: "string",
+      image_id: "string",
+      suspect_id: "string",
+      score: "number",
+      reviewed: "boolean",
+    },
+  },
 };
 const LINKS = [
   { id: "inventory_supplier", from: "inventory", to: "suppliers", via: "supplier_id" },
@@ -196,8 +232,12 @@ const LINKS = [
   { id: "contact_at_venue", from: "contacts", to: "venues", via: "venue_id" },
   { id: "lead_of_contact", from: "leads", to: "contacts", via: "contact_id" },
   { id: "incident_at_location", from: "incidents", to: "locations", via: "location_id" },
+  { id: "image_at_location", from: "images", to: "locations", via: "location_id" },
+  { id: "suspect_image", from: "suspects", to: "images", via: "image_id" },
+  { id: "match_of_image", from: "matches", to: "images", via: "image_id" },
+  { id: "match_of_suspect", from: "matches", to: "suspects", via: "suspect_id" },
 ];
-const ACTIONS = ["export_pptx", "item.intake", "agent.checked"];
+const ACTIONS = ["export_pptx", "item.intake", "agent.checked", "image.enhance", "suspect.match"];
 const FETCH_PLACES = [
   "warehouse.inventory",
   "warehouse.suppliers",
@@ -212,6 +252,11 @@ const FETCH_PLACES = [
   "cloud.signed_in",
   "db.link",
   "db.incidents",
+  "owned.images",
+  "owned.watchlist",
+  "owned.matches",
+  "local.model",
+  "api.enhance",
 ];
 const TIERS = ["T0", "T1"];
 
@@ -266,6 +311,15 @@ function seedNode(kind, x, y) {
     node.fetch_from = "warehouse.inventory";
     node.source_kind = "place";
     node.source_link = "";
+  }
+  if (kind === "enhance") {
+    node.object_type = "images";
+    node.data_point = "image_id";
+    node.data_type = "string";
+    node.fetch_from = "local.model";
+    node.source_kind = "local_model";
+    node.source_link = "local://enhance";
+    node.action_type = "image.enhance";
   }
   if (kind === "tool_call" || kind === "foundry") node.action_type = "export_pptx";
   if (kind === "app") node.action_type = "emit";
@@ -576,6 +630,8 @@ function openCalPop(node, extra) {
       (node.persona || meta.persona) + " · " + (node.doing || node.note || meta.note);
   }
   if (help) help.hidden = node.kind !== "ingest";
+  const enhanceHelp = document.getElementById("enhance-help");
+  if (enhanceHelp) enhanceHelp.hidden = node.kind !== "enhance";
   const obj = node.object_type && OBJECTS[node.object_type] ? node.object_type : Object.keys(OBJECTS)[0];
   const allowed = actionsForObject(obj);
   if (hint) {
@@ -626,7 +682,7 @@ function eventFieldsHtml(node) {
     node.source_kind && SOURCE_KINDS.indexOf(node.source_kind) >= 0 ? node.source_kind : "place";
   const sourceLabel = node.kind === "ingest" ? "Source place (hop 0)" : "Fetch / place";
   const objectLabel = node.kind === "ingest" ? "Becomes object" : "Object (ontology)";
-  const bindSource = node.kind === "ingest" || node.kind === "connector";
+  const bindSource = node.kind === "ingest" || node.kind === "connector" || node.kind === "enhance";
   let html =
     fieldSelect("persona", "Persona", PERSONAS, persona) +
     fieldSelect("object_type", objectLabel, Object.keys(OBJECTS), obj) +
@@ -639,7 +695,11 @@ function eventFieldsHtml(node) {
         '<p class="hint">Ghost cloud sign-in. No OAuth. No fetch on Pages.</p>' +
         '<button type="button" id="cloud-signin">Sign in (ghost)</button>';
     } else if (sourceKind === "database") {
-      html += fieldInput("source_link", "Database link", node.source_link || "db.link", "db.incidents or postgres://...");
+      html += fieldInput("source_link", "Database link", node.source_link || "db.link", "owned.images or db.incidents");
+    } else if (sourceKind === "local_model") {
+      html += fieldInput("source_link", "Local model", node.source_link || "local://enhance", "local://enhance or a model path");
+    } else if (sourceKind === "online_api") {
+      html += fieldInput("source_link", "Online API", node.source_link || "api.enhance", "api.enhance (ghost, no fetch on Pages)");
     } else {
       html += fieldSelect("fetch_from", sourceLabel, FETCH_PLACES, node.fetch_from || "warehouse.inventory");
     }
@@ -753,12 +813,28 @@ function patchSelected(field, value) {
       if (!node.source_link) node.source_link = "";
     } else if (value === "database") {
       node.fetch_from = node.source_link || "db.link";
-    } else if (node.fetch_from === "cloud.signed_in" || node.fetch_from === "db.link") {
-      node.fetch_from = node.object_type === "incidents" ? "db.incidents" : "warehouse.inventory";
+    } else if (value === "local_model") {
+      node.fetch_from = "local.model";
+      if (!node.source_link) node.source_link = "local://enhance";
+    } else if (value === "online_api") {
+      node.fetch_from = "api.enhance";
+      if (!node.source_link) node.source_link = "api.enhance";
+    } else if (
+      node.fetch_from === "cloud.signed_in" ||
+      node.fetch_from === "db.link" ||
+      node.fetch_from === "local.model" ||
+      node.fetch_from === "api.enhance"
+    ) {
+      node.fetch_from =
+        node.object_type === "incidents"
+          ? "db.incidents"
+          : node.object_type === "images"
+            ? "owned.images"
+            : "warehouse.inventory";
     }
   }
-  if (field === "source_link" && node.source_kind === "database") {
-    node.fetch_from = value || "db.link";
+  if (field === "source_link" && (node.source_kind === "database" || node.source_kind === "local_model" || node.source_kind === "online_api")) {
+    if (node.source_kind === "database") node.fetch_from = value || "db.link";
   }
   if (node.kind === "ingest" && (field === "object_type" || field === "fetch_from" || field === "source_kind")) {
     node.doing =
@@ -768,6 +844,16 @@ function patchSelected(field, value) {
       (node.fetch_from || "place") +
       ". No write.";
     node.note = node.doing;
+  }
+  if (node.kind === "enhance" && (field === "source_kind" || field === "source_link")) {
+    node.doing =
+      "Comfy-style enhance via " +
+      (node.source_kind || "local_model") +
+      " " +
+      (node.source_link || node.fetch_from || "") +
+      ". Ghost on Pages.";
+    node.note = node.doing;
+    node.action_type = "image.enhance";
   }
   save();
   render();

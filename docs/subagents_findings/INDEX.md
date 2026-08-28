@@ -2,6 +2,8 @@
 
 | Date | Topic | Keywords | Main idea | Path |
 |------|-------|----------|-----------|------|
+| 2026-08-28 | constructor-ghost-honesty | constructor, ghost, 404, n8n, dry-run | README no longer claims app.netie.ai live. Cortex tests assert ghost is compile-only and 404 is blocked. | `2026-08-28_constructor-ghost-honesty.md` |
+| 2026-08-28 | constructor-suspect-desk-enhance | constructor, suspect, enhance, comfy, watchlist, police, face, refuse | Police suspect desk compiles owned images -> Comfy-style enhance (local model or online API) -> match owned.watchlist -> app. Face/CCTV on owned data is allowed. Stalk, doxx, public-webcam scrape, sex-work stay refused. | `2026-08-28_constructor-suspect-desk-enhance.md` |
 | 2026-08-28 | constructor-pan-automate | constructor, pan, zoom, automate, ghost, run_dag, ov_ | World transform pan/zoom + Automate 15s ghost. Live run_dag ok for ingest->app with ov_; tool_call can hang; DuckDB lock if 8010+8012 share the file. | `2026-08-28_constructor-pan-automate.md` |
 | 2026-08-28 | constructor-floating-chat-sources | constructor, chat, dock, source, cloud, database, refuse, palantir | Chat is a snap dock (right/bottom, Ctrl+/, FAB). Connector/ingest bind place, ghost cloud sign-in, or db link. Compiles whole ingest->app. Still refuses CCTV/face/stalk/sex-work. Incidents object is owned case rows only. | `2026-08-28_constructor-floating-chat-sources.md` |
 | 2026-08-28 | constructor-calendar-ingest-skin | constructor, ui, favicon, calendar, ingest, persona, icons | Skin crash on inspect text was the blank canvas. Icons, quieter grid, Calendar popover edit, ingest hop 0, favicon.ico. Distill Palantir/n8n UX, do not clone. | `2026-08-28_constructor-calendar-ingest-skin.md` |
