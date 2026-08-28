@@ -1,0 +1,12 @@
+---
+description: Merge Constructor/Cortex-mount PRs when required CI is green.
+alwaysApply: true
+---
+
+# CI green -> merge
+
+Same as the global `pr-ci-automerge` rule. Constructor extras:
+
+- Merge our Constructor branch PRs and Cortex `cursor/constructor-cortex-mount` when required checks pass.
+- Do not merge landing from this repo.
+- Do not attach or merge held Cortex PRs.

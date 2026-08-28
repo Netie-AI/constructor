@@ -1,0 +1,11 @@
+# Subagents findings -- Constructor
+
+| Date | Topic | Keywords | Main idea | Path |
+|------|-------|----------|-----------|------|
+| 2026-08-28 | constructor-pan-automate | constructor, pan, zoom, automate, ghost, run_dag, ov_ | World transform pan/zoom + Automate 15s ghost. Live run_dag ok for ingest->app with ov_; tool_call can hang; DuckDB lock if 8010+8012 share the file. | `2026-08-28_constructor-pan-automate.md` |
+| 2026-08-28 | constructor-floating-chat-sources | constructor, chat, dock, source, cloud, database, refuse, palantir | Chat is a snap dock (right/bottom, Ctrl+/, FAB). Connector/ingest bind place, ghost cloud sign-in, or db link. Compiles whole ingest->app. Still refuses CCTV/face/stalk/sex-work. Incidents object is owned case rows only. | `2026-08-28_constructor-floating-chat-sources.md` |
+| 2026-08-28 | constructor-calendar-ingest-skin | constructor, ui, favicon, calendar, ingest, persona, icons | Skin crash on inspect text was the blank canvas. Icons, quieter grid, Calendar popover edit, ingest hop 0, favicon.ico. Distill Palantir/n8n UX, do not clone. | `2026-08-28_constructor-calendar-ingest-skin.md` |
+| 2026-08-27 | constructor-8040-decision | constructor, 8040, decision, overlay, control, no-n8n | Control launches Constructor at /constructor/. Chat compiles DAG. Press opens Cortex decision overlay. No n8n strip. | `2026-08-27_constructor-8040-decision-overlay.md` |
+| 2026-08-27 | constructor-ontology-decision-card | constructor, ontology, palantir, decision, inspect, venues, refuse | Inspect card shows doing/action/app/code/response. Chat compiles Place-Venue-Contact-Lead. Refuses CCTV/stalk/sex-work. Distill Palantir objects+links+actions, do not clone Foundry. | `2026-08-27_constructor-ontology-decision-card.md` |
+| 2026-08-27 | constructor-generative-decision | constructor, generate, decision, chat, cortex, no-n8n | Chat compiles Cortex nodes+wires; press-in shows decision layer. No n8n/xyflow license strip. | `2026-08-27_constructor-generative-decision.md` |
+| 2026-08-26 | constructor-openvault-local | constructor, openvault, ov_, cortex, fetch, run | Local Constructor is workable on :8010 via Cortex mount + OpenVault ov_ keys; Pages still cannot live-run; app.netie.ai still empty. | `2026-08-26_constructor-openvault-local.md` |

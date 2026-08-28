@@ -1,3 +1,5 @@
 .constructor-live
 .DS_Store
 Thumbs.db
+scripts/tmp-*.json
+scripts/tmp-*.txt
