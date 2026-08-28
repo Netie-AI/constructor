@@ -150,24 +150,38 @@ async function ghostRun() {
 
 let automateTimer = null;
 let automateTicks = 0;
+let automateBusy = false;
 
 async function automateTick() {
   const C = window.Constructor;
-  if (!C || !C.automate) return;
-  C.setGhost(true);
+  if (!C || !C.automate || automateBusy) return;
+  automateBusy = true;
+  const live = cortexOrigin();
+  if (!live) C.setGhost(true);
   automateTicks += 1;
-  const msg = await ghostRun();
+  let msg = "";
+  try {
+    msg = live ? await liveOrGhost(true) : await ghostRun();
+  } catch (err) {
+    msg = String((err && err.message) || err);
+  }
   const power = document.getElementById("power");
   if (power) {
-    power.textContent = "Automate #" + automateTicks + " (15s ghost). " + String(msg).slice(0, 140);
+    power.textContent =
+      "Automate #" +
+      automateTicks +
+      (live ? " (live run_dag). " : " (15s ghost). ") +
+      String(msg).slice(0, 140);
   }
+  automateBusy = false;
+  if (C.automate) automateTimer = setTimeout(automateTick, 15000);
 }
 
 function setAutomate(on) {
   const C = window.Constructor;
   const btn = document.getElementById("automate");
   if (automateTimer) {
-    clearInterval(automateTimer);
+    clearTimeout(automateTimer);
     automateTimer = null;
   }
   C.automate = !!on;
@@ -176,9 +190,8 @@ function setAutomate(on) {
     btn.setAttribute("aria-pressed", on ? "true" : "false");
   }
   if (!on) return;
-  C.setGhost(true);
+  if (!cortexOrigin()) C.setGhost(true);
   automateTick();
-  automateTimer = setInterval(automateTick, 15000);
 }
 
 function localGhostWalk() {
@@ -1016,7 +1029,9 @@ function bindChat() {
       chatSay(
         "assistant",
         C.automate
-          ? "Automate on. Ghost-run every 15s. Run stays live Cortex."
+          ? cortexOrigin()
+            ? "Automate on. Live POST /cortex/constructor/run after each finish, then 15s. Pages stay ghost."
+            : "Automate on. Ghost-run every 15s. Live run is Cortex only."
           : "Automate off."
       );
     });
