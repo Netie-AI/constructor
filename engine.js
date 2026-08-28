@@ -537,7 +537,7 @@ async function handleChat(raw) {
     applyWinner(ranked[0].id);
     return "Applied " + ranked[0].name + ". Graph compiled toward " + ranked[0].cortex_path + ".";
   }
-  if (/foundry|ontology path|create app/.test(t)) {
+  if (/^foundry( path)?$/.test(t) || /ontology path/.test(t) || /^create app$/.test(t)) {
     C.loadFoundryPath();
     C.setGhost(true);
     const ranked = await rankApproaches();
