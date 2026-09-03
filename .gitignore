@@ -4,3 +4,6 @@
 Thumbs.db
 scripts/tmp-*.json
 scripts/tmp-*.txt
+node_modules/
+test-results/
+playwright-report/
