@@ -260,6 +260,78 @@ const FETCH_PLACES = [
 ];
 const TIERS = ["T0", "T1"];
 
+/* The static catalog above is the Pages fallback. When ontology.js is loaded,
+   OBJECTS / LINKS / ACTION_META / ACTIONS / FETCH_PLACES become in-place views
+   over window.Ontology so engine.js keeps its references. */
+function ontologyModel() {
+  const O = typeof window !== "undefined" ? window.Ontology : null;
+  return O && typeof O.toCatalog === "function" ? O : null;
+}
+
+function syncCatalog() {
+  const O = ontologyModel();
+  if (!O) return false;
+  let cat = null;
+  try {
+    cat = O.toCatalog();
+  } catch (err) {
+    cat = null;
+  }
+  if (!cat || !cat.objects || !Object.keys(cat.objects).length) return false;
+  Object.keys(OBJECTS).forEach(function (k) {
+    delete OBJECTS[k];
+  });
+  Object.keys(cat.objects).forEach(function (k) {
+    OBJECTS[k] = cat.objects[k];
+  });
+  LINKS.length = 0;
+  (cat.links || []).forEach(function (row) {
+    LINKS.push(row);
+  });
+  ACTION_META.length = 0;
+  (cat.action_meta || []).forEach(function (row) {
+    ACTION_META.push(row);
+  });
+  ACTIONS.length = 0;
+  (cat.actions || []).forEach(function (id) {
+    ACTIONS.push(id);
+  });
+  FETCH_PLACES.length = 0;
+  (cat.fetch_places || []).forEach(function (id) {
+    FETCH_PLACES.push(id);
+  });
+  return true;
+}
+syncCatalog();
+
+function ontologySummary(node) {
+  const O = ontologyModel();
+  const rev = O ? O.get().revision : null;
+  return (
+    (node.object_type ? node.object_type + " · " : "") +
+    Object.keys(OBJECTS).length +
+    " objects · " +
+    LINKS.length +
+    " links · " +
+    ACTIONS.length +
+    " actions" +
+    (rev != null ? " · rev " + rev : "")
+  );
+}
+
+function openOntologyStudio(opts) {
+  const S = typeof window !== "undefined" ? window.OntologyStudio : null;
+  if (!S || typeof S.open !== "function") return false;
+  const node = state.nodes.find((n) => n.id === selectedId);
+  const args = Object.assign({}, opts || {});
+  if (!args.objectType && node && node.object_type && OBJECTS[node.object_type]) {
+    args.objectType = node.object_type;
+  }
+  closeCalPop();
+  S.open(args);
+  return true;
+}
+
 const state = load() || sample();
 let selectedId = state.nodes[0] ? state.nodes[0].id : null;
 let armedPort = null;
@@ -471,9 +543,12 @@ function render() {
     el.style.top = node.y + "px";
     el.style.setProperty("--kind", meta.color);
     const persona = node.persona || meta.persona;
-    const sub = node.object_type
-      ? node.object_type + (node.data_point ? " · " + node.data_point : "")
-      : node.action_type || "";
+    const sub =
+      node.kind === "ontology"
+        ? ontologySummary(node)
+        : node.object_type
+          ? node.object_type + (node.data_point ? " · " + node.data_point : "")
+          : node.action_type || "";
     el.innerHTML =
       '<div class="node-head">' +
       '<span class="ico">' +
@@ -640,7 +715,13 @@ function openCalPop(node, extra) {
         ? "Ingest has no action. Wire it into ontology, then foundry/tool_call to act."
         : "Actions on " + obj + ": " + allowed.join(", ") + ".";
   }
-  if (fields) fields.innerHTML = eventFieldsHtml(node);
+  if (fields) {
+    fields.innerHTML =
+      eventFieldsHtml(node) +
+      (node.kind === "ontology"
+        ? '<button type="button" id="open-studio-node">Open Ontology Studio</button>'
+        : "");
+  }
   const facts = document.getElementById("decision-facts");
   const js = document.getElementById("decision-json");
   if (facts) facts.textContent = extra.cortex_kind ? decisionText(node, extra) : "";
@@ -754,12 +835,25 @@ function showInspect() {
         ? ". Hop 0: rows in, no write."
         : ". Actions: " + allowed.join(", ") + ".") +
       "</p>" +
-      '<button type="button" id="press-decision">Edit node</button>';
+      (node.kind === "ontology"
+        ? '<p class="hint">' + escapeAttr(ontologySummary(node)) + "</p>"
+        : "") +
+      '<button type="button" id="press-decision">Edit node</button>' +
+      (node.kind === "ontology"
+        ? ' <button type="button" id="inspect-open-studio">Open Ontology Studio</button>'
+        : "");
     const press = document.getElementById("press-decision");
     if (press) {
       press.addEventListener("click", function (event) {
         event.preventDefault();
         if (window.Constructor && window.Constructor.pressNode) window.Constructor.pressNode();
+      });
+    }
+    const studioBtn = document.getElementById("inspect-open-studio");
+    if (studioBtn) {
+      studioBtn.addEventListener("click", function (event) {
+        event.preventDefault();
+        openOntologyStudio();
       });
     }
   }
@@ -881,6 +975,11 @@ if (eventForm) {
     patchSelected(el.name, el.value);
   });
   eventForm.addEventListener("click", function (event) {
+    if (event.target && event.target.id === "open-studio-node") {
+      event.preventDefault();
+      openOntologyStudio();
+      return;
+    }
     if (!event.target || event.target.id !== "cloud-signin") return;
     event.preventDefault();
     const node = state.nodes.find((n) => n.id === selectedId);
@@ -1006,7 +1105,9 @@ nodesEl.addEventListener("pointerup", () => {
 });
 
 document.getElementById("export-json").addEventListener("click", () => {
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+  const O = ontologyModel();
+  const payload = Object.assign({}, state, { ontology: O ? O.get() : null });
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -1164,6 +1265,17 @@ function ensureKinds(kinds) {
 }
 
 function replaceCatalog(objects, actions, places) {
+  const O = ontologyModel();
+  if (O && typeof O.importJSON === "function") {
+    const res = O.importJSON(
+      JSON.stringify({ objects: objects || {}, actions: actions || [], fetch_places: places || [] })
+    );
+    if (res && res.ok) {
+      syncCatalog();
+      render();
+      return;
+    }
+  }
   Object.keys(objects || {}).forEach(function (k) {
     OBJECTS[k] = objects[k];
   });
@@ -1258,6 +1370,44 @@ function ensureChatOpen() {
   });
 })();
 
+(function bindOntology() {
+  const openBtn = document.getElementById("open-ontology");
+  const hdrBtn = document.getElementById("ontology-btn");
+  function onOpen(event) {
+    event.preventDefault();
+    if (!openOntologyStudio()) {
+      const power = document.getElementById("power");
+      if (power) power.textContent = "Ontology Studio did not load. Refresh the page.";
+    }
+  }
+  if (openBtn) openBtn.addEventListener("click", onOpen);
+  if (hdrBtn) hdrBtn.addEventListener("click", onOpen);
+  const O = ontologyModel();
+  if (!O || typeof O.subscribe !== "function") return;
+  O.subscribe(function () {
+    syncCatalog();
+    for (const node of state.nodes) {
+      if (node.object_type && !OBJECTS[node.object_type]) continue;
+      if (
+        node.object_type &&
+        node.data_point &&
+        OBJECTS[node.object_type] &&
+        !OBJECTS[node.object_type].points[node.data_point]
+      ) {
+        const first = Object.keys(OBJECTS[node.object_type].points)[0];
+        node.data_point = first || "";
+        node.data_type = first ? OBJECTS[node.object_type].points[first] : "";
+      }
+    }
+    save();
+    render();
+    if (calOpen) {
+      const next = state.nodes.find((n) => n.id === selectedId);
+      if (next) openCalPop(next, { response: "ontology rev " + O.get().revision });
+    }
+  });
+})();
+
 window.Constructor = {
   KINDS,
   OBJECTS,
@@ -1285,6 +1435,9 @@ window.Constructor = {
   ensureKinds,
   patchSelected,
   replaceCatalog,
+  syncCatalog,
+  openOntologyStudio,
+  ontologySummary,
   selectedId: () => selectedId,
   render,
   save,

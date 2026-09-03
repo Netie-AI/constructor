@@ -165,6 +165,29 @@ h1 {
   color: var(--kind, var(--text));
 }
 
+.rail-gap {
+  margin-top: 0.5rem;
+}
+
+.rail #open-ontology,
+#ontology-btn {
+  border-color: rgba(212, 180, 255, 0.45);
+}
+
+.rail #open-ontology {
+  background: rgba(212, 180, 255, 0.08);
+  text-align: left;
+}
+
+.node[data-kind="ontology"] .sub {
+  color: #d4b4ff;
+}
+
+#open-studio-node,
+#inspect-open-studio {
+  margin-top: 0.35rem;
+}
+
 .stage {
   position: relative;
   overflow: hidden;

@@ -6,7 +6,8 @@
     <title>Constructor — Netie</title>
     <link rel="icon" href="favicon.ico" sizes="any" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=17" />
+    <link rel="stylesheet" href="styles.css?v=18" />
+    <link rel="stylesheet" href="ontology.css?v=18" />
   </head>
   <body class="chat-open chat-snap-right">
     <header class="top">
@@ -27,6 +28,7 @@
         <button type="button" id="ghost-toggle" class="ghost">Ghost off</button>
         <button type="button" id="propose">Propose 3</button>
         <button type="button" id="maximize">Maximize</button>
+        <button type="button" id="ontology-btn" class="ghost">Ontology</button>
         <button type="button" id="chat-toggle" class="ghost">Chat</button>
         <button type="button" id="run-graph">Run</button>
         <button type="button" id="export-json">Export JSON</button>
@@ -49,6 +51,8 @@
         <button type="button" data-add="improve"></button>
         <button type="button" data-add="audit"></button>
         <button type="button" data-add="tool_call"></button>
+        <div class="eyebrow rail-gap">MODEL</div>
+        <button type="button" id="open-ontology" class="ghost" aria-label="Open Ontology Studio">Ontology studio</button>
         <p class="hint">
           Ingest is hop 0. Source: place, cloud, database, local model, or online API. Chat compiles the desk to App. Ctrl+/ opens chat. No stalk. No scrape.
         </p>
@@ -125,7 +129,9 @@
       </form>
     </div>
 
-    <script src="app.js?v=17"></script>
-    <script src="engine.js?v=17"></script>
+    <script src="ontology.js?v=18"></script>
+    <script src="app.js?v=18"></script>
+    <script src="ontology-studio.js?v=18"></script>
+    <script src="engine.js?v=18"></script>
   </body>
 </html>

@@ -104,7 +104,146 @@ function compileIR(state) {
       };
     }),
     edges: state.edges.slice(),
+    ontology: ontologyDigest(),
   };
+}
+
+function ontologyDigest() {
+  const O = window.Ontology;
+  if (!O || typeof O.get !== "function") return null;
+  const o = O.get() || {};
+  return {
+    name: o.name || null,
+    revision: o.revision || 0,
+    objects: Object.keys(o.objectTypes || {}).length,
+    links: Object.keys(o.linkTypes || {}).length,
+    actions: Object.keys(o.actionTypes || {}).length,
+    interfaces: Object.keys(o.interfaces || {}).length,
+  };
+}
+
+function downloadText(name, text, mime) {
+  const blob = new Blob([text], { type: mime || "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(function () {
+    URL.revokeObjectURL(url);
+  }, 0);
+}
+
+function issueLine(v) {
+  const errs = (v && v.errors) || [];
+  const warns = (v && v.warnings) || [];
+  if (!errs.length && !warns.length) return "Ontology valid. 0 errors, 0 warnings.";
+  const top = errs.concat(warns).slice(0, 3).map(function (i) {
+    return i.code + " " + (i.path || "") + (i.message ? ": " + i.message : "");
+  });
+  return errs.length + " errors, " + warns.length + " warnings. " + top.join(" | ");
+}
+
+/* Chat verbs that edit the ontology through window.Ontology. Returns null when the
+   text is not an ontology verb so handleChat keeps going. */
+async function ontologyChat(t) {
+  const C = window.Constructor;
+  const O = window.Ontology;
+  if (/^(open |edit |show )?ontology( studio)?$/.test(t) || /^studio$/.test(t)) {
+    if (C.openOntologyStudio && C.openOntologyStudio()) {
+      return "Ontology Studio open. Objects, links, actions, interfaces, places. Direct edits save. Esc closes.";
+    }
+    return "Ontology Studio is not loaded. Refresh the page.";
+  }
+  if (!O) return null;
+  let m = t.match(/^add object ([a-z][a-z0-9_.]*)$/);
+  if (m) {
+    const r = O.addObjectType(m[1], { label: m[1] });
+    return r.ok
+      ? "Object type " + m[1] + " added (rev " + O.get().revision + "). Next: add property " + m[1] + ".<prop> <type>."
+      : "Refused: " + (r.errors || []).join("; ");
+  }
+  m = t.match(/^add property ([a-z][a-z0-9_.]*)\.([a-z][a-z0-9_]*)(?: ([a-z]+))?$/);
+  if (m) {
+    const r = O.addProperty(m[1], m[2], { type: m[3] || "string" });
+    return r.ok
+      ? "Property " + m[1] + "." + m[2] + " (" + (m[3] || "string") + ") added. Data point select has it."
+      : "Refused: " + (r.errors || []).join("; ");
+  }
+  m = t.match(/^add link ([a-z][a-z0-9_.]*) to ([a-z][a-z0-9_.]*)(?: via ([a-z][a-z0-9_]*))?$/);
+  if (m) {
+    const id = m[1] + "_" + m[2];
+    const via = m[3] || m[2].replace(/s$/, "") + "_id";
+    const r = O.addLinkType(id, { from: m[1], to: m[2], via: via, cardinality: "many_to_one" });
+    return r.ok
+      ? "Link " + id + " (" + m[1] + " -> " + m[2] + " via " + via + ") added."
+      : "Refused: " + (r.errors || []).join("; ");
+  }
+  m = t.match(/^add action ([a-z][a-z0-9_.]*) on ([a-z*][a-z0-9_.]*)$/);
+  if (m) {
+    const r = O.addActionType(m[1], { objects: [m[2]], requiresConfirm: true, cortexTool: null });
+    return r.ok ? "Action " + m[1] + " on " + m[2] + " added. requires_confirm on." : "Refused: " + (r.errors || []).join("; ");
+  }
+  m = t.match(/^(?:remove|delete) object ([a-z][a-z0-9_.]*)$/);
+  if (m) {
+    const r = O.removeObjectType(m[1]);
+    return r.ok ? "Object type " + m[1] + " removed. undo ontology brings it back." : "Refused: " + (r.errors || []).join("; ");
+  }
+  m = t.match(/^(?:remove|delete) property ([a-z][a-z0-9_.]*)\.([a-z][a-z0-9_]*)$/);
+  if (m) {
+    const r = O.removeProperty(m[1], m[2]);
+    return r.ok ? "Property " + m[1] + "." + m[2] + " removed. " + issueLine(O.validate()) : "Refused: " + (r.errors || []).join("; ");
+  }
+  m = t.match(/^(?:remove|delete) link ([a-z][a-z0-9_.]*)$/);
+  if (m) {
+    const r = O.removeLinkType(m[1]);
+    return r.ok ? "Link " + m[1] + " removed." : "Refused: " + (r.errors || []).join("; ");
+  }
+  if (/^undo ontology$/.test(t)) {
+    return O.undo() ? "Ontology undo. rev " + O.get().revision + "." : "Nothing to undo.";
+  }
+  if (/^redo ontology$/.test(t)) {
+    return O.redo() ? "Ontology redo. rev " + O.get().revision + "." : "Nothing to redo.";
+  }
+  if (/^validate( ontology)?$/.test(t)) {
+    return issueLine(O.validate());
+  }
+  if (/^reset ontology$/.test(t)) {
+    O.reset();
+    return "Ontology reset to the DMS seed. rev " + O.get().revision + ".";
+  }
+  m = t.match(/^export ontology(?: (json|native|cortex|jsonld|json-ld|turtle|ttl|owl))?$/);
+  if (m) {
+    const fmt = m[1] || "json";
+    if (fmt === "cortex") downloadText("ontology.cortex.json", O.exportCortex(), "application/json");
+    else if (fmt === "jsonld" || fmt === "json-ld") downloadText("ontology.jsonld", O.exportJSONLD(), "application/ld+json");
+    else if (fmt === "turtle" || fmt === "ttl" || fmt === "owl") downloadText("ontology.ttl", O.exportTurtle(), "text/turtle");
+    else downloadText("ontology.json", O.exportJSON(), "application/json");
+    return "Downloaded ontology as " + fmt + ". Zero fetch.";
+  }
+  if (/^pull ontology$/.test(t)) {
+    if (!cortexOrigin()) return "Pull is Cortex only (GET /cortex/constructor/ontology). Pages never fetch.";
+    const remote = await cortexGet("/cortex/constructor/ontology");
+    if (!remote || !remote.ok || !remote.objects) {
+      return "Pull failed (" + ((remote && (remote.status || remote.error)) || "offline") + ").";
+    }
+    const r = O.importJSON(JSON.stringify(remote));
+    return r.ok ? "Pulled Cortex catalog into the ontology. rev " + O.get().revision + "." : "Import refused: " + (r.errors || []).join("; ");
+  }
+  if (/^push ontology$/.test(t)) {
+    if (!cortexOrigin()) return "Push is Cortex only (POST /cortex/constructor/ontology). Pages never fetch.";
+    const v = O.validate();
+    if (v.errors && v.errors.length) return "Push blocked. " + issueLine(v);
+    const remote = await cortexPost("/cortex/constructor/ontology", O.toCatalog());
+    C.showAudit({ mode: "cortex-ontology-push", remote: remote, digest: ontologyDigest() });
+    if (!remote || remote.ok === false) {
+      return "Cortex refused the ontology push (" + ((remote && (remote.status || remote.detail || remote.error)) || "offline") + "). No silent fallback.";
+    }
+    return "Ontology rev " + O.get().revision + " pushed to Cortex.";
+  }
+  return null;
 }
 
 function topo(state) {
@@ -400,10 +539,24 @@ async function loadOntology() {
   if (!cortexOrigin() || !C.replaceCatalog) return;
   const remote = await cortexGet("/cortex/constructor/ontology");
   if (remote && remote.ok && remote.objects) {
-    C.replaceCatalog(remote.objects, remote.actions, remote.fetch_places);
+    const O = window.Ontology;
+    const localRev = O && O.get ? O.get().revision || 0 : 0;
     const nobj = Object.keys(remote.objects).length;
     const nact = (remote.actions || []).length;
     const nplace = (remote.fetch_places || []).length;
+    if (localRev > 0 && O) {
+      setOvStatus(
+        "Cortex catalog live: " +
+          nobj +
+          " objects, " +
+          nact +
+          " actions. Local ontology rev " +
+          localRev +
+          " kept. Chat: pull ontology to replace, push ontology to send."
+      );
+      return;
+    }
+    C.replaceCatalog(remote.objects, remote.actions, remote.fetch_places);
     setOvStatus(
       "Cortex catalog live: " +
         nobj +
@@ -463,8 +616,10 @@ async function handleChat(raw) {
   const C = window.Constructor;
   if (!t) return "Say the object, point, action, or run all.";
   if (t === "help") {
-    return "Chat a whole desk: warehouse, venue/CRM, case rows, or a police suspect desk (owned images -> enhance local model or online API -> match owned.watchlist -> app). Or: issue key. set object images|suspects|matches|inventory. set action suspect.match|image.enhance|export_pptx. ghost on/off. propose 3. maximize. run all. why. add <kind>. Ctrl+/ toggles chat.";
+    return "Chat a whole desk: warehouse, venue/CRM, case rows, or a police suspect desk (owned images -> enhance local model or online API -> match owned.watchlist -> app). Or: issue key. set object images|suspects|matches|inventory. set action suspect.match|image.enhance|export_pptx. ghost on/off. propose 3. maximize. run all. why. add <kind>. Ontology: ontology (opens the studio), add object <id>, add property <obj>.<prop> <type>, add link <a> to <b> via <prop>, add action <id> on <obj>, validate, undo ontology, export ontology json|cortex|jsonld|turtle, pull/push ontology (Cortex only). Ctrl+/ toggles chat.";
   }
+  const onto = await ontologyChat(t);
+  if (onto) return onto;
   if (/^issue( key)?$/.test(t) || /generate key|openvault key/.test(t)) {
     return await issueOpenVaultKey();
   }
@@ -494,7 +649,7 @@ async function handleChat(raw) {
   const setAct = t.match(/^set action (\S+)$/);
   if (setAct) {
     if (C.ACTIONS.indexOf(setAct[1]) < 0) {
-      return "Action must be export_pptx, item.intake, agent.checked, image.enhance, or suspect.match.";
+      return "Action must be one of the ontology action types: " + C.ACTIONS.join(", ") + ".";
     }
     return C.patchSelected("action_type", setAct[1]) ? "Action " + setAct[1] + "." : "Select a node first.";
   }

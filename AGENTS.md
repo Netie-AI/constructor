@@ -9,3 +9,5 @@
 - Our PRs: when required CI/CD is green, merge (`gh pr merge --squash`). Do not wait to be asked. Do not merge landing.
 - No Supabase. No n8n. Do not merge landing from this repo.
 - P1 / O6 / P17 stay parked.
+- Ontology Studio lives in `ontology.js` (model, no DOM, Node-testable) and `ontology-studio.js` (UI). Contract in `docs/ONTOLOGY_STUDIO.md`. `app.js` catalog arrays are in-place views over `window.Ontology`; mutate through the API, never the arrays. New static files must be added to the `cp` line in `.github/workflows/pages.yml`; `scripts/check-laws.js` fails otherwise.
+- CI (`.github/workflows/ci.yml`) runs `npm test`: laws, `node --test tests/unit/`, Playwright e2e with screenshots uploaded as artifacts. Pages deploy stays on push to `landing-9-first-path`.
