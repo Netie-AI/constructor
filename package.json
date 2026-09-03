@@ -6,7 +6,7 @@
   "description": "Constructor skin. Static Pages sketch; Cortex is the only engine.",
   "scripts": {
     "test:laws": "node scripts/check-laws.js",
-    "test:unit": "node --test tests/unit/",
+    "test:unit": "node --test \"tests/unit/*.test.js\"",
     "test:e2e": "playwright test",
     "test": "npm run test:laws && npm run test:unit && npm run test:e2e",
     "serve": "http-server -p 8125 -s -c-1 ."

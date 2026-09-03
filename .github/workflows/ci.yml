@@ -2,6 +2,8 @@ name: ci
 on:
   pull_request:
   push:
+    branches: [landing-9-first-path]
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
