@@ -188,6 +188,35 @@ h1 {
   margin-top: 0.35rem;
 }
 
+.obj-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0.5rem 0 0.35rem;
+}
+
+.obj-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.5rem;
+  font-size: 11px;
+  border-radius: 999px;
+  background: transparent;
+  border-left: 3px solid var(--kind, var(--muted));
+}
+
+.obj-chip.on {
+  border-color: var(--kind, var(--accent));
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.obj-chip-n {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 10px;
+  color: var(--muted);
+}
+
 .stage {
   position: relative;
   overflow: hidden;

@@ -347,6 +347,31 @@ function applyPan() {
   world.style.transform = "translate(" + pan.x + "px, " + pan.y + "px) scale(" + pan.k + ")";
 }
 
+function fitView() {
+  const stage = document.getElementById("stage");
+  if (!stage || !state.nodes.length) return false;
+  const rect = stage.getBoundingClientRect();
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const n of state.nodes) {
+    minX = Math.min(minX, n.x);
+    minY = Math.min(minY, n.y);
+    maxX = Math.max(maxX, n.x + 188);
+    maxY = Math.max(maxY, n.y + 110);
+  }
+  const pad = 24;
+  const bw = Math.max(1, maxX - minX);
+  const bh = Math.max(1, maxY - minY);
+  const k = Math.min(1.15, Math.max(0.35, Math.min((rect.width - pad * 2) / bw, (rect.height - pad * 2) / bh)));
+  pan.k = k;
+  pan.x = Math.round((rect.width - bw * k) / 2 - minX * k);
+  pan.y = Math.round((rect.height - bh * k) / 2 - minY * k);
+  applyPan();
+  return true;
+}
+
 function screenToWorld(clientX, clientY) {
   const stage = document.getElementById("stage").getBoundingClientRect();
   return {
@@ -836,7 +861,7 @@ function showInspect() {
         : ". Actions: " + allowed.join(", ") + ".") +
       "</p>" +
       (node.kind === "ontology"
-        ? '<p class="hint">' + escapeAttr(ontologySummary(node)) + "</p>"
+        ? '<p class="hint">' + escapeAttr(ontologySummary(node)) + "</p>" + objectChipsHtml(node)
         : "") +
       '<button type="button" id="press-decision">Edit node</button>' +
       (node.kind === "ontology"
@@ -856,8 +881,56 @@ function showInspect() {
         openOntologyStudio();
       });
     }
+    inspectCard.querySelectorAll("[data-pick-object]").forEach(function (chip) {
+      chip.addEventListener("click", function (event) {
+        event.preventDefault();
+        const id = chip.getAttribute("data-pick-object");
+        if (event.altKey || event.detail === 2) {
+          openOntologyStudio({ objectType: id });
+          return;
+        }
+        patchSelected("object_type", id);
+      });
+    });
   }
   showDecision({ node: node, response: "local preview. Press to edit." });
+}
+
+/* Compact object browser for the ontology node: one chip per object type with its
+   property and link counts. Click binds the node; double-click opens the studio there. */
+function objectChipsHtml(node) {
+  const ids = Object.keys(OBJECTS);
+  if (!ids.length) return "";
+  const O = ontologyModel();
+  const chips = ids
+    .map(function (id) {
+      const nprops = Object.keys(OBJECTS[id].points || {}).length;
+      const nlinks = LINKS.filter(function (l) {
+        return l.from === id || l.to === id;
+      }).length;
+      const color = O && O.get().objectTypes[id] ? O.get().objectTypes[id].color : "";
+      return (
+        '<button type="button" class="obj-chip' +
+        (node.object_type === id ? " on" : "") +
+        '" data-pick-object="' +
+        escapeAttr(id) +
+        '" title="' +
+        nprops +
+        " properties · " +
+        nlinks +
+        ' links. Double-click opens the studio."' +
+        (color ? ' style="--kind:' + escapeAttr(color) + '"' : "") +
+        ">" +
+        escapeAttr(id) +
+        '<span class="obj-chip-n">' +
+        nprops +
+        "·" +
+        nlinks +
+        "</span></button>"
+      );
+    })
+    .join("");
+  return '<div class="obj-chips" aria-label="object types">' + chips + "</div>";
 }
 
 function fieldSelect(name, label, values, current) {
@@ -1255,8 +1328,26 @@ function replaceGraph(nodes, edges) {
   selectedId = state.nodes[0].id;
   save();
   render();
+  fitView();
   return true;
 }
+
+(function bindFit() {
+  const btn = document.getElementById("fit-view");
+  if (btn) {
+    btn.addEventListener("click", function (event) {
+      event.preventDefault();
+      fitView();
+    });
+  }
+  document.addEventListener("keydown", function (event) {
+    if (event.key !== "f" || event.ctrlKey || event.metaKey || event.altKey) return;
+    const tag = (event.target && event.target.tagName) || "";
+    if (tag === "TEXTAREA" || tag === "INPUT" || tag === "SELECT") return;
+    if (window.OntologyStudio && window.OntologyStudio.isOpen && window.OntologyStudio.isOpen()) return;
+    fitView();
+  });
+})();
 
 function ensureKinds(kinds) {
   for (const kind of kinds) {
@@ -1438,6 +1529,7 @@ window.Constructor = {
   syncCatalog,
   openOntologyStudio,
   ontologySummary,
+  fitView,
   selectedId: () => selectedId,
   render,
   save,
