@@ -1,6 +1,8 @@
 const STORAGE_KEY = "netie.constructor.v4";
 const CHAT_DOCK_KEY = "netie.constructor.chatdock.v1";
-const SOURCE_KINDS = ["place", "cloud", "database", "local_model", "online_api"];
+const PLAY_KEY = "netie.constructor.play.v1";
+const SOURCE_KINDS = ["place", "stream", "cloud", "database", "local_model", "online_api"];
+const TRIGGER_KINDS = ["webhook", "schedule", "message"];
 
 function ico(paths) {
   return (
@@ -26,6 +28,13 @@ const KINDS = {
     color: "#9ad7c2",
     note: "First-party Cortex input bound to an object. No n8n.",
     icon: ico('<path d="M8 7v10"/><path d="M16 7v10"/><path d="M8 12h8"/><circle cx="8" cy="7" r="2"/><circle cx="16" cy="17" r="2"/>'),
+  },
+  trigger: {
+    label: "Trigger",
+    persona: "source",
+    color: "#9fd0e8",
+    note: "Webhook, schedule, or message. Ghost on Pages. Live only on /cortex.",
+    icon: ico('<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>'),
   },
   ontology: {
     label: "Ontology",
@@ -418,6 +427,13 @@ function seedNode(kind, x, y) {
     node.source_link = "local://enhance";
     node.action_type = "image.enhance";
   }
+  if (kind === "trigger") {
+    node.trigger_kind = "webhook";
+    node.stream = true;
+    node.source_kind = "stream";
+    node.source_link = "streams.open";
+    node.fetch_from = "streams.open";
+  }
   if (kind === "tool_call" || kind === "foundry") node.action_type = "export_pptx";
   if (kind === "app") node.action_type = "emit";
   return node;
@@ -536,6 +552,118 @@ function foundrySample() {
   };
 }
 
+function labGraph(lab) {
+  const base = foundrySample();
+  const n = function (id) {
+    return base.nodes.find(function (x) { return x.id === id; });
+  };
+  if (lab === "train") {
+    n("n0").note = "Mock train set. Distill facts. Not GPU weights on Pages.";
+    n("c1").stream = true;
+    n("c1").source_kind = "stream";
+    n("c1").note = "Open stream feed. Compile to Cortex source.";
+    n("i1").note = "Mock loss curve. Insight from distill, not a trainer.";
+    n("f1").note = "Train compile: IR for Cortex. Not a live neural net here.";
+    n("g1").note = "Audit labels vs mock truth.";
+    n("t1").note = "Define missing block: chat 'define block <id>'.";
+    return { lab: "train", insight: "Mock train compile. Live run only on /cortex.", nodes: base.nodes, edges: base.edges };
+  }
+  if (lab === "infer") {
+    const nodes = [
+      { id: "tr", kind: "trigger", x: 40, y: 70, note: "Webhook / message. Ghost on Pages.", trigger_kind: "webhook", stream: true, source_kind: "stream", source_link: "streams.open", fetch_from: "streams.open", persona: "source" },
+      { id: "n0", kind: "ingest", x: 220, y: 70, note: "Mock particle frames. Not a camera.", object_type: "images", data_point: "image_id", data_type: "string", source_kind: "place", fetch_from: "owned.images", persona: "loader" },
+      { id: "e1", kind: "enhance", x: 400, y: 70, note: "Resize. File-type check in Cortex, not here.", object_type: "images", data_point: "image_id", source_kind: "local_model", source_link: "local://enhance", fetch_from: "local.model", action_type: "image.enhance", persona: "enhancer" },
+      { id: "o1", kind: "ontology", x: 580, y: 70, note: "Object + PK. Studio for inventory.", object_type: "images", data_point: "image_id", persona: "modeler" },
+      { id: "i1", kind: "insight", x: 220, y: 210, note: "Region mark: bent particle. Mock SVG, not CV.", region: "cx=62 cy=48 r=18 why=bent_particle", object_type: "images", persona: "analyst" },
+      { id: "f1", kind: "foundry", x: 400, y: 210, note: "Infer compile. Weights stay in Cortex.", action_type: "export_pptx", persona: "compiler" },
+      { id: "a1", kind: "app", x: 580, y: 210, note: "Skin. Engine is Cortex.", action_type: "emit", persona: "operator" },
+      { id: "g1", kind: "audit", x: 760, y: 140, note: "LLM-as-judge mock: label vs region. Not a live LLM on Pages.", region: "cx=62 cy=48 r=18 why=bent_particle", persona: "steward" },
+    ];
+    const edges = [
+      { from: "tr", to: "n0" },
+      { from: "n0", to: "e1" },
+      { from: "e1", to: "o1" },
+      { from: "n0", to: "i1" },
+      { from: "i1", to: "f1" },
+      { from: "f1", to: "a1" },
+      { from: "a1", to: "g1" },
+    ];
+    return { lab: "infer", insight: "Mock judge: circle bent particle. Live LLM only on /cortex.", nodes: nodes, edges: edges };
+  }
+  if (lab === "retrain") {
+    n("n0").note = "Fresh labeled batch after judge.";
+    n("c1").note = "DMS / distill place. Not a second warehouse SPA.";
+    n("c1").stream = true;
+    n("i1").note = "Where the judge disagreed. Feed Cortex DAG.";
+    n("f1").note = "Retrain as Cortex DAG compile. Not Apache Airflow UI.";
+    n("g1").note = "Gate: mock metrics. Live gate is Cortex.";
+    n("t1").note = "Schedule / webhook already on trigger lab; here tool_call is the handoff.";
+    return { lab: "retrain", insight: "Mock retrain DAG. No Airflow product clone.", nodes: base.nodes, edges: base.edges };
+  }
+  if (lab === "voice") {
+    n("n0").note = "Mock audio clip. Same 8-block pipeline as image.";
+    n("c1").note = "STT stub on connector. Real decode is Cortex. define block if you need a new kind.";
+    n("i1").note = "Transcript insight. Distill, not a voice model on Pages.";
+    n("g1").note = "Judge: transcript vs mock gold.";
+    n("t1").note = "Same connectors. New block via define block <id>.";
+    return { lab: "voice", insight: "Voice uses the same kinds. Missing STT = define block, then Cortex.", nodes: base.nodes, edges: base.edges };
+  }
+  if (lab === "image") {
+    n("n0").note = "Prompt / seed image. Not a generator on Pages.";
+    n("c1").note = "Generate stub. Real image model is Cortex.";
+    n("i1").note = "Region: artifact in corner. Mock mark.";
+    n("i1").region = "cx=80 cy=20 r=12 why=artifact";
+    n("g1").note = "Judge: prompt vs mock render.";
+    return { lab: "image", insight: "Image-gen lab is the same graph with honest stubs.", nodes: base.nodes, edges: base.edges };
+  }
+  if (lab === "warehouse") {
+    n("n0").note = "SKU / batch rows. Distill to ontology.";
+    n("c1").note = "DMS usage compile. OpenVault key only on /cortex.";
+    n("i1").note = "Near-expiry, missing PK. Real insight from distill.";
+    n("a1").note = "Pick a skin. Prebuilt = these 8 kinds, not a plugin store.";
+    return { lab: "warehouse", insight: "Warehouse path: ingest -> ontology -> insight -> app.", nodes: base.nodes, edges: base.edges };
+  }
+  return { lab: "sample", insight: "", nodes: base.nodes, edges: base.edges };
+}
+
+function applySeed(lab) {
+  const g = labGraph(lab);
+  currentLab = g.lab;
+  const p = playState();
+  p.lab = g.lab;
+  p.insight = g.insight;
+  savePlay(p);
+  replaceGraph(g.nodes, g.edges);
+  return g.lab;
+}
+
+let currentLab = "sample";
+
+function playState() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PLAY_KEY) || "null");
+    if (raw && typeof raw.ticks === "number") return raw;
+  } catch (e) {}
+  return { ticks: 0, lab: "sample", insight: "" };
+}
+
+function savePlay(p) {
+  try {
+    localStorage.setItem(PLAY_KEY, JSON.stringify(p));
+  } catch (e) {}
+  paintPlayHud();
+}
+
+function paintPlayHud() {
+  const p = playState();
+  const t = document.getElementById("play-ticks");
+  const l = document.getElementById("play-lab");
+  const i = document.getElementById("play-insight");
+  if (t) t.textContent = p.ticks + (p.ticks === 1 ? " tick" : " ticks");
+  if (l) l.textContent = currentLab || p.lab || "sample";
+  if (i) i.textContent = p.insight || "";
+}
+
 function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -587,7 +715,11 @@ function render() {
       meta.label +
       "</h2>" +
       (persona ? '<p class="persona">' + escapeAttr(persona) + "</p>" : "") +
-      (sub ? '<p class="sub">' + escapeAttr(sub) + "</p>" : "") +
+      (function () {
+        const why = node.region ? parseRegion(node.region).why || "region" : "";
+        const line = [sub, why].filter(Boolean).join(" · ");
+        return line ? '<p class="sub">' + escapeAttr(line) + "</p>" : "";
+      })() +
       '<div class="ports">' +
       '<button type="button" class="port" data-port="in" aria-label="input port"></button>' +
       '<button type="button" class="port" data-port="out" aria-label="output port"></button>' +
@@ -732,13 +864,17 @@ function openCalPop(node, extra) {
   if (help) help.hidden = node.kind !== "ingest";
   const enhanceHelp = document.getElementById("enhance-help");
   if (enhanceHelp) enhanceHelp.hidden = node.kind !== "enhance";
+  const triggerHelp = document.getElementById("trigger-help");
+  if (triggerHelp) triggerHelp.hidden = node.kind !== "trigger";
   const obj = node.object_type && OBJECTS[node.object_type] ? node.object_type : Object.keys(OBJECTS)[0];
   const allowed = actionsForObject(obj);
   if (hint) {
     hint.textContent =
       node.kind === "ingest"
         ? "Ingest has no action. Wire it into ontology, then foundry/tool_call to act."
-        : "Actions on " + obj + ": " + allowed.join(", ") + ".";
+        : node.kind === "trigger"
+          ? "Webhook, schedule, or message. Ghost on Pages. Live only on /cortex."
+          : "Actions on " + obj + ": " + allowed.join(", ") + ".";
   }
   if (fields) {
     fields.innerHTML =
@@ -788,12 +924,18 @@ function eventFieldsHtml(node) {
     node.source_kind && SOURCE_KINDS.indexOf(node.source_kind) >= 0 ? node.source_kind : "place";
   const sourceLabel = node.kind === "ingest" ? "Source place (hop 0)" : "Fetch / place";
   const objectLabel = node.kind === "ingest" ? "Becomes object" : "Object (ontology)";
-  const bindSource = node.kind === "ingest" || node.kind === "connector" || node.kind === "enhance";
+  const bindSource =
+    node.kind === "ingest" || node.kind === "connector" || node.kind === "enhance" || node.kind === "trigger";
   let html =
     fieldSelect("persona", "Persona", PERSONAS, persona) +
     fieldSelect("object_type", objectLabel, Object.keys(OBJECTS), obj) +
     fieldSelect("data_point", "Data point", Object.keys(points), point) +
     fieldSelect("data_type", "Data type", ["string", "number", "integer", "boolean", "date"], dtype);
+  if (node.kind === "trigger") {
+    const tk =
+      node.trigger_kind && TRIGGER_KINDS.indexOf(node.trigger_kind) >= 0 ? node.trigger_kind : "webhook";
+    html += fieldSelect("trigger_kind", "Trigger", TRIGGER_KINDS, tk);
+  }
   if (bindSource) {
     html += fieldSelect("source_kind", "Source kind", SOURCE_KINDS, sourceKind);
     if (sourceKind === "cloud") {
@@ -806,19 +948,60 @@ function eventFieldsHtml(node) {
       html += fieldInput("source_link", "Local model", node.source_link || "local://enhance", "local://enhance or a model path");
     } else if (sourceKind === "online_api") {
       html += fieldInput("source_link", "Online API", node.source_link || "api.enhance", "api.enhance (ghost, no fetch on Pages)");
+    } else if (sourceKind === "stream") {
+      html +=
+        '<p class="hint">Open stream. Compiles to Cortex /dms/streams. Pages cannot stream.</p>' +
+        fieldInput("source_link", "Stream id", node.source_link || "streams.open", "streams.open");
     } else {
       html += fieldSelect("fetch_from", sourceLabel, FETCH_PLACES, node.fetch_from || "warehouse.inventory");
     }
   } else {
     html += fieldSelect("fetch_from", sourceLabel, FETCH_PLACES, node.fetch_from || "warehouse.inventory");
   }
-  if (node.kind !== "ingest") {
+  if (node.kind !== "ingest" && node.kind !== "trigger") {
     html += fieldSelect("action_type", "Action", allowed, action);
+  }
+  if (node.kind === "insight" || node.kind === "audit") {
+    html += fieldInput("region", "Region mark (mock)", node.region || "", "cx=62 cy=48 r=18 why=bent_particle");
   }
   html +=
     fieldSelect("tier", "Router tier", TIERS, TIERS.indexOf(node.tier) >= 0 ? node.tier : "T0") +
     fieldSelect("stream", "Stream", ["false", "true"], node.stream ? "true" : "false");
   return html;
+}
+
+function parseRegion(spec) {
+  const out = {};
+  String(spec || "")
+    .split(/\s+/)
+    .forEach(function (part) {
+      const i = part.indexOf("=");
+      if (i > 0) out[part.slice(0, i)] = part.slice(i + 1);
+    });
+  return out;
+}
+
+function regionMarkHtml(spec) {
+  const r = parseRegion(spec);
+  const cx = Number(r.cx);
+  const cy = Number(r.cy);
+  const rad = Number(r.r);
+  const why = r.why || "mark";
+  return (
+    '<div class="region-mark" data-testid="region-mark" title="' +
+    escapeAttr(why) +
+    '"><svg viewBox="0 0 100 70" width="120" height="84" aria-label="' +
+    escapeAttr(why) +
+    '"><rect x="0" y="0" width="100" height="70" fill="#111" stroke="rgba(255,255,255,0.12)"/><circle class="region-ring" cx="' +
+    (isFinite(cx) ? cx : 62) +
+    '" cy="' +
+    (isFinite(cy) ? cy : 48) +
+    '" r="' +
+    (isFinite(rad) ? rad : 16) +
+    '" fill="none" stroke="#f2a3a3" stroke-width="2"/><text x="4" y="12" fill="#f2a3a3" font-size="8">' +
+    escapeAttr(why) +
+    '</text></svg><p class="hint">Mock circle. Not a live CV/LLM judge on Pages.</p></div>'
+  );
 }
 
 function showInspect() {
@@ -858,8 +1041,11 @@ function showInspect() {
       (node.source_link ? " · " + escapeAttr(node.source_link) : "") +
       (node.kind === "ingest"
         ? ". Hop 0: rows in, no write."
-        : ". Actions: " + allowed.join(", ") + ".") +
+        : node.kind === "trigger"
+          ? ". " + escapeAttr(node.trigger_kind || "webhook") + " compile. Live only on /cortex."
+          : ". Actions: " + allowed.join(", ") + ".") +
       "</p>" +
+      (node.region ? regionMarkHtml(node.region) : "") +
       (node.kind === "ontology"
         ? '<p class="hint">' + escapeAttr(ontologySummary(node)) + "</p>" + objectChipsHtml(node)
         : "") +
@@ -986,11 +1172,15 @@ function patchSelected(field, value) {
     } else if (value === "online_api") {
       node.fetch_from = "api.enhance";
       if (!node.source_link) node.source_link = "api.enhance";
+    } else if (value === "stream") {
+      node.fetch_from = node.source_link || "streams.open";
+      node.stream = true;
     } else if (
       node.fetch_from === "cloud.signed_in" ||
       node.fetch_from === "db.link" ||
       node.fetch_from === "local.model" ||
-      node.fetch_from === "api.enhance"
+      node.fetch_from === "api.enhance" ||
+      node.fetch_from === "streams.open"
     ) {
       node.fetch_from =
         node.object_type === "incidents"
@@ -1000,8 +1190,16 @@ function patchSelected(field, value) {
             : "warehouse.inventory";
     }
   }
-  if (field === "source_link" && (node.source_kind === "database" || node.source_kind === "local_model" || node.source_kind === "online_api")) {
+  if (field === "source_link" && (node.source_kind === "database" || node.source_kind === "local_model" || node.source_kind === "online_api" || node.source_kind === "stream")) {
     if (node.source_kind === "database") node.fetch_from = value || "db.link";
+    if (node.source_kind === "stream") node.fetch_from = value || "streams.open";
+  }
+  if (node.kind === "trigger" && (field === "trigger_kind" || field === "source_kind")) {
+    node.doing =
+      (node.trigger_kind || "webhook") +
+      " trigger. Ghost on Pages. Live only on /cortex.";
+    node.note = node.doing;
+    node.stream = true;
   }
   if (node.kind === "ingest" && (field === "object_type" || field === "fetch_from" || field === "source_kind")) {
     node.doing =
@@ -1100,6 +1298,13 @@ document.querySelectorAll("[data-add]").forEach((btn) => {
   });
 });
 
+document.querySelectorAll("[data-seed]").forEach(function (btn) {
+  btn.addEventListener("click", function () {
+    applySeed(btn.getAttribute("data-seed"));
+    if (window.Constructor && window.Constructor.setGhost) window.Constructor.setGhost(true);
+  });
+});
+
 nodesEl.addEventListener("pointerdown", (event) => {
   const nodeEl = event.target.closest(".node");
   if (!nodeEl) return;
@@ -1194,6 +1399,11 @@ document.getElementById("reset-graph").addEventListener("click", () => {
   state.nodes = next.nodes;
   state.edges = next.edges;
   selectedId = state.nodes[0].id;
+  currentLab = "sample";
+  const p = playState();
+  p.lab = "sample";
+  p.insight = "";
+  savePlay(p);
   localStorage.removeItem(STORAGE_KEY);
   save();
   render();
@@ -1309,6 +1519,11 @@ function showAudit(obj) {
 function markGhostWalk(ids) {
   for (const el of nodesEl.querySelectorAll(".node")) {
     el.classList.toggle("ghosting", ids.indexOf(el.dataset.id) !== -1);
+  }
+  if (ids && ids.length) {
+    const p = playState();
+    p.ticks += 1;
+    savePlay(p);
   }
 }
 
@@ -1508,6 +1723,7 @@ window.Constructor = {
   PERSONAS,
   ACTION_META,
   SOURCE_KINDS,
+  TRIGGER_KINDS,
   ghost: true,
   automate: false,
   getState: () => state,
@@ -1523,6 +1739,7 @@ window.Constructor = {
   markGhostWalk,
   loadFoundryPath,
   replaceGraph,
+  applySeed,
   ensureKinds,
   patchSelected,
   replaceCatalog,
@@ -1548,4 +1765,5 @@ const keyBox = document.getElementById("cortex-key");
 if (keyBox && !cortexOrigin()) keyBox.hidden = true;
 
 setGhost(true);
+paintPlayHud();
 render();

@@ -5,7 +5,11 @@
 const CORTEX_KIND = {
   ingest: "DOCUMENT_REF",
   connector: "DOCUMENT_REF",
+  trigger: "DOCUMENT_REF",
   ontology: "DOCUMENT_REF",
+  insight: "DOCUMENT_REF",
+  foundry: "DOCUMENT_REF",
+  app: "EMIT",
   insight: "DOCUMENT_REF",
   foundry: "DOCUMENT_REF",
   app: "EMIT",
@@ -99,6 +103,10 @@ function compileIR(state) {
         fetch_from: n.fetch_from || null,
         tier: n.tier || "T0",
         stream: !!n.stream,
+        trigger_kind: n.trigger_kind || null,
+        source_kind: n.source_kind || null,
+        source_link: n.source_link || null,
+        region: n.region || null,
         note: n.note,
         requires_confirm: n.kind === "tool_call",
       };
@@ -407,10 +415,12 @@ async function rankApproaches() {
   const kinds = new Set(window.Constructor.getState().nodes.map((n) => n.kind));
   const foundry = ["ontology", "insight", "foundry", "app"].every((k) => kinds.has(k));
   const verify = kinds.has("hypothesize") && kinds.has("audit") && !foundry;
+  const judge = kinds.has("audit") && kinds.has("trigger");
   const ranked = APPROACHES.map((row) => {
     let score = scoreApproach(row);
     if (foundry && row.id === "orchestrator_subagent") score += 20;
     if (verify && row.id === "generator_verifier") score += 20;
+    if (judge && row.id === "generator_verifier") score += 22;
     return Object.assign({}, row, { score: score });
   }).sort((a, b) => b.score - a.score);
   const box = document.getElementById("approaches");
@@ -616,7 +626,55 @@ async function handleChat(raw) {
   const C = window.Constructor;
   if (!t) return "Say the object, point, action, or run all.";
   if (t === "help") {
-    return "Chat a whole desk: warehouse, venue/CRM, case rows, or a police suspect desk (owned images -> enhance local model or online API -> match owned.watchlist -> app). Or: issue key. set object images|suspects|matches|inventory. set action suspect.match|image.enhance|export_pptx. ghost on/off. propose 3. maximize. run all. why. add <kind>. Ontology: ontology (opens the studio), add object <id>, add property <obj>.<prop> <type>, add link <a> to <b> via <prop>, add action <id> on <obj>, validate, undo ontology, export ontology json|cortex|jsonld|turtle, pull/push ontology (Cortex only). Ctrl+/ toggles chat.";
+    return "Labs: lab train | lab infer | lab retrain | lab voice | lab image. define block <id> adds an ontology action + tool_call (Cortex implements). gaps lists missing core kinds. Chat a whole desk: warehouse, venue/CRM, case rows, or a police suspect desk (owned images -> enhance local model or online API -> match owned.watchlist -> app). Or: issue key. ghost on/off. propose 3. maximize. run all. why. add <kind>. Ontology studio verbs. Ctrl+/ toggles chat.";
+  }
+  const lab = t.match(/^(?:lab|seed) (train|infer|retrain|voice|image|warehouse|sample)$/);
+  if (lab && C.applySeed) {
+    C.applySeed(lab[1]);
+    C.setGhost(true);
+    return (
+      "Loaded " +
+      lab[1] +
+      " lab (mock data). Ghost on. Ticks count ghost walks, not XP. Live webhook/stream/run only on /cortex. Type gaps if a block is missing."
+    );
+  }
+  const defBlock = t.match(/^define block ([a-z][a-z0-9_.]*)$/);
+  if (defBlock) {
+    const O = window.Ontology;
+    if (!O || typeof O.addActionType !== "function") return "Ontology not loaded.";
+    const id = defBlock[1];
+    const r = O.addActionType(id, {
+      objects: ["*"],
+      requiresConfirm: true,
+      cortexTool: null,
+      description: "User-defined block. Cortex implements. Not a plugin store.",
+    });
+    const exists = r && r.ok === false && (r.errors || []).join(" ").indexOf("already exists") >= 0;
+    if (r && r.ok === false && !exists) {
+      return "Refused: " + (r.errors || []).join("; ");
+    }
+    if (C.syncCatalog) C.syncCatalog();
+    const node = C.addNode("tool_call");
+    if (node && C.patchSelected) C.patchSelected("action_type", id);
+    return (
+      "Defined block " +
+      id +
+      (exists ? " (already in ontology). " : ". ") +
+      "Added tool_call. Cortex must implement the tool. Pages never fetch."
+    );
+  }
+  if (/^gaps$/.test(t)) {
+    const kinds = new Set((C.getState().nodes || []).map(function (n) { return n.kind; }));
+    const need = ["ingest", "connector", "ontology", "insight", "foundry", "app"];
+    const missing = need.filter(function (k) { return !kinds.has(k); });
+    const extra = [];
+    if (!kinds.has("trigger")) extra.push("trigger (webhook/schedule/message)");
+    if (!kinds.has("audit")) extra.push("audit (LLM-as-judge compile)");
+    return (
+      (missing.length ? "Missing core: " + missing.join(", ") + ". add <kind> or pick a lab. " : "Core ingest->app path present. ") +
+      (extra.length ? "Optional: " + extra.join("; ") + ". " : "") +
+      "New tool = define block <id>."
+    );
   }
   const onto = await ontologyChat(t);
   if (onto) return onto;
@@ -1230,7 +1288,7 @@ function bindChat() {
   }
   chatSay(
     "assistant",
-    "Chat warehouse, venue/CRM, case desk, or a police suspect desk. Owned images -> enhance (local model or online API) -> match owned.watchlist -> app. Ctrl+/ toggles. I will not compile stalking, doxxing, public-webcam scrape, or sex-work graphs. Type help."
+    "Chat warehouse, venue/CRM, labs (train / infer / retrain), case desk, or a police suspect desk. Owned images -> enhance (local model or online API) -> match owned.watchlist -> app. Ctrl+/ toggles. I will not compile stalking, doxxing, public-webcam scrape, or sex-work graphs. Type help."
   );
   window.Constructor.pressNode = pressNode;
   loadOntology();
