@@ -750,6 +750,23 @@ details.quiet summary {
   padding: 0.25rem 0.4rem;
 }
 
+#check-path {
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+.check-guide {
+  margin: 0.35rem 0 0.45rem;
+  padding-left: 1.15rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.check-guide a,
+.check-guide code {
+  color: var(--text);
+}
+
 .play-hud {
   display: flex;
   flex-wrap: wrap;

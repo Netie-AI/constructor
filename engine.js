@@ -485,7 +485,13 @@ async function handleChat(raw) {
   const C = window.Constructor;
   if (!t) return "Say the object, point, action, or run all.";
   if (t === "help") {
-    return "Labs: lab train | lab infer | lab retrain | lab voice | lab image. define block <id> adds an ontology action + tool_call (Cortex implements). gaps lists missing core kinds. Chat a whole desk: warehouse, venue/CRM, case rows, or a police suspect desk (owned images -> enhance local model or online API -> match owned.watchlist -> app). Or: issue key. ghost on/off. propose 3. maximize. run all. why. add <kind>. Ontology studio verbs. Ctrl+/ toggles chat.";
+    return "Click Check. Or chat: check | lab infer | run | gaps | define block <id>. Labs: train infer retrain voice image. Ghost on Pages. Live run only on /cortex. Ctrl+/ toggles chat.";
+  }
+  if (/^check$/.test(t)) {
+    const loaded = await handleChat("lab infer");
+    const walked = await handleChat("run");
+    const missing = await handleChat("gaps");
+    return "Check done. " + loaded + " " + walked + " " + missing;
   }
   const lab = t.match(/^(?:lab|seed) (train|infer|retrain|voice|image|warehouse|sample)$/);
   if (lab && C.applySeed) {
@@ -880,6 +886,23 @@ function bindChat() {
       chatSay("assistant", await handleChat("run"));
     });
   }
+  const checkBtn = document.getElementById("check-path");
+  if (checkBtn) {
+    checkBtn.addEventListener("click", async () => {
+      keepChat();
+      chatSay("user", "check");
+      chatSay("assistant", await handleChat("check"));
+    });
+  }
+  document.querySelectorAll("[data-chat]").forEach(function (btn) {
+    btn.addEventListener("click", async function () {
+      const text = btn.getAttribute("data-chat") || "";
+      if (!text) return;
+      keepChat();
+      chatSay("user", text);
+      chatSay("assistant", await handleChat(text));
+    });
+  });
   const issueBtn = document.getElementById("issue-key");
   if (issueBtn) {
     if (!cortexOrigin()) issueBtn.hidden = true;

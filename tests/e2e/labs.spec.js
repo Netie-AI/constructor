@@ -95,4 +95,16 @@ test.describe("labs", () => {
     await expect(page.locator("#chat-log .bubble.assistant").last()).toContainText("Ghost run");
     await expect(page.locator("#play-ticks")).toHaveText("1 tick");
   });
+
+  test("Check button loads infer, ghosts, and reports gaps", async ({ page }) => {
+    const replies = page.locator("#chat-log .bubble.assistant");
+    const before = await replies.count();
+    await page.locator("#check-path").click();
+    await expect(replies).toHaveCount(before + 1);
+    await expect(replies.last()).toContainText("Check done");
+    await expect(replies.last()).toContainText("Ghost");
+    await expect(page.locator(".node[data-kind=trigger]")).toHaveCount(1);
+    await expect(page.locator("#play-lab")).toHaveText("infer");
+    await expect(page.locator("#play-ticks")).toHaveText("1 tick");
+  });
 });
