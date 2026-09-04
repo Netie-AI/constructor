@@ -30,11 +30,12 @@
 | Gate | Result |
 |------|--------|
 | unit `node --test` | 22 passed |
-| e2e canvas spec | see PR CI artifact |
-| e2e ontology-studio spec | see PR CI artifact |
+| e2e canvas + studio | 14 passed locally (Playwright 1.56 chromium) |
+| laws | PASS, zero `fetch(` in app.js / ontology.js / ontology-studio.js |
 | seed ontology | 14 objects, 16 links, 5 actions, 2 interfaces, 18 places, 0 errors, 0 warnings |
 
 ## Still open
 
 - `push ontology` targets `POST /cortex/constructor/ontology`, which the Cortex mount does not expose yet. The chat says so; no fake success.
 - `app.netie.ai/cortex` is still not live (Hyperlift). Pages cannot live-run; unchanged.
+- Studio overlay (`ontology-studio.js` + `ontology.css`) landed after the session-limit kill; merge this branch into `landing-9-first-path` to copy the files on Pages.
