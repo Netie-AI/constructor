@@ -1,0 +1,456 @@
+From 1747b648d9b95bcfb44ebbc5a8b7a6d5167f6f33 Mon Sep 17 00:00:00 2001
+From: Cursor Agent <cursoragent@cursor.com>
+Date: Fri, 4 Sep 2026 09:19:32 +0000
+Subject: [PATCH] Accept Constructor train loop kinds and serve nested skin
+ files.
+
+train/infer/retrain/trigger/enhance compile as DOCUMENT_REF. Cycle wires
+drop so the DAG stays acyclic. Catch-all skin paths serve core/constructor.js.
+POST generate/decision expose the compiled DAG for the Constructor brain panel.
+---
+ CortexOS/constructor_graph.py       |  56 ++++++++++++
+ packs/dms/constructor_routes.py     | 133 ++++++++++++++++++++++++----
+ tests/dms/test_constructor_graph.py | 117 ++++++++++++++++++++++++
+ 3 files changed, 287 insertions(+), 19 deletions(-)
+
+diff --git a/CortexOS/constructor_graph.py b/CortexOS/constructor_graph.py
+index c86219d..508e3ab 100644
+--- a/CortexOS/constructor_graph.py
++++ b/CortexOS/constructor_graph.py
+@@ -21,6 +21,11 @@ _KINDS = frozenset(
+         "improve",
+         "audit",
+         "tool_call",
++        "train",
++        "infer",
++        "retrain",
++        "trigger",
++        "enhance",
+     }
+ )
+ 
+@@ -36,6 +41,11 @@ _KIND_TO_TYPE = {
+     "improve": NodeType.DOCUMENT_REF,
+     "audit": NodeType.DOCUMENT_REF,
+     "tool_call": NodeType.TOOL_CALL,
++    "train": NodeType.DOCUMENT_REF,
++    "infer": NodeType.DOCUMENT_REF,
++    "retrain": NodeType.DOCUMENT_REF,
++    "trigger": NodeType.DOCUMENT_REF,
++    "enhance": NodeType.DOCUMENT_REF,
+ }
+ 
+ 
+@@ -43,6 +53,44 @@ class ConstructorGraphError(ValueError):
+     pass
+ 
+ 
++def _can_reach(outbound: dict[str, list[str]], start: str, goal: str) -> bool:
++    seen: set[str] = set()
++    stack = [start]
++    while stack:
++        cur = stack.pop()
++        if cur == goal:
++            return True
++        if cur in seen:
++            continue
++        seen.add(cur)
++        stack.extend(outbound.get(cur, []))
++    return False
++
++
++def dropped_cycle_edges(edges: list[Any], program: AgenticDSLProgram) -> list[dict[str, str]]:
++    kept = {(inp, n.id) for n in program.nodes for inp in n.inputs}
++    dropped: list[dict[str, str]] = []
++    for edge in edges or []:
++        if not isinstance(edge, dict):
++            continue
++        src, dst = edge.get("from"), edge.get("to")
++        if isinstance(src, str) and isinstance(dst, str) and (src, dst) not in kept:
++            dropped.append({"from": src, "to": dst, "reason": "cycle"})
++    return dropped
++
++
++def compiled_nodes(program: AgenticDSLProgram) -> list[dict[str, Any]]:
++    return [
++        {
++            "id": n.id,
++            "kind": n.type.value if hasattr(n.type, "value") else str(n.type),
++            "constructor_kind": (n.annotations or {}).get("constructor_kind"),
++            "inputs": n.inputs,
++        }
++        for n in program.nodes
++    ]
++
++
+ def compile_constructor_graph(payload: dict[str, Any]) -> AgenticDSLProgram:
+     """Map {nodes, edges} to a parse_dsl-valid program. Exactly one EMIT. No new orchestrator."""
+     nodes = payload.get("nodes")
+@@ -64,6 +112,7 @@ def compile_constructor_graph(payload: dict[str, Any]) -> AgenticDSLProgram:
+         by_id[raw["id"]] = raw
+ 
+     inbound: dict[str, list[str]] = {nid: [] for nid in by_id}
++    outbound: dict[str, list[str]] = {nid: [] for nid in by_id}
+     for edge in edges:
+         if not isinstance(edge, dict):
+             raise ConstructorGraphError("edge must be an object")
+@@ -72,8 +121,11 @@ def compile_constructor_graph(payload: dict[str, Any]) -> AgenticDSLProgram:
+             raise ConstructorGraphError("edge references missing node")
+         if src == dst:
+             raise ConstructorGraphError("self-edge not allowed")
++        if _can_reach(outbound, dst, src):
++            continue
+         if src not in inbound[dst]:
+             inbound[dst].append(src)
++            outbound[src].append(dst)
+ 
+     apps = [n["id"] for n in nodes if n["kind"] == "app"]
+     audits = [n["id"] for n in nodes if n["kind"] == "audit"]
+@@ -103,6 +155,8 @@ def compile_constructor_graph(payload: dict[str, Any]) -> AgenticDSLProgram:
+                 "data_type": raw.get("data_type"),
+                 "fetch_from": raw.get("fetch_from"),
+                 "stream": bool(raw.get("stream")),
++                "checkpoint": raw.get("checkpoint"),
++                "source_kind": raw.get("source_kind"),
+             },
+         }
+         if ntype == NodeType.DOCUMENT_REF:
+@@ -140,6 +194,8 @@ def recommend_extras(kinds: list[str]) -> dict[str, Any] | None:
+         return {"specialization_needed": True, "prefer_cheapest": False}
+     if {"hypothesize", "audit"} <= kindset:
+         return {"quality_critical": True, "explicit_criteria": True}
++    if {"train", "infer", "retrain"} <= kindset:
++        return {"quality_critical": True, "explicit_criteria": True}
+     return None
+ 
+ 
+diff --git a/packs/dms/constructor_routes.py b/packs/dms/constructor_routes.py
+index 65994f6..a969c96 100644
+--- a/packs/dms/constructor_routes.py
++++ b/packs/dms/constructor_routes.py
+@@ -24,9 +24,6 @@ from packs.dms.security.api_auth import (
+ 
+ COOKIE = "cortex_api_key"
+ PREFIX = "/cortex"
+-SKIN_NAMES = frozenset(
+-    {"index.html", "app.js", "styles.css", "engine.js", "README.md", "favicon.ico", "favicon.svg"}
+-)
+ 
+ router = APIRouter(tags=["constructor"])
+ 
+@@ -41,6 +38,16 @@ class ConstructorRunBody(BaseModel):
+     run_id: str = "constructor_run"
+ 
+ 
++class ConstructorGenerateBody(BaseModel):
++    prompt: str = ""
++    nodes: list[dict[str, Any]] = Field(default_factory=list)
++    edges: list[dict[str, Any]] = Field(default_factory=list)
++
++
++class ConstructorDecisionBody(ConstructorRunBody):
++    node_id: str = ""
++
++
+ class IssueKeyBody(BaseModel):
+     label: str = "constructor cortex viewer"
+     tier: str = "free"
+@@ -212,12 +219,23 @@ def cortex_root(
+     return RedirectResponse(url=PREFIX + "/constructor/", status_code=307)
+ 
+ 
+-def _skin_file(name: str) -> Path:
+-    if name not in SKIN_NAMES:
++def _skin_file(rel: str) -> Path:
++    raw = (rel or "").strip().lstrip("/")
++    if not raw:
+         raise HTTPException(status_code=404, detail="not found")
+-    path = _skin_dir() / name
+-    if not path.is_file():
++    parts = Path(raw).parts
++    if any(p in ("", ".", "..") for p in parts):
++        raise HTTPException(status_code=404, detail="not found")
++    root = _skin_dir().resolve()
++    if not root.is_dir():
+         raise HTTPException(status_code=503, detail="Constructor skin missing (set CONSTRUCTOR_SKIN_DIR)")
++    path = (root / raw).resolve()
++    try:
++        path.relative_to(root)
++    except ValueError as exc:
++        raise HTTPException(status_code=404, detail="not found") from exc
++    if not path.is_file():
++        raise HTTPException(status_code=404, detail="not found")
+     return path
+ 
+ 
+@@ -243,7 +261,7 @@ def constructor_ontology(caller: Caller = Depends(require_constructor_viewer)) -
+     return {"ok": True, **catalog()}
+ 
+ 
+-@router.get("/cortex/constructor/{name}", response_model=None)
++@router.get("/cortex/constructor/{name:path}", response_model=None)
+ def constructor_asset(
+     name: str,
+     request: Request,
+@@ -283,7 +301,12 @@ def constructor_ghost(
+     body: ConstructorRunBody,
+     caller: Caller = Depends(require_constructor_viewer),
+ ) -> dict[str, Any]:
+-    from CortexOS.constructor_graph import ConstructorGraphError, compile_constructor_graph
++    from CortexOS.constructor_graph import (
++        ConstructorGraphError,
++        compile_constructor_graph,
++        compiled_nodes,
++        dropped_cycle_edges,
++    )
+ 
+     try:
+         program = compile_constructor_graph({"nodes": body.nodes, "edges": body.edges})
+@@ -295,15 +318,8 @@ def constructor_ghost(
+         "actor": caller.actor,
+         "entry_node_id": program.entry_node_id,
+         "output_node_id": program.output_node_id,
+-        "nodes": [
+-            {
+-                "id": n.id,
+-                "kind": n.type.value if hasattr(n.type, "value") else str(n.type),
+-                "constructor_kind": (n.annotations or {}).get("constructor_kind"),
+-                "inputs": n.inputs,
+-            }
+-            for n in program.nodes
+-        ],
++        "dropped_cycle_edges": dropped_cycle_edges(body.edges, program),
++        "nodes": compiled_nodes(program),
+     }
+ 
+ 
+@@ -324,6 +340,78 @@ def constructor_recommend(
+     return {"ok": True, "recommendation": rec.as_dict(), "approaches": approaches}
+ 
+ 
++@router.post("/cortex/constructor/generate")
++def constructor_generate(
++    body: ConstructorGenerateBody,
++    caller: Caller = Depends(require_constructor_viewer),
++) -> dict[str, Any]:
++    if not body.nodes:
++        return {
++            "ok": False,
++            "client_compile": True,
++            "detail": "Constructor generateGraph compiles the canvas. POST nodes+edges to compile on Cortex.",
++        }
++    from CortexOS.constructor_graph import (
++        ConstructorGraphError,
++        compile_constructor_graph,
++        compiled_nodes,
++        dropped_cycle_edges,
++    )
++
++    try:
++        program = compile_constructor_graph({"nodes": body.nodes, "edges": body.edges})
++    except ConstructorGraphError as exc:
++        raise HTTPException(status_code=400, detail=str(exc)) from exc
++    return {
++        "ok": True,
++        "prompt": body.prompt,
++        "actor": caller.actor,
++        "nodes": body.nodes,
++        "edges": body.edges,
++        "entry_node_id": program.entry_node_id,
++        "output_node_id": program.output_node_id,
++        "dropped_cycle_edges": dropped_cycle_edges(body.edges, program),
++        "compiled": compiled_nodes(program),
++    }
++
++
++@router.post("/cortex/constructor/decision")
++def constructor_decision(
++    body: ConstructorDecisionBody,
++    caller: Caller = Depends(require_constructor_viewer),
++) -> dict[str, Any]:
++    from CortexOS.constructor_graph import (
++        ConstructorGraphError,
++        compile_constructor_graph,
++        dropped_cycle_edges,
++    )
++
++    try:
++        program = compile_constructor_graph({"nodes": body.nodes, "edges": body.edges})
++    except ConstructorGraphError as exc:
++        raise HTTPException(status_code=400, detail=str(exc)) from exc
++    nid = body.node_id or program.entry_node_id
++    node = next((n for n in program.nodes if n.id == nid), None)
++    if node is None:
++        raise HTTPException(status_code=404, detail=f"node {nid!r} not in compiled DAG")
++    kind = node.type.value if hasattr(node.type, "value") else str(node.type)
++    ann = node.annotations if isinstance(node.annotations, dict) else {}
++    _ = caller
++    return {
++        "ok": True,
++        "node_id": node.id,
++        "cortex_kind": kind,
++        "constructor_kind": ann.get("constructor_kind"),
++        "tool_name": node.tool_name,
++        "is_emit": program.output_node_id == node.id,
++        "is_entry": program.entry_node_id == node.id,
++        "inputs": node.inputs,
++        "dropped_cycle_edges": dropped_cycle_edges(body.edges, program),
++        "entry_node_id": program.entry_node_id,
++        "output_node_id": program.output_node_id,
++    }
++
++
+ @router.post("/cortex/constructor/run")
+ async def constructor_run(
+     request: Request,
+@@ -333,7 +421,11 @@ async def constructor_run(
+     from netie.execution.dag_runner import ExecutionContext, run_dag
+     from netie.execution.model_router import ModelRouter
+ 
+-    from CortexOS.constructor_graph import ConstructorGraphError, compile_constructor_graph
++    from CortexOS.constructor_graph import (
++        ConstructorGraphError,
++        compile_constructor_graph,
++        dropped_cycle_edges,
++    )
+ 
+     try:
+         program = compile_constructor_graph({"nodes": body.nodes, "edges": body.edges})
+@@ -400,6 +492,9 @@ async def constructor_run(
+         "actor": caller.actor,
+         "nodes": serialized,
+         "fetches": fetches,
++        "dropped_cycle_edges": dropped_cycle_edges(body.edges, program),
++        "entry_node_id": program.entry_node_id,
++        "output_node_id": program.output_node_id,
+     }
+ 
+ 
+diff --git a/tests/dms/test_constructor_graph.py b/tests/dms/test_constructor_graph.py
+index d462047..da8e17d 100644
+--- a/tests/dms/test_constructor_graph.py
++++ b/tests/dms/test_constructor_graph.py
+@@ -337,3 +337,120 @@ def test_ov_token_resolves_via_openvault(monkeypatch):
+     assert caller is not None
+     assert caller.role == "viewer"
+     assert caller.actor == "ov_k1"
++
++
++LOOP = {
++    "nodes": [
++        {"id": "g1", "kind": "ingest", "object_type": "inventory", "fetch_from": "warehouse.inventory"},
++        {"id": "g2", "kind": "train", "action_type": "model.fit", "checkpoint": "weights"},
++        {"id": "g3", "kind": "infer", "action_type": "model.score"},
++        {"id": "g4", "kind": "audit"},
++        {"id": "g5", "kind": "retrain", "action_type": "model.retrain"},
++        {"id": "g6", "kind": "foundry"},
++        {"id": "g7", "kind": "app"},
++    ],
++    "edges": [
++        {"from": "g1", "to": "g2"},
++        {"from": "g2", "to": "g3"},
++        {"from": "g3", "to": "g4"},
++        {"from": "g4", "to": "g5"},
++        {"from": "g5", "to": "g6"},
++        {"from": "g6", "to": "g7"},
++        {"from": "g5", "to": "g2"},
++    ],
++}
++
++
++def test_compile_train_loop_accepts_kinds_and_drops_cycle():
++    program = compile_constructor_graph(LOOP)
++    by_id = {n.id: n for n in program.nodes}
++    assert program.output_node_id == "g7"
++    assert by_id["g2"].annotations["constructor_kind"] == "train"
++    assert by_id["g3"].annotations["constructor_kind"] == "infer"
++    assert by_id["g5"].annotations["constructor_kind"] == "retrain"
++    assert "g5" not in by_id["g2"].inputs
++    from CortexOS.constructor_graph import dropped_cycle_edges
++
++    dropped = dropped_cycle_edges(LOOP["edges"], program)
++    assert dropped == [{"from": "g5", "to": "g2", "reason": "cycle"}]
++
++
++def test_compile_trigger_and_enhance():
++    program = compile_constructor_graph(
++        {
++            "nodes": [
++                {"id": "t", "kind": "trigger"},
++                {"id": "e", "kind": "enhance"},
++                {"id": "a", "kind": "app"},
++            ],
++            "edges": [{"from": "t", "to": "e"}, {"from": "e", "to": "a"}],
++        }
++    )
++    kinds = {(n.annotations or {}).get("constructor_kind") for n in program.nodes}
++    assert {"trigger", "enhance", "app"} <= kinds
++
++
++def test_ghost_train_loop_with_viewer_key(dms_client, api_keys_env):
++    res = dms_client.post(
++        "/cortex/constructor/ghost",
++        json=LOOP,
++        headers={"X-API-Key": api_keys_env["viewer"]},
++    )
++    assert res.status_code == 200, res.text
++    body = res.json()
++    assert body["ok"] is True
++    assert body["output_node_id"] == "g7"
++    assert body["dropped_cycle_edges"][0]["from"] == "g5"
++    kinds = {n["constructor_kind"] for n in body["nodes"]}
++    assert {"train", "infer", "retrain"} <= kinds
++
++
++def test_generate_and_decision_compile_on_cortex(dms_client, api_keys_env):
++    headers = {"X-API-Key": api_keys_env["viewer"]}
++    empty = dms_client.post("/cortex/constructor/generate", json={"prompt": "lab loop"}, headers=headers)
++    assert empty.status_code == 200
++    assert empty.json()["client_compile"] is True
++    gen = dms_client.post(
++        "/cortex/constructor/generate",
++        json={"prompt": "ingest train set then train then infer then retrain", **LOOP},
++        headers=headers,
++    )
++    assert gen.status_code == 200, gen.text
++    assert gen.json()["ok"] is True
++    assert gen.json()["compiled"]
++    dec = dms_client.post(
++        "/cortex/constructor/decision",
++        json={"node_id": "g2", **LOOP},
++        headers=headers,
++    )
++    assert dec.status_code == 200, dec.text
++    body = dec.json()
++    assert body["constructor_kind"] == "train"
++    assert body["cortex_kind"]
++
++
++def test_nested_skin_core_js_is_served(tmp_path, monkeypatch, api_keys_env):
++    reset_limiter(per_minute=120)
++    skin = tmp_path / "skin"
++    (skin / "core").mkdir(parents=True)
++    (skin / "index.html").write_text('<html><body id="stage"></body></html>')
++    (skin / "core" / "constructor.js").write_text("window.NetieConstructorCore=true;")
++    monkeypatch.setenv("CONSTRUCTOR_SKIN_DIR", str(skin))
++    monkeypatch.setenv("DMS_OPS_DB", str(tmp_path / "ops.db"))
++    from CortexOS.api.app import create_app
++
++    client = TestClient(create_app())
++    res = client.get(
++        "/cortex/constructor/core/constructor.js",
++        headers={"X-API-Key": api_keys_env["viewer"]},
++        follow_redirects=False,
++    )
++    assert res.status_code == 200, res.text
++    assert b"NetieConstructorCore" in res.content
++    denied = client.get(
++        "/cortex/constructor/core/../../pyproject.toml",
++        headers={"X-API-Key": api_keys_env["viewer"]},
++        follow_redirects=False,
++    )
++    assert denied.status_code in (404, 400, 303)
++
+-- 
+2.43.0
+
