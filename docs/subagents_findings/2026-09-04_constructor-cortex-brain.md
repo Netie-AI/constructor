@@ -37,3 +37,4 @@ PYTHONPATH=. pytest tests/dms/test_constructor_graph.py -q
 - Pages zero fetch. Live run only on /cortex.
 - Cortex is the only engine. Do not merge landing.
 - Cycle wire is a Constructor loop hint; Cortex DAG drops it.
+- Cortex write is on `cursor/constructor-cortex-mount`. This repo cannot push Cortex (403). Patch: `docs/patches/cortex-constructor-train-loop-mount.patch`.

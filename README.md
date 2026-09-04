@@ -55,7 +55,7 @@ Loop labs (Loop / 1 Train / 2 Infer / 3 Retrain) compile from `generateGraph("in
 
 Live fit/score still Cortex-only. Ghost on Pages is a mock ledger, not GPU.
 
-Local mount: Cortex branch `cursor/constructor-cortex-mount`, `CONSTRUCTOR_SKIN_DIR` = this repo, uvicorn on `:8012`, OpenVault on `:5000`. Linux: `CORTEX_DIR=/path/to/Cortex ./scripts/run-cortex-local.sh`. Windows: `run-local.ps1`.
+Local mount: Cortex branch `cursor/constructor-cortex-mount`, `CONSTRUCTOR_SKIN_DIR` = this repo, uvicorn on `:8012`, OpenVault on `:5000`. Linux: `CORTEX_DIR=/path/to/Cortex ./scripts/run-cortex-local.sh`. Windows: `run-local.ps1`. Apply `docs/patches/cortex-constructor-train-loop-mount.patch` on that Cortex branch (`git am`) so `train`/`infer`/`retrain` compile and `core/constructor.js` is served. This Constructor repo cannot push Cortex (403).
 
 Ontology Studio (rail `Ontology studio`, header `Ontology`, chat `ontology`) edits object types, properties, link types, action types, interfaces and fetch places in place, with an SVG graph, validation issues, changelog, undo/redo, and export as native JSON, Cortex catalog, JSON-LD, or Turtle. Contract: `docs/ONTOLOGY_STUDIO.md`. Tests: `npm test` (laws, unit, Playwright e2e with screenshots).
 
