@@ -1,15 +1,20 @@
 {
   "name": "constructor-skin",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "commonjs",
-  "description": "Constructor skin. Static Pages sketch; Cortex is the only engine.",
+  "description": "Netie-native Constructor skin. Cortex is the only engine. Not n8n, not Activepieces, not Crew.",
+  "license": "UNLICENSED",
   "scripts": {
     "test:laws": "node scripts/check-laws.js",
-    "test:unit": "node --test \"tests/unit/*.test.js\"",
+    "test:unit": "node --test tests/*.test.js tests/unit/*.test.js",
     "test:e2e": "playwright test",
     "test": "npm run test:laws && npm run test:unit && npm run test:e2e",
+    "start": "python3 -m http.server 4173 --bind 127.0.0.1",
     "serve": "http-server -p 8125 -s -c-1 ."
+  },
+  "engines": {
+    "node": ">=18"
   },
   "devDependencies": {
     "@playwright/test": "1.56.1",

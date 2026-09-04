@@ -1265,6 +1265,10 @@ window.addEventListener("resize", drawWires);
 })();
 
 function cortexOrigin() {
+  const Core = globalThis.NetieConstructorCore;
+  if (Core && Core.cortexOriginFrom) {
+    return Core.cortexOriginFrom(location.hostname, location.pathname);
+  }
   const host = location.hostname;
   const path = location.pathname;
   if (host === "app.netie.ai" && path.indexOf("/cortex") === 0) return true;

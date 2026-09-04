@@ -2,6 +2,7 @@
 .constructor-live
 .DS_Store
 Thumbs.db
+node_modules/
 scripts/tmp-*.json
 scripts/tmp-*.txt
 node_modules/
