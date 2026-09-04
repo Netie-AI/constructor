@@ -46,6 +46,33 @@ test("compileIR maps Constructor kinds onto Cortex IR", () => {
   assert.equal(tool.requires_confirm, true);
 });
 
+test("trigger compiles as DOCUMENT_REF with webhook fields", () => {
+  const ir = Core.compileIR(
+    {
+      nodes: [
+        { id: "tr", kind: "trigger", trigger_kind: "webhook", stream: true, source_kind: "stream", region: null },
+        { id: "a", kind: "app", action_type: "emit" },
+      ],
+      edges: [{ from: "tr", to: "a" }],
+    },
+    { ghost: true }
+  );
+  const tr = ir.nodes.find((n) => n.id === "tr");
+  assert.equal(Core.CORTEX_KIND.trigger, "DOCUMENT_REF");
+  assert.equal(tr.kind, "DOCUMENT_REF");
+  assert.equal(tr.constructor_kind, "trigger");
+  assert.equal(tr.trigger_kind, "webhook");
+  assert.equal(tr.stream, true);
+  assert.equal(tr.source_kind, "stream");
+});
+
+test("infer-style trigger+audit ranks generator-verifier first", () => {
+  const ranked = Core.rankApproachesForGraph({
+    nodes: [{ kind: "trigger" }, { kind: "ontology" }, { kind: "insight" }, { kind: "foundry" }, { kind: "app" }, { kind: "audit" }],
+  });
+  assert.equal(ranked[0].id, "generator_verifier");
+});
+
 test("topo walks a linear DAG then leftover nodes", () => {
   const state = {
     nodes: [{ id: "n1" }, { id: "n2" }, { id: "n3" }],

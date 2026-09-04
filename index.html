@@ -6,8 +6,8 @@
     <title>Constructor — Netie</title>
     <link rel="icon" href="favicon.ico" sizes="any" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=18" />
-    <link rel="stylesheet" href="ontology.css?v=18" />
+    <link rel="stylesheet" href="styles.css?v=21" />
+    <link rel="stylesheet" href="ontology.css?v=21" />
   </head>
   <body class="chat-open chat-snap-right">
     <header class="top">
@@ -16,46 +16,73 @@
         <div>
           <div class="eyebrow">NETIE / CONSTRUCTOR</div>
           <h1>Constructor</h1>
-          <p class="lede">Ingest rows. Model objects. Act. Ghost dry-run. Cortex is the only engine.</p>
           <p class="hint" id="power">Checking origin.</p>
           <p class="hint" id="ov-status">OpenVault: not bound.</p>
+          <p class="play-hud" id="play-hud" data-testid="play-hud">
+            <span id="play-ticks">0 ticks</span>
+            <span id="play-lab">sample</span>
+            <span id="play-insight"></span>
+          </p>
         </div>
       </div>
       <div class="actions">
-        <input id="cortex-key" type="password" autocomplete="off" placeholder="OpenVault key (ov_...)" />
-        <button type="button" id="issue-key" class="ghost">Issue ov_ key</button>
-        <button type="button" id="automate" class="ghost">Automate off</button>
         <button type="button" id="ghost-toggle" class="ghost">Ghost off</button>
-        <button type="button" id="propose">Propose 3</button>
-        <button type="button" id="maximize">Maximize</button>
-        <button type="button" id="ontology-btn" class="ghost">Ontology</button>
-        <button type="button" id="chat-toggle" class="ghost">Chat</button>
-        <button type="button" id="fit-view" class="ghost" title="Fit the graph into view">Fit</button>
         <button type="button" id="run-graph">Run</button>
+        <button type="button" id="chat-toggle" class="ghost">Chat</button>
+        <button type="button" id="propose">Propose 3</button>
+        <button type="button" id="ontology-btn" class="ghost">Ontology</button>
         <button type="button" id="export-json">Export JSON</button>
         <button type="button" id="reset-graph" class="ghost">Reset sample</button>
+        <details class="more-menu">
+          <summary>More</summary>
+          <div class="more-menu-list">
+            <input id="cortex-key" type="password" autocomplete="off" placeholder="ov_ key" />
+            <button type="button" id="issue-key" class="ghost">Issue ov_ key</button>
+            <button type="button" id="automate" class="ghost">Automate off</button>
+            <button type="button" id="maximize" class="ghost">Maximize</button>
+            <button type="button" id="fit-view" class="ghost" title="Fit the graph into view">Fit</button>
+          </div>
+        </details>
       </div>
     </header>
 
     <div class="shell">
       <aside class="rail">
-        <div class="eyebrow">BLOCKS</div>
+        <div class="eyebrow">LABS</div>
+        <div class="seed-row">
+          <button type="button" data-seed="train">1 Train</button>
+          <button type="button" data-seed="infer">2 Infer+judge</button>
+          <button type="button" data-seed="retrain">3 Retrain</button>
+        </div>
+        <details class="quiet">
+          <summary>More labs</summary>
+          <div class="seed-row">
+            <button type="button" data-seed="voice">Voice</button>
+            <button type="button" data-seed="image">Image gen</button>
+            <button type="button" data-seed="warehouse">Warehouse</button>
+          </div>
+        </details>
+        <div class="eyebrow rail-gap">BLOCKS</div>
         <button type="button" data-add="ingest"></button>
         <button type="button" data-add="connector"></button>
-        <button type="button" data-add="enhance"></button>
+        <button type="button" data-add="trigger"></button>
         <button type="button" data-add="ontology"></button>
         <button type="button" data-add="insight"></button>
         <button type="button" data-add="foundry"></button>
         <button type="button" data-add="app"></button>
-        <button type="button" data-add="agent"></button>
-        <button type="button" data-add="hypothesize"></button>
-        <button type="button" data-add="improve"></button>
-        <button type="button" data-add="audit"></button>
         <button type="button" data-add="tool_call"></button>
+        <details class="quiet">
+          <summary>More blocks</summary>
+          <button type="button" data-add="enhance"></button>
+          <button type="button" data-add="agent"></button>
+          <button type="button" data-add="hypothesize"></button>
+          <button type="button" data-add="improve"></button>
+          <button type="button" data-add="audit"></button>
+        </details>
         <div class="eyebrow rail-gap">MODEL</div>
         <button type="button" id="open-ontology" class="ghost" aria-label="Open Ontology Studio">Ontology studio</button>
         <p class="hint">
-          Ingest is hop 0. Source: place, cloud, database, local model, or online API. Chat compiles the desk to App. Ctrl+/ opens chat. No stalk. No scrape.
+          Pick a lab, press Run (ghost). Webhook/stream compile on Cortex only. Pages never fetch. Chat: lab train | define block my.tool
         </p>
       </aside>
 
@@ -82,7 +109,7 @@
       <header class="chat-dock-head">
         <div>
           <div class="eyebrow">CHAT</div>
-          <p class="hint chat-dock-kicker">Generate the whole desk. Snap bottom or right.</p>
+          <p class="hint chat-dock-kicker">Labs: train, infer, retrain. Snap bottom or right.</p>
         </div>
         <div class="chat-dock-tools">
           <button type="button" id="chat-snap-bottom" class="ghost" data-snap="bottom">Bottom</button>
@@ -95,11 +122,11 @@
         <textarea
           id="chat-input"
           rows="3"
-          placeholder="police suspect desk: owned images, local model enhance, match watchlist. Or: ingest warehouse inventory. Enter sends."
+          placeholder="lab train. lab infer. lab retrain. define block particle.mark. Or warehouse / suspect desk."
         ></textarea>
         <button type="submit">Send</button>
       </form>
-      <p class="hint chat-dock-hint">Ctrl+/ toggles. Esc closes. Ghost on Pages. Owned watchlist match is allowed. Stalk / sex-work / internet scrape stay refused.</p>
+      <p class="hint chat-dock-hint">Ctrl+/ toggles. Ghost on Pages. Not Airflow. Cortex is the only engine. No stalk.</p>
     </section>
 
     <button type="button" id="chat-fab" class="chat-fab" hidden aria-label="Open chat (Ctrl+/)">Chat</button>
@@ -115,10 +142,13 @@
           <button type="button" id="event-close" class="ghost">Close</button>
         </header>
         <p id="ingest-help" class="ingest-help" hidden>
-          Ingest is hop 0. Pick the source kind (place table, cloud sign-in, database link, local model, or online API), pick the object those rows become, then wire onward. This block never writes.
+          Ingest is hop 0. Place, stream, cloud (ghost), database, local model, or online API. No write.
         </p>
         <p id="enhance-help" class="ingest-help" hidden>
-          Enhance is Comfy-style. Bind a local model path or an online API. Ghost on Pages. Match against owned.watchlist. Distill Comfy, do not clone. No internet scrape.
+          Enhance is Comfy-style. Local model or online API. Ghost on Pages. Distill Comfy, do not clone.
+        </p>
+        <p id="trigger-help" class="ingest-help" hidden>
+          Trigger is webhook, schedule, or message. Pages ghost only. Live run is POST /cortex/constructor/run on a /cortex origin.
         </p>
         <div id="event-fields"></div>
         <p id="event-actions-hint" class="hint"></p>
@@ -130,10 +160,10 @@
       </form>
     </div>
 
-    <script src="core/constructor.js?v=18"></script>
-    <script src="ontology.js?v=18"></script>
-    <script src="app.js?v=18"></script>
-    <script src="ontology-studio.js?v=18"></script>
-    <script src="engine.js?v=18"></script>
+    <script src="core/constructor.js?v=21"></script>
+    <script src="ontology.js?v=21"></script>
+    <script src="app.js?v=21"></script>
+    <script src="ontology-studio.js?v=21"></script>
+    <script src="engine.js?v=21"></script>
   </body>
 </html>

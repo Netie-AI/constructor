@@ -15,6 +15,7 @@
   const CORTEX_KIND = {
     ingest: "DOCUMENT_REF",
     connector: "DOCUMENT_REF",
+    trigger: "DOCUMENT_REF",
     ontology: "DOCUMENT_REF",
     insight: "DOCUMENT_REF",
     foundry: "DOCUMENT_REF",
@@ -30,6 +31,7 @@
   const KIND_NOTES = {
     ingest: { persona: "loader", note: "Hop 0. Load rows from a place into an object. No write." },
     connector: { persona: "source", note: "First-party Cortex input bound to an object. No n8n." },
+    trigger: { persona: "source", note: "Webhook, schedule, or message. Ghost on Pages. Live only on /cortex." },
     ontology: { persona: "modeler", note: "Object, link, and action types on this graph." },
     insight: { persona: "analyst", note: "Cite ontology + ledger. What you may claim." },
     foundry: { persona: "compiler", note: "Compile insights into a governed Cortex app." },
@@ -126,6 +128,10 @@
           fetch_from: n.fetch_from || null,
           tier: n.tier || "T0",
           stream: !!n.stream,
+          trigger_kind: n.trigger_kind || null,
+          source_kind: n.source_kind || null,
+          source_link: n.source_link || null,
+          region: n.region || null,
           note: n.note,
           requires_confirm: n.kind === "tool_call",
         };
@@ -183,10 +189,12 @@
     const kinds = new Set((state.nodes || []).map((n) => n.kind));
     const foundry = ["ontology", "insight", "foundry", "app"].every((k) => kinds.has(k));
     const verify = kinds.has("hypothesize") && kinds.has("audit") && !foundry;
+    const judge = kinds.has("audit") && kinds.has("trigger");
     const ranked = APPROACHES.map((row) => {
       let score = scoreApproach(row);
       if (foundry && row.id === "orchestrator_subagent") score += 20;
       if (verify && row.id === "generator_verifier") score += 20;
+      if (judge && row.id === "generator_verifier") score += 22;
       return Object.assign({}, row, { score: score });
     }).sort((a, b) => b.score - a.score);
     return ranked;

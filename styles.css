@@ -662,3 +662,97 @@ body.chat-open.chat-snap-right .chat-dock {
     min-height: 42vh;
   }
 }
+
+.actions {
+  max-width: none;
+}
+
+.more-menu {
+  position: relative;
+}
+
+.more-menu summary {
+  list-style: none;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+}
+
+.more-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.more-menu-list {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 12rem;
+  padding: 0.5rem;
+  background: var(--pop);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.more-menu-list #cortex-key {
+  min-width: 10rem;
+  width: 100%;
+}
+
+details.quiet > button[data-add] {
+  width: 100%;
+}
+
+details.quiet summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.seed-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.25rem;
+}
+
+.seed-row button {
+  font-size: 0.72rem;
+  padding: 0.25rem 0.4rem;
+}
+
+.play-hud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.play-hud #play-ticks {
+  color: var(--text);
+}
+
+.play-hud #play-lab {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.7rem;
+}
+
+.region-mark {
+  margin-top: 0.45rem;
+}
+
+.region-mark svg {
+  display: block;
+  border-radius: 6px;
+}
+
+.node .sub {
+  max-width: 11rem;
+}

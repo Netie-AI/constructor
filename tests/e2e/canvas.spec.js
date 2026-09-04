@@ -19,6 +19,12 @@ async function chat(page, text) {
   return replies.last();
 }
 
+async function openMoreBlocks(page) {
+  const panel = page.locator("details.quiet").filter({ has: page.locator("[data-add=agent]") });
+  await panel.locator("summary").click();
+  await expect(page.locator("[data-add=agent]")).toBeVisible();
+}
+
 test.describe("canvas", () => {
   let errors;
 
@@ -51,6 +57,7 @@ test.describe("canvas", () => {
 
   test("rail [data-add=agent] adds a 9th node and opens #cal-pop", async ({ page }) => {
     await expect(page.locator("#cal-pop")).toBeHidden();
+    await openMoreBlocks(page);
     await page.locator("[data-add=agent]").click();
     await expect(page.locator(".node")).toHaveCount(9);
     await expect(page.locator(".node[data-kind=agent]")).toHaveCount(1);
@@ -100,6 +107,7 @@ test.describe("canvas", () => {
   });
 
   test("reset restores 8 nodes", async ({ page }) => {
+    await openMoreBlocks(page);
     await page.locator("[data-add=agent]").click();
     await expect(page.locator(".node")).toHaveCount(9);
     await page.locator("#reset-graph").click();

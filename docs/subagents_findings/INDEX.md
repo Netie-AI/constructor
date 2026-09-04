@@ -2,6 +2,7 @@
 
 | Date | Topic | Keywords | Main idea | Path |
 |------|-------|----------|-----------|------|
+| 2026-09-04 | constructor-labs-play | constructor, labs, play, trigger, webhook, stream, train, infer, retrain, define-block | Three mock labs + trigger/stream + define block. Ghost ticks. Not Airflow/n8n. Pages zero fetch. | `2026-09-04_constructor-labs-play.md` |
 | 2026-09-04 | constructor-v0-scaffold | constructor, v0, ir, tests, pages, landing#9 | Extract NetieConstructorCore + node:test. No invented host. PR only. | `2026-09-04_constructor-v0-scaffold.md` |
 | 2026-09-03 | constructor-ontology-studio | constructor, ontology, studio, foundry, semantica, validate, owl, jsonld, playwright, ci | Ontology Studio: `ontology.js` model (objects/properties/links/actions/interfaces/places, validation codes, undo, changelog, native/Cortex/JSON-LD/Turtle export) + workbench overlay + chat verbs. Catalog arrays are views over the model. Playwright e2e + laws + CI. Parallel lanes hit a 429 session limit; QA lane survived. | `2026-09-03_constructor-ontology-studio.md` |
 | 2026-08-28 | constructor-ghost-honesty | constructor, ghost, 404, n8n, dry-run | README no longer claims app.netie.ai live. Cortex tests assert ghost is compile-only and 404 is blocked. | `2026-08-28_constructor-ghost-honesty.md` |
