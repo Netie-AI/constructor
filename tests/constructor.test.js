@@ -46,6 +46,28 @@ test("compileIR maps Constructor kinds onto Cortex IR", () => {
   assert.equal(tool.requires_confirm, true);
 });
 
+test("app IR is EMIT skin, ingest keeps the warehouse place", () => {
+  const ir = Core.compileIR(
+    {
+      nodes: [
+        { id: "a", kind: "ingest", fetch_from: "warehouse.inventory", object_type: "inventory" },
+        { id: "b", kind: "app", action_type: "emit", skin: "warehouse" },
+      ],
+      edges: [{ from: "a", to: "b" }],
+    },
+    { ghost: true }
+  );
+  const ingest = ir.nodes.find((n) => n.id === "a");
+  const app = ir.nodes.find((n) => n.id === "b");
+  assert.equal(ingest.data_in, "warehouse.inventory");
+  assert.equal(ingest.data_out, "inventory");
+  assert.equal(app.kind, "EMIT");
+  assert.equal(app.skin, "warehouse");
+  assert.equal(app.action_type, "emit");
+  assert.equal(app.data_out, "EMIT warehouse");
+  assert.equal(app.fetch_from, null);
+});
+
 test("trigger compiles as DOCUMENT_REF with webhook fields", () => {
   const ir = Core.compileIR(
     {
@@ -116,6 +138,9 @@ test("warehouse chat compiles ingest -> app Cortex graph", () => {
   assert.equal(kinds[0], "ingest");
   assert.equal(kinds.indexOf("app") >= 0, true);
   assert.equal(graph.edges.length, graph.nodes.length - 1);
+  const app = graph.nodes.find((n) => n.kind === "app");
+  assert.equal(app.action_type, "emit");
+  assert.equal(app.skin, "warehouse");
 });
 
 test("refusePrompt blocks stalk / sex-work / public scrape", () => {

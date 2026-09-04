@@ -350,14 +350,39 @@ h1 {
 
 .inspect-form select,
 .inspect-form input,
+.inspect-form textarea,
 .event-form select,
-.event-form input {
+.event-form input,
+.event-form textarea {
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--border);
   padding: 0.4rem 0.45rem;
   font-size: 12px;
   border-radius: 6px;
+  font: inherit;
+}
+
+.event-form textarea,
+.inspect-form textarea {
+  min-height: 3.2rem;
+  resize: vertical;
+}
+
+.io,
+.node .io {
+  margin: 0.2rem 0 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.io span,
+.node .io span {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
 }
 
 #inspect-json,

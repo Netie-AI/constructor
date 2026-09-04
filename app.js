@@ -3,6 +3,8 @@ const CHAT_DOCK_KEY = "netie.constructor.chatdock.v1";
 const PLAY_KEY = "netie.constructor.play.v1";
 const SOURCE_KINDS = ["place", "stream", "cloud", "database", "local_model", "online_api"];
 const TRIGGER_KINDS = ["webhook", "schedule", "message"];
+const SKINS = ["constructor", "warehouse", "ontology", "suspect"];
+const COMPUTE = ["cortex"];
 
 function ico(paths) {
   return (
@@ -434,8 +436,20 @@ function seedNode(kind, x, y) {
     node.source_link = "streams.open";
     node.fetch_from = "streams.open";
   }
-  if (kind === "tool_call" || kind === "foundry") node.action_type = "export_pptx";
-  if (kind === "app") node.action_type = "emit";
+  if (kind === "tool_call") node.action_type = "export_pptx";
+  if (kind === "foundry") {
+    node.action_type = "export_pptx";
+    node.skin = "warehouse";
+    node.compute = "cortex";
+  }
+  if (kind === "app") {
+    node.action_type = "emit";
+    node.skin = "constructor";
+    node.object_type = "inventory";
+  }
+  if (kind === "insight" || kind === "audit" || kind === "agent" || kind === "hypothesize" || kind === "improve") {
+    node.object_type = node.object_type || "inventory";
+  }
   return node;
 }
 
@@ -449,8 +463,8 @@ function foundrySample() {
       {
         id: "n0",
         kind: "ingest",
-        x: 32,
-        y: 48,
+        x: 24,
+        y: 64,
         object_type: "inventory",
         data_point: "sku",
         data_type: "string",
@@ -466,8 +480,8 @@ function foundrySample() {
       {
         id: "c1",
         kind: "connector",
-        x: 240,
-        y: 48,
+        x: 220,
+        y: 64,
         object_type: "inventory",
         data_point: "sku",
         data_type: "string",
@@ -482,55 +496,59 @@ function foundrySample() {
       {
         id: "o1",
         kind: "ontology",
-        x: 448,
-        y: 48,
+        x: 416,
+        y: 64,
         object_type: "suppliers",
         data_point: "supplier_id",
         data_type: "string",
-        fetch_from: "warehouse.suppliers",
         persona: "modeler",
         note: "Cortex ontology objects/links/actions. Not a custom type picker.",
       },
       {
         id: "i1",
         kind: "insight",
-        x: 656,
-        y: 48,
-        object_type: "Insight",
+        x: 612,
+        y: 64,
+        object_type: "inventory",
         persona: "analyst",
         note: "Cite ontology + ledger. What you may claim from those objects.",
       },
       {
         id: "f1",
         kind: "foundry",
-        x: 240,
-        y: 208,
+        x: 808,
+        y: 64,
         action_type: "export_pptx",
+        skin: "warehouse",
+        compute: "cortex",
         persona: "compiler",
         note: "Compile insights into a governed Cortex app. Not an Activepieces clone.",
       },
       {
         id: "a1",
         kind: "app",
-        x: 448,
-        y: 208,
+        x: 1004,
+        y: 64,
         action_type: "emit",
+        skin: "warehouse",
+        object_type: "inventory",
         persona: "operator",
         note: "Runnable output. Hosted inside Cortex at /cortex/constructor/.",
       },
       {
         id: "g1",
         kind: "audit",
-        x: 32,
-        y: 208,
+        x: 808,
+        y: 260,
+        object_type: "inventory",
         persona: "steward",
         note: "Why this node exists. Ghost ledgers would-call, not a second EMIT.",
       },
       {
         id: "t1",
         kind: "tool_call",
-        x: 656,
-        y: 208,
+        x: 1004,
+        y: 260,
         action_type: "export_pptx",
         object_type: "inventory",
         data_point: "sku",
@@ -570,14 +588,14 @@ function labGraph(lab) {
   }
   if (lab === "infer") {
     const nodes = [
-      { id: "tr", kind: "trigger", x: 40, y: 70, note: "Webhook / message. Ghost on Pages.", trigger_kind: "webhook", stream: true, source_kind: "stream", source_link: "streams.open", fetch_from: "streams.open", persona: "source" },
-      { id: "n0", kind: "ingest", x: 220, y: 70, note: "Mock particle frames. Not a camera.", object_type: "images", data_point: "image_id", data_type: "string", source_kind: "place", fetch_from: "owned.images", persona: "loader" },
-      { id: "e1", kind: "enhance", x: 400, y: 70, note: "Resize. File-type check in Cortex, not here.", object_type: "images", data_point: "image_id", source_kind: "local_model", source_link: "local://enhance", fetch_from: "local.model", action_type: "image.enhance", persona: "enhancer" },
-      { id: "o1", kind: "ontology", x: 580, y: 70, note: "Object + PK. Studio for inventory.", object_type: "images", data_point: "image_id", persona: "modeler" },
-      { id: "i1", kind: "insight", x: 220, y: 210, note: "Region mark: bent particle. Mock SVG, not CV.", region: "cx=62 cy=48 r=18 why=bent_particle", object_type: "images", persona: "analyst" },
-      { id: "f1", kind: "foundry", x: 400, y: 210, note: "Infer compile. Weights stay in Cortex.", action_type: "export_pptx", persona: "compiler" },
-      { id: "a1", kind: "app", x: 580, y: 210, note: "Skin. Engine is Cortex.", action_type: "emit", persona: "operator" },
-      { id: "g1", kind: "audit", x: 760, y: 140, note: "LLM-as-judge mock: label vs region. Not a live LLM on Pages.", region: "cx=62 cy=48 r=18 why=bent_particle", persona: "steward" },
+      { id: "tr", kind: "trigger", x: 24, y: 64, note: "Webhook / message. Ghost on Pages.", trigger_kind: "webhook", stream: true, source_kind: "stream", source_link: "streams.open", fetch_from: "streams.open", persona: "source" },
+      { id: "n0", kind: "ingest", x: 220, y: 64, note: "Mock particle frames. Not a camera.", object_type: "images", data_point: "image_id", data_type: "string", source_kind: "place", fetch_from: "owned.images", persona: "loader" },
+      { id: "e1", kind: "enhance", x: 416, y: 64, note: "Resize. File-type check in Cortex, not here.", object_type: "images", data_point: "image_id", source_kind: "local_model", source_link: "local://enhance", fetch_from: "local.model", action_type: "image.enhance", persona: "enhancer" },
+      { id: "o1", kind: "ontology", x: 612, y: 64, note: "Object + PK. Studio for inventory.", object_type: "images", data_point: "image_id", persona: "modeler" },
+      { id: "i1", kind: "insight", x: 808, y: 64, note: "Region mark: bent particle. Mock SVG, not CV.", region: "cx=62 cy=48 r=18 why=bent_particle", object_type: "images", persona: "analyst" },
+      { id: "f1", kind: "foundry", x: 1004, y: 64, note: "Infer compile. Weights stay in Cortex.", action_type: "export_pptx", skin: "constructor", compute: "cortex", persona: "compiler" },
+      { id: "a1", kind: "app", x: 1004, y: 260, note: "Skin. Engine is Cortex.", action_type: "emit", skin: "constructor", object_type: "images", persona: "operator" },
+      { id: "g1", kind: "audit", x: 808, y: 260, note: "LLM-as-judge mock: label vs region. Not a live LLM on Pages.", region: "cx=62 cy=48 r=18 why=bent_particle", object_type: "images", persona: "steward" },
     ];
     const edges = [
       { from: "tr", to: "n0" },
@@ -695,13 +713,7 @@ function render() {
     el.style.left = node.x + "px";
     el.style.top = node.y + "px";
     el.style.setProperty("--kind", meta.color);
-    const persona = node.persona || meta.persona;
-    const sub =
-      node.kind === "ontology"
-        ? ontologySummary(node)
-        : node.object_type
-          ? node.object_type + (node.data_point ? " · " + node.data_point : "")
-          : node.action_type || "";
+    const io = nodeIo(node);
     el.innerHTML =
       '<div class="node-head">' +
       '<span class="ico">' +
@@ -714,12 +726,13 @@ function render() {
       "</div><h2>" +
       meta.label +
       "</h2>" +
-      (persona ? '<p class="persona">' + escapeAttr(persona) + "</p>" : "") +
-      (function () {
-        const why = node.region ? parseRegion(node.region).why || "region" : "";
-        const line = [sub, why].filter(Boolean).join(" · ");
-        return line ? '<p class="sub">' + escapeAttr(line) + "</p>" : "";
-      })() +
+      (node.kind === "ontology"
+        ? '<p class="sub">' + escapeAttr(ontologySummary(node)) + "</p>"
+        : '<p class="io"><span>IN</span> ' +
+          escapeAttr(io.data_in) +
+          '</p><p class="io"><span>OUT</span> ' +
+          escapeAttr(io.data_out) +
+          "</p>") +
       '<div class="ports">' +
       '<button type="button" class="port" data-port="in" aria-label="input port"></button>' +
       '<button type="button" class="port" data-port="out" aria-label="output port"></button>' +
@@ -734,7 +747,7 @@ function nodeCenter(id, port) {
   const node = state.nodes.find((n) => n.id === id);
   if (!node) return { x: 0, y: 0 };
   const w = 188;
-  const h = 110;
+  const h = 124;
   return {
     x: node.x + (port === "out" ? w - 18 : 18),
     y: node.y + h - 18,
@@ -866,16 +879,7 @@ function openCalPop(node, extra) {
   if (enhanceHelp) enhanceHelp.hidden = node.kind !== "enhance";
   const triggerHelp = document.getElementById("trigger-help");
   if (triggerHelp) triggerHelp.hidden = node.kind !== "trigger";
-  const obj = node.object_type && OBJECTS[node.object_type] ? node.object_type : Object.keys(OBJECTS)[0];
-  const allowed = actionsForObject(obj);
-  if (hint) {
-    hint.textContent =
-      node.kind === "ingest"
-        ? "Ingest has no action. Wire it into ontology, then foundry/tool_call to act."
-        : node.kind === "trigger"
-          ? "Webhook, schedule, or message. Ghost on Pages. Live only on /cortex."
-          : "Actions on " + obj + ": " + allowed.join(", ") + ".";
-  }
+  if (hint) hint.textContent = hintForKind(node);
   if (fields) {
     fields.innerHTML =
       eventFieldsHtml(node) +
@@ -912,61 +916,187 @@ function fieldInput(name, label, value, placeholder) {
   );
 }
 
-function eventFieldsHtml(node) {
+function fieldTextarea(name, label, value, placeholder) {
+  return (
+    "<label>" +
+    label +
+    '</label><textarea name="' +
+    name +
+    '" rows="2" placeholder="' +
+    escapeAttr(placeholder || "") +
+    '">' +
+    escapeAttr(value || "") +
+    "</textarea>"
+  );
+}
+
+function nodeIo(node) {
+  const Core = globalThis.NetieConstructorCore;
+  if (Core && typeof Core.nodeIo === "function") return Core.nodeIo(node);
+  return { data_in: "in", data_out: "out" };
+}
+
+function ioBannerHtml(node, withTestId) {
+  const io = nodeIo(node);
+  return (
+    '<p class="io"' +
+    (withTestId ? ' data-testid="block-io"' : "") +
+    "><span>IN</span> " +
+    escapeAttr(io.data_in) +
+    " <span>OUT</span> " +
+    escapeAttr(io.data_out) +
+    "</p>"
+  );
+}
+
+function hintForKind(node) {
+  const k = node.kind;
+  if (k === "ingest") return "IN place/stream/db. OUT object rows. No write.";
+  if (k === "connector") return "IN source bind. OUT typed feed. DMS places compile to Cortex, not a second SPA.";
+  if (k === "trigger") return "IN webhook/schedule/message. OUT event. Live only on /cortex.";
+  if (k === "ontology") return "IN object type. OUT schema + PK. Studio edits properties, links, actions.";
+  if (k === "insight") return "IN object + ledger. OUT a claim. Region is a mock mark, not live CV.";
+  if (k === "foundry") return "IN insights. OUT compiled Cortex app IR. Spark/Airflow-class jobs are Cortex DAG compile, not a product UI.";
+  if (k === "app") return "IN compiled IR. OUT EMIT skin a stranger runs inside Cortex. Not a warehouse fetch.";
+  if (k === "tool_call") return "IN object + action. OUT governed write. requires_confirm.";
+  if (k === "enhance") return "IN owned image. OUT enhanced image. Ghost on Pages.";
+  if (k === "audit") return "IN claim. OUT pass/fail gate. Not a second EMIT.";
+  if (k === "agent") return "IN task. OUT AGENT_TASK. One worker.";
+  if (k === "hypothesize") return "IN rows. OUT testable claim.";
+  if (k === "improve") return "IN claim. OUT product edit.";
+  return "";
+}
+
+function objectPickHtml(node, objectLabel, pointLabel) {
   const obj = node.object_type && OBJECTS[node.object_type] ? node.object_type : Object.keys(OBJECTS)[0];
   const points = OBJECTS[obj].points;
   const point = node.data_point && points[node.data_point] ? node.data_point : Object.keys(points)[0];
   const dtype = node.data_type || points[point];
-  const allowed = actionsForObject(obj);
-  const action = allowed.indexOf(node.action_type) >= 0 ? node.action_type : allowed[0];
-  const persona = node.persona && PERSONAS.indexOf(node.persona) >= 0 ? node.persona : KINDS[node.kind].persona;
+  let html = fieldSelect("object_type", objectLabel, Object.keys(OBJECTS), obj);
+  if (pointLabel) {
+    html +=
+      fieldSelect("data_point", pointLabel, Object.keys(points), point) +
+      fieldSelect("data_type", "Data type", ["string", "number", "integer", "boolean", "date"], dtype);
+  }
+  return html;
+}
+
+function sourceBindHtml(node) {
   const sourceKind =
     node.source_kind && SOURCE_KINDS.indexOf(node.source_kind) >= 0 ? node.source_kind : "place";
   const sourceLabel = node.kind === "ingest" ? "Source place (hop 0)" : "Fetch / place";
-  const objectLabel = node.kind === "ingest" ? "Becomes object" : "Object (ontology)";
-  const bindSource =
-    node.kind === "ingest" || node.kind === "connector" || node.kind === "enhance" || node.kind === "trigger";
-  let html =
-    fieldSelect("persona", "Persona", PERSONAS, persona) +
-    fieldSelect("object_type", objectLabel, Object.keys(OBJECTS), obj) +
-    fieldSelect("data_point", "Data point", Object.keys(points), point) +
-    fieldSelect("data_type", "Data type", ["string", "number", "integer", "boolean", "date"], dtype);
-  if (node.kind === "trigger") {
-    const tk =
-      node.trigger_kind && TRIGGER_KINDS.indexOf(node.trigger_kind) >= 0 ? node.trigger_kind : "webhook";
-    html += fieldSelect("trigger_kind", "Trigger", TRIGGER_KINDS, tk);
-  }
-  if (bindSource) {
-    html += fieldSelect("source_kind", "Source kind", SOURCE_KINDS, sourceKind);
-    if (sourceKind === "cloud") {
-      html +=
-        '<p class="hint">Ghost cloud sign-in. No OAuth. No fetch on Pages.</p>' +
-        '<button type="button" id="cloud-signin">Sign in (ghost)</button>';
-    } else if (sourceKind === "database") {
-      html += fieldInput("source_link", "Database link", node.source_link || "db.link", "owned.images or db.incidents");
-    } else if (sourceKind === "local_model") {
-      html += fieldInput("source_link", "Local model", node.source_link || "local://enhance", "local://enhance or a model path");
-    } else if (sourceKind === "online_api") {
-      html += fieldInput("source_link", "Online API", node.source_link || "api.enhance", "api.enhance (ghost, no fetch on Pages)");
-    } else if (sourceKind === "stream") {
-      html +=
-        '<p class="hint">Open stream. Compiles to Cortex /dms/streams. Pages cannot stream.</p>' +
-        fieldInput("source_link", "Stream id", node.source_link || "streams.open", "streams.open");
-    } else {
-      html += fieldSelect("fetch_from", sourceLabel, FETCH_PLACES, node.fetch_from || "warehouse.inventory");
-    }
+  let html = fieldSelect("source_kind", "Source kind", SOURCE_KINDS, sourceKind);
+  if (sourceKind === "cloud") {
+    html +=
+      '<p class="hint">Ghost cloud sign-in. No OAuth. No fetch on Pages.</p>' +
+      '<button type="button" id="cloud-signin">Sign in (ghost)</button>';
+  } else if (sourceKind === "database") {
+    html += fieldInput("source_link", "Database link", node.source_link || "db.link", "owned.images or db.incidents");
+  } else if (sourceKind === "local_model") {
+    html += fieldInput("source_link", "Local model", node.source_link || "local://enhance", "local://enhance or a model path");
+  } else if (sourceKind === "online_api") {
+    html += fieldInput("source_link", "Online API", node.source_link || "api.enhance", "api.enhance (ghost, no fetch on Pages)");
+  } else if (sourceKind === "stream") {
+    html +=
+      '<p class="hint">Open stream. Compiles to Cortex /dms/streams. Pages cannot stream.</p>' +
+      fieldInput("source_link", "Stream id", node.source_link || "streams.open", "streams.open");
   } else {
     html += fieldSelect("fetch_from", sourceLabel, FETCH_PLACES, node.fetch_from || "warehouse.inventory");
   }
-  if (node.kind !== "ingest" && node.kind !== "trigger") {
-    html += fieldSelect("action_type", "Action", allowed, action);
+  return html;
+}
+
+function eventFieldsHtml(node) {
+  const kind = node.kind;
+  const persona = node.persona && PERSONAS.indexOf(node.persona) >= 0 ? node.persona : KINDS[kind].persona;
+  const obj = node.object_type && OBJECTS[node.object_type] ? node.object_type : Object.keys(OBJECTS)[0];
+  const allowed = actionsForObject(obj);
+  const action = allowed.indexOf(node.action_type) >= 0 ? node.action_type : allowed[0];
+  const skin = node.skin && SKINS.indexOf(node.skin) >= 0 ? node.skin : "constructor";
+  let html = ioBannerHtml(node, true);
+  if (kind === "ingest") {
+    html += objectPickHtml(node, "Becomes object", "Data point") + sourceBindHtml(node);
+    html += fieldSelect("stream", "Stream", ["false", "true"], node.stream ? "true" : "false");
+    return html;
   }
-  if (node.kind === "insight" || node.kind === "audit") {
-    html += fieldInput("region", "Region mark (mock)", node.region || "", "cx=62 cy=48 r=18 why=bent_particle");
+  if (kind === "connector") {
+    html += objectPickHtml(node, "Binds object", "Data point") + sourceBindHtml(node);
+    html += fieldSelect("stream", "Stream", ["false", "true"], node.stream ? "true" : "false");
+    return html;
   }
-  html +=
-    fieldSelect("tier", "Router tier", TIERS, TIERS.indexOf(node.tier) >= 0 ? node.tier : "T0") +
-    fieldSelect("stream", "Stream", ["false", "true"], node.stream ? "true" : "false");
+  if (kind === "trigger") {
+    const tk =
+      node.trigger_kind && TRIGGER_KINDS.indexOf(node.trigger_kind) >= 0 ? node.trigger_kind : "webhook";
+    html += fieldSelect("trigger_kind", "Trigger", TRIGGER_KINDS, tk) + sourceBindHtml(node);
+    return html;
+  }
+  if (kind === "ontology") {
+    html += objectPickHtml(node, "Object type", "Primary key / point");
+    return html;
+  }
+  if (kind === "insight") {
+    html +=
+      objectPickHtml(node, "Claim about object", null) +
+      fieldTextarea("doing", "Claim", node.doing || node.note || "", "What you may say from the ledger") +
+      fieldInput("region", "Region mark (mock)", node.region || "", "cx=62 cy=48 r=18 why=bent_particle");
+    return html;
+  }
+  if (kind === "foundry") {
+    html +=
+      fieldSelect("skin", "Compile to skin", SKINS, skin) +
+      fieldSelect("compute", "Compute", COMPUTE, node.compute === "cortex" ? "cortex" : "cortex") +
+      '<p class="hint">Spark / Airflow-class work is a Cortex DAG. No Airflow UI here.</p>' +
+      fieldSelect("action_type", "Handoff action", allowed, action);
+    return html;
+  }
+  if (kind === "app") {
+    html +=
+      fieldSelect("skin", "App skin", SKINS, skin) +
+      objectPickHtml(node, "Primary object on the app", null) +
+      fieldTextarea("doing", "What a stranger can do", node.doing || node.note || "", "Emit inside Cortex. Not a fetch.");
+    return html;
+  }
+  if (kind === "tool_call") {
+    html +=
+      objectPickHtml(node, "Object", "Data point") +
+      fieldSelect("action_type", "Action", allowed, action) +
+      '<p class="hint">requires_confirm. define block &lt;id&gt; adds a new action.</p>';
+    return html;
+  }
+  if (kind === "enhance") {
+    html += objectPickHtml(node, "Image object", "Data point") + sourceBindHtml(node);
+    html += fieldSelect("action_type", "Action", ["image.enhance"], "image.enhance");
+    return html;
+  }
+  if (kind === "audit") {
+    html +=
+      objectPickHtml(node, "Gate on object", null) +
+      fieldTextarea("doing", "Gate", node.doing || node.note || "", "Pass / fail rule") +
+      fieldInput("region", "Region mark (mock)", node.region || "", "cx=62 cy=48 r=18 why=false");
+    return html;
+  }
+  if (kind === "agent") {
+    html +=
+      fieldSelect("persona", "Persona", PERSONAS, persona) +
+      fieldTextarea("doing", "Task", node.doing || node.note || "", "One bounded AGENT_TASK") +
+      objectPickHtml(node, "Works on object", null) +
+      fieldSelect("tier", "Router tier", TIERS, TIERS.indexOf(node.tier) >= 0 ? node.tier : "T0");
+    return html;
+  }
+  if (kind === "hypothesize") {
+    html +=
+      objectPickHtml(node, "Claim about object", null) +
+      fieldTextarea("doing", "Hypothesis", node.doing || node.note || "", "Testable claim");
+    return html;
+  }
+  if (kind === "improve") {
+    html +=
+      objectPickHtml(node, "Object", null) +
+      fieldSelect("action_type", "Action", allowed, action) +
+      fieldTextarea("doing", "Change", node.doing || node.note || "", "What to edit");
+    return html;
+  }
+  html += fieldSelect("persona", "Persona", PERSONAS, persona);
   return html;
 }
 
@@ -1018,8 +1148,6 @@ function showInspect() {
   inspectForm.hidden = true;
   const meta = KINDS[node.kind] || { label: node.kind, icon: "", persona: "", color: "#888", note: "" };
   const persona = node.persona || meta.persona;
-  const obj = node.object_type || "-";
-  const allowed = actionsForObject(node.object_type);
   if (inspectCard) {
     inspectCard.hidden = false;
     inspectCard.style.setProperty("--kind", meta.color);
@@ -1031,19 +1159,12 @@ function showInspect() {
       "</div><h3>" +
       meta.label +
       "</h3></div></div>" +
+      ioBannerHtml(node) +
       '<p class="doing">' +
       escapeAttr(node.doing || node.note || meta.note) +
       "</p>" +
-      '<p class="hint">Object ' +
-      escapeAttr(obj) +
-      (node.source_kind ? " · " + escapeAttr(node.source_kind) : "") +
-      (node.fetch_from ? " · " + escapeAttr(node.fetch_from) : "") +
-      (node.source_link ? " · " + escapeAttr(node.source_link) : "") +
-      (node.kind === "ingest"
-        ? ". Hop 0: rows in, no write."
-        : node.kind === "trigger"
-          ? ". " + escapeAttr(node.trigger_kind || "webhook") + " compile. Live only on /cortex."
-          : ". Actions: " + allowed.join(", ") + ".") +
+      '<p class="hint">' +
+      escapeAttr(hintForKind(node)) +
       "</p>" +
       (node.region ? regionMarkHtml(node.region) : "") +
       (node.kind === "ontology"
@@ -1152,6 +1273,7 @@ function patchSelected(field, value) {
   if (!node) return false;
   if (field === "stream") node.stream = value === true || value === "true";
   else node[field] = value;
+  if (field === "doing") node.note = value;
   if (field === "object_type" && OBJECTS[value]) {
     const first = Object.keys(OBJECTS[value].points)[0];
     node.data_point = first;
@@ -1728,6 +1850,7 @@ window.Constructor = {
   ACTION_META,
   SOURCE_KINDS,
   TRIGGER_KINDS,
+  SKINS,
   ghost: true,
   automate: false,
   getState: () => state,
