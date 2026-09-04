@@ -25,7 +25,7 @@ No invented public host. This PR does not mint one.
 
 - Sketch (GitHub Pages, HTTP 200, no login): https://netie-ai.github.io/constructor/
 - Repo: https://github.com/Netie-AI/constructor
-- Engine target (keys required): https://app.netie.ai/cortex -- HTTP 404 until Hyperlift; do not claim live. Local: http://127.0.0.1:8010/cortex
+- Engine target (keys required): https://app.netie.ai/cortex -- HTTP 404 until Hyperlift; do not claim live. Local: http://127.0.0.1:8010/cortex or http://127.0.0.1:8012/cortex
 
 Until this branch is merged, the Pages sketch still reflects the default branch (`landing-9-first-path`). This feature branch is PR-browsable on GitHub.
 
@@ -45,11 +45,17 @@ tests/                node:test core + unit; Playwright e2e on Ontology Studio
 
 Sketch locally: `npm start` then open http://127.0.0.1:4173/
 
+Cortex-mounted (engine + this skin): set `CORTEX_DIR` to a Cortex checkout on `cursor/constructor-cortex-mount`, then `./scripts/run-cortex-local.sh`. Open http://127.0.0.1:8012/cortex/login with an `ov_` key. Cortex must accept `train` / `infer` / `retrain` kinds and serve `core/constructor.js`.
+
 Tests: `npm test` (laws + node:test unit including `core/constructor.js` + Playwright e2e). Sketch-only: `npm run test:unit`.
 
 ChatGPT-style box compiles the canvas. Ghost mode dry-runs (no writes). Propose 3 ranks Cortex coordination patterns. Maximize applies the winner. Default graph is connector -> ontology -> insight -> foundry -> app.
 
-Loop lab walks ingest -> train -> infer -> retrain on the canvas (press Loop, then Run). `?` marks next to buttons say what to press or type. Chat chips send `lab loop`, `run`, `add train`. Train / infer / retrain are first-class blocks with their own IN/OUT. Live fit/score still Cortex-only.
+Loop labs (Loop / 1 Train / 2 Infer / 3 Retrain) compile from `generateGraph("ingest train set then train then infer then retrain")`, not hardcoded overlays. Voice / image / warehouse labs use the same compiler with their prompts. On a `/cortex` origin, `engine.js` POSTs that graph to Cortex `ghost` / `run` / `generate` / `decision` and paints **Cortex brain** (compiled DAG, dropped cycle wires, fetches, run_dag outputs). Pages stay local compile, zero fetch.
+
+Live fit/score still Cortex-only. Ghost on Pages is a mock ledger, not GPU.
+
+Local mount: Cortex branch `cursor/constructor-cortex-mount`, `CONSTRUCTOR_SKIN_DIR` = this repo, uvicorn on `:8012`, OpenVault on `:5000`. Linux: `CORTEX_DIR=/path/to/Cortex ./scripts/run-cortex-local.sh`. Windows: `run-local.ps1`.
 
 Ontology Studio (rail `Ontology studio`, header `Ontology`, chat `ontology`) edits object types, properties, link types, action types, interfaces and fetch places in place, with an SVG graph, validation issues, changelog, undo/redo, and export as native JSON, Cortex catalog, JSON-LD, or Turtle. Contract: `docs/ONTOLOGY_STUDIO.md`. Tests: `npm test` (laws, unit, Playwright e2e with screenshots).
 

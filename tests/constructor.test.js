@@ -242,3 +242,27 @@ test("ghostWalk on a train loop emits chained rows/loss/scores/judge", () => {
   assert.equal(retrain.out.next_loss < train.out.loss, true);
   assert.equal(walked.steps.every((s) => s.write === false), true);
 });
+
+test("labCompile train/infer/retrain/loop share generateGraph, not hardcoded overlays", () => {
+  const loop = Core.labCompile("loop");
+  const train = Core.labCompile("train");
+  const infer = Core.labCompile("infer");
+  const retrain = Core.labCompile("retrain");
+  const kinds = ["ingest", "train", "infer", "audit", "retrain", "foundry", "app"];
+  assert.equal(loop.ok, true);
+  assert.deepEqual(loop.nodes.map((n) => n.kind), kinds);
+  assert.deepEqual(train.nodes.map((n) => n.kind), kinds);
+  assert.deepEqual(infer.nodes.map((n) => n.kind), kinds);
+  assert.deepEqual(retrain.nodes.map((n) => n.kind), kinds);
+  assert.equal(loop.prompt, Core.LOOP_PROMPT);
+  assert.equal(train.phase, "train");
+  assert.equal(infer.phase, "infer");
+  assert.equal(retrain.phase, "retrain");
+  assert.equal(loop.phase, "ingest");
+  const image = Core.labCompile("image");
+  assert.equal(image.ok, true);
+  const insight = image.nodes.find((n) => n.kind === "insight");
+  assert.match(insight.region || "", /artifact/);
+  const sample = Core.labCompile("sample");
+  assert.equal(sample.ok, false);
+});

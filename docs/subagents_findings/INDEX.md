@@ -2,6 +2,7 @@
 
 | Date | Topic | Keywords | Main idea | Path |
 |------|-------|----------|-----------|------|
+| 2026-09-04 | constructor-cortex-brain | constructor, cortex, mount, train, infer, retrain, labCompile, generateGraph, brain, run_dag | Labs compile from generateGraph. Cortex mount shows DAG/run_dag in Cortex brain. | `2026-09-04_constructor-cortex-brain.md` |
 | 2026-09-04 | constructor-train-loop-ui | constructor, loop, train, infer, retrain, ingest, help, chips, ui, langflow, n8n | Walkable ingest->train->infer->retrain loop, ? help, chat chips. Distill Langflow/n8n; do not clone. | `2026-09-04_constructor-train-loop-ui.md` |
 | 2026-09-04 | constructor-block-io | constructor, block-io, app, ingest, palantir, skin, data_in, data_out | Each kind has its own IN/OUT edit contract. App is EMIT skin, not warehouse fetch. | `2026-09-04_constructor-block-io.md` |
 | 2026-09-04 | constructor-labs-play | constructor, labs, play, trigger, webhook, stream, train, infer, retrain, define-block | Three mock labs + trigger/stream + define block. Ghost ticks. Not Airflow/n8n. Pages zero fetch. | `2026-09-04_constructor-labs-play.md` |

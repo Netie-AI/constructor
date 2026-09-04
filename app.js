@@ -137,9 +137,9 @@ const HELP = {
   ghost: { title: "Ghost", press: "Ghost on", type: "ghost on", hint: "Dry-run. No writes. Keep Ghost on until you are on Cortex." },
   chat: { title: "Chat", press: "Chat or Ctrl+/", type: "help", hint: "Compile a desk in words. Labs: lab loop | lab train | lab infer | lab retrain." },
   loop: { title: "Loop", press: "Loop", type: "lab loop", hint: "One cycle: ingest -> train -> infer -> retrain. Press Run to walk a phase. Cycle wire is the next fit." },
-  train: { title: "Train lab", press: "1 Train", type: "lab train", hint: "Zoomed 8-block train compile. Mock loss, stream connector. Not GPU weights on Pages." },
-  infer: { title: "Infer lab", press: "2 Infer+judge", type: "lab infer", hint: "Trigger + enhance + mock region mark. Live LLM only on /cortex." },
-  retrain: { title: "Retrain lab", press: "3 Retrain", type: "lab retrain", hint: "Judge deltas compile as a Cortex DAG. Not Apache Airflow UI." },
+  train: { title: "Train lab", press: "1 Train", type: "lab train", hint: "Same generateGraph loop, phase train. Ghost fit. Live weights stay in Cortex." },
+  infer: { title: "Infer lab", press: "2 Infer+judge", type: "lab infer", hint: "Same generateGraph loop, phase infer. Mock score mark. Live score only on /cortex." },
+  retrain: { title: "Retrain lab", press: "3 Retrain", type: "lab retrain", hint: "Same generateGraph loop, phase retrain. Judge deltas as Cortex DAG. Not Airflow." },
   ingest: { title: "Ingest", press: "Ingest", type: "add ingest", hint: "Hop 0. Bind a place/stream/db to an object. No write. Edit the block, then Run." },
   connector: { title: "Connector", press: "Connector", type: "add connector", hint: "First-party Cortex bind. Not n8n. Pick object + source kind." },
   trigger: { title: "Trigger", press: "Trigger", type: "add trigger", hint: "Webhook, schedule, or message. Ghost on Pages. Type: add trigger" },
@@ -650,99 +650,21 @@ function foundrySample() {
 }
 
 function labGraph(lab) {
+  const Core = globalThis.NetieConstructorCore;
+  if (lab && lab !== "sample" && Core && typeof Core.labCompile === "function") {
+    const g = Core.labCompile(lab, KINDS);
+    if (g && g.ok && Array.isArray(g.nodes) && g.nodes.length) {
+      return {
+        lab: g.lab,
+        insight: g.insight,
+        phase: g.phase,
+        prompt: g.prompt,
+        nodes: g.nodes,
+        edges: g.edges,
+      };
+    }
+  }
   const base = foundrySample();
-  const n = function (id) {
-    return base.nodes.find(function (x) { return x.id === id; });
-  };
-  if (lab === "train") {
-    n("n0").note = "Mock train set. Distill facts. Not GPU weights on Pages.";
-    n("c1").stream = true;
-    n("c1").source_kind = "stream";
-    n("c1").note = "Open stream feed. Compile to Cortex source.";
-    n("i1").note = "Mock loss curve. Insight from distill, not a trainer.";
-    n("f1").note = "Train compile: IR for Cortex. Not a live neural net here.";
-    n("g1").note = "Audit labels vs mock truth.";
-    n("t1").note = "Define missing block: chat 'define block <id>'.";
-    return { lab: "train", insight: "Mock train compile. Live run only on /cortex.", nodes: base.nodes, edges: base.edges };
-  }
-  if (lab === "infer") {
-    const nodes = [
-      { id: "tr", kind: "trigger", x: 24, y: 64, note: "Webhook / message. Ghost on Pages.", trigger_kind: "webhook", stream: true, source_kind: "stream", source_link: "streams.open", fetch_from: "streams.open", persona: "source" },
-      { id: "n0", kind: "ingest", x: 220, y: 64, note: "Mock particle frames. Not a camera.", object_type: "images", data_point: "image_id", data_type: "string", source_kind: "place", fetch_from: "owned.images", persona: "loader" },
-      { id: "e1", kind: "enhance", x: 416, y: 64, note: "Resize. File-type check in Cortex, not here.", object_type: "images", data_point: "image_id", source_kind: "local_model", source_link: "local://enhance", fetch_from: "local.model", action_type: "image.enhance", persona: "enhancer" },
-      { id: "o1", kind: "ontology", x: 612, y: 64, note: "Object + PK. Studio for inventory.", object_type: "images", data_point: "image_id", persona: "modeler" },
-      { id: "i1", kind: "insight", x: 808, y: 64, note: "Region mark: bent particle. Mock SVG, not CV.", region: "cx=62 cy=48 r=18 why=bent_particle", object_type: "images", persona: "analyst" },
-      { id: "f1", kind: "foundry", x: 1004, y: 64, note: "Infer compile. Weights stay in Cortex.", action_type: "export_pptx", skin: "constructor", compute: "cortex", persona: "compiler" },
-      { id: "a1", kind: "app", x: 1004, y: 260, note: "Skin. Engine is Cortex.", action_type: "emit", skin: "constructor", object_type: "images", persona: "operator" },
-      { id: "g1", kind: "audit", x: 808, y: 260, note: "LLM-as-judge mock: label vs region. Not a live LLM on Pages.", region: "cx=62 cy=48 r=18 why=bent_particle", object_type: "images", persona: "steward" },
-    ];
-    const edges = [
-      { from: "tr", to: "n0" },
-      { from: "n0", to: "e1" },
-      { from: "e1", to: "o1" },
-      { from: "n0", to: "i1" },
-      { from: "i1", to: "f1" },
-      { from: "f1", to: "a1" },
-      { from: "a1", to: "g1" },
-    ];
-    return { lab: "infer", insight: "Mock judge: circle bent particle. Live LLM only on /cortex.", nodes: nodes, edges: edges };
-  }
-  if (lab === "retrain") {
-    n("n0").note = "Fresh labeled batch after judge.";
-    n("c1").note = "DMS / distill place. Not a second warehouse SPA.";
-    n("c1").stream = true;
-    n("i1").note = "Where the judge disagreed. Feed Cortex DAG.";
-    n("f1").note = "Retrain as Cortex DAG compile. Not Apache Airflow UI.";
-    n("g1").note = "Gate: mock metrics. Live gate is Cortex.";
-    n("t1").note = "Schedule / webhook already on trigger lab; here tool_call is the handoff.";
-    return { lab: "retrain", insight: "Mock retrain DAG. No Airflow product clone.", nodes: base.nodes, edges: base.edges };
-  }
-  if (lab === "voice") {
-    n("n0").note = "Mock audio clip. Same 8-block pipeline as image.";
-    n("c1").note = "STT stub on connector. Real decode is Cortex. define block if you need a new kind.";
-    n("i1").note = "Transcript insight. Distill, not a voice model on Pages.";
-    n("g1").note = "Judge: transcript vs mock gold.";
-    n("t1").note = "Same connectors. New block via define block <id>.";
-    return { lab: "voice", insight: "Voice uses the same kinds. Missing STT = define block, then Cortex.", nodes: base.nodes, edges: base.edges };
-  }
-  if (lab === "image") {
-    n("n0").note = "Prompt / seed image. Not a generator on Pages.";
-    n("c1").note = "Generate stub. Real image model is Cortex.";
-    n("i1").note = "Region: artifact in corner. Mock mark.";
-    n("i1").region = "cx=80 cy=20 r=12 why=artifact";
-    n("g1").note = "Judge: prompt vs mock render.";
-    return { lab: "image", insight: "Image-gen lab is the same graph with honest stubs.", nodes: base.nodes, edges: base.edges };
-  }
-  if (lab === "warehouse") {
-    n("n0").note = "SKU / batch rows. Distill to ontology.";
-    n("c1").note = "DMS usage compile. OpenVault key only on /cortex.";
-    n("i1").note = "Near-expiry, missing PK. Real insight from distill.";
-    n("a1").note = "Pick a skin. Prebuilt = these 8 kinds, not a plugin store.";
-    return { lab: "warehouse", insight: "Warehouse path: ingest -> ontology -> insight -> app.", nodes: base.nodes, edges: base.edges };
-  }
-  if (lab === "loop") {
-    const nodes = [
-      { id: "n0", kind: "ingest", x: 24, y: 64, note: "Hop 0. Mock train set from warehouse.inventory. No write.", doing: "Hop 0. Load inventory rows from warehouse.inventory. No write.", object_type: "inventory", data_point: "sku", data_type: "string", source_kind: "place", fetch_from: "warehouse.inventory", persona: "loader" },
-      { id: "tr", kind: "train", x: 220, y: 64, note: "Ghost fit. Mock loss. Live weights stay in Cortex.", doing: "Ghost fit on inventory rows. Mock loss. Live weights stay in Cortex.", object_type: "inventory", data_point: "sku", data_type: "string", source_kind: "local_model", fetch_from: "local.model", source_link: "local://fit", action_type: "model.fit", checkpoint: "weights", persona: "trainer" },
-      { id: "inf", kind: "infer", x: 416, y: 64, note: "Score the batch. Mock mark, not live CV/LLM.", doing: "Score inventory batch with last checkpoint.", object_type: "inventory", data_point: "sku", action_type: "model.score", checkpoint: "weights", scores: "scores", region: "cx=62 cy=48 r=18 why=mock_score", persona: "scorer" },
-      { id: "g1", kind: "audit", x: 612, y: 64, note: "Judge scores vs mock truth. Gate before retrain.", doing: "Judge scores vs mock truth. Gate before retrain.", object_type: "inventory", persona: "steward", region: "cx=62 cy=48 r=18 why=mock_score" },
-      { id: "rt", kind: "retrain", x: 808, y: 64, note: "Judge deltas -> next Cortex DAG fit. Not Airflow.", doing: "Feed judge deltas into the next Cortex DAG fit.", object_type: "inventory", data_point: "sku", source_kind: "local_model", fetch_from: "local.model", action_type: "model.retrain", checkpoint: "next weights", persona: "retrainer" },
-      { id: "o1", kind: "ontology", x: 24, y: 260, note: "Object + PK for the train set.", object_type: "inventory", data_point: "sku", data_type: "string", persona: "modeler" },
-      { id: "f1", kind: "foundry", x: 612, y: 260, note: "Loop compile. Spark/Airflow-class work is Cortex DAG.", action_type: "export_pptx", skin: "warehouse", compute: "cortex", persona: "compiler" },
-      { id: "a1", kind: "app", x: 808, y: 260, note: "EMIT skin. Engine is Cortex.", action_type: "emit", skin: "warehouse", object_type: "inventory", persona: "operator" },
-    ];
-    const edges = [
-      { from: "n0", to: "tr" },
-      { from: "tr", to: "inf" },
-      { from: "inf", to: "g1" },
-      { from: "g1", to: "rt" },
-      { from: "rt", to: "tr" },
-      { from: "n0", to: "o1" },
-      { from: "inf", to: "f1" },
-      { from: "f1", to: "a1" },
-    ];
-    return { lab: "loop", insight: loopPhaseText("ingest"), phase: "ingest", nodes: nodes, edges: edges };
-  }
   return { lab: "sample", insight: "", nodes: base.nodes, edges: base.edges };
 }
 
@@ -756,6 +678,9 @@ function applySeed(lab) {
   savePlay(p);
   replaceGraph(g.nodes, g.edges);
   paintLoopPhase();
+  if (window.Constructor && typeof window.Constructor.afterSeed === "function") {
+    window.Constructor.afterSeed(g);
+  }
   return g.lab;
 }
 
@@ -2229,7 +2154,7 @@ const power = document.getElementById("power");
 if (power) {
   power.textContent = cortexOrigin()
     ? "Powered by Cortex. Paste or issue an OpenVault ov_ key, then fetch / run all. Ghost is dry-run."
-    : "Sketch (no fetch). Live run needs http://127.0.0.1:8010/cortex with OpenVault on :5000.";
+    : "Sketch (no fetch). Live run needs http://127.0.0.1:8010/cortex or :8012 with OpenVault on :5000.";
 }
 const keyBox = document.getElementById("cortex-key");
 if (keyBox && !cortexOrigin()) keyBox.hidden = true;

@@ -504,7 +504,7 @@
     }
     const verify = /verify|audit|hypothes|claim|fact-?check/.test(low);
     const agentish = /single agent|one agent|worker loop/.test(low);
-    const loopish = /retrain|training loop|train then infer|ingest.{0,40}train.{0,40}infer|\bml loop\b|\bai train/.test(low);
+    const loopish = /retrain|training loop|train then infer|ingest.{0,40}train.{0,40}infer|\bml loop\b|\bai train|\blab (loop|train|infer|retrain)\b/.test(low);
     const foundryish = /foundry|create app|whole (app|workflow|desk)|generate whole|pptx|export|ontology|insight|\bapp\b|maps|club|venue|contact|customer|incident|case desk|suspect|face|cctv|enhance|comfy|police|watchlist/.test(
       low
     );
@@ -644,6 +644,9 @@
         node.scores = "scores";
         node.region = node.region || "cx=62 cy=48 r=18 why=mock_score";
       }
+      if (kind === "insight" && /artifact/.test(low)) {
+        node.region = "cx=80 cy=20 r=12 why=artifact";
+      }
       if (kind === "retrain") {
         node.action_type = "model.retrain";
         node.checkpoint = "next weights";
@@ -695,6 +698,42 @@
     };
   }
 
+  const LOOP_PROMPT = "ingest train set then train then infer then retrain";
+  const LAB_PROMPTS = {
+    loop: LOOP_PROMPT,
+    train: LOOP_PROMPT,
+    infer: LOOP_PROMPT,
+    retrain: LOOP_PROMPT,
+    warehouse: "ingest warehouse inventory then foundry app",
+    voice: "ingest warehouse inventory then foundry app",
+    image: "ingest warehouse inventory then foundry app insight artifact",
+  };
+
+  function labCompile(lab, kindsCatalog) {
+    const id = String(lab || "").toLowerCase();
+    const prompt = LAB_PROMPTS[id];
+    if (!prompt) {
+      return { ok: false, lab: id || "sample" };
+    }
+    const graph = generateGraph(prompt, kindsCatalog);
+    if (!graph.ok) {
+      return { ok: false, lab: id, refused: !!graph.refused, summary: graph.summary };
+    }
+    const phase =
+      id === "train" || id === "infer" || id === "retrain" ? id : id === "loop" ? "ingest" : "";
+    return {
+      ok: true,
+      lab: id,
+      prompt: prompt,
+      phase: phase,
+      insight: phase ? loopPhaseInsight(phase) : graph.summary || "",
+      pattern: graph.pattern,
+      nodes: graph.nodes,
+      edges: graph.edges,
+      summary: graph.summary,
+    };
+  }
+
   return {
     VERSION: VERSION,
     ENGINE: ENGINE,
@@ -717,5 +756,8 @@
     nextLoopPhase: nextLoopPhase,
     loopPhaseInsight: loopPhaseInsight,
     generateGraph: generateGraph,
+    labCompile: labCompile,
+    LAB_PROMPTS: LAB_PROMPTS,
+    LOOP_PROMPT: LOOP_PROMPT,
   };
 });

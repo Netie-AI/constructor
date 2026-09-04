@@ -1,4 +1,4 @@
-// Labs: train / infer / retrain stay 8 nodes. Infer shows a mock region mark.
+// Labs compile from generateGraph. Train/infer/retrain/loop share the loop prompt.
 // Pages never fetch. Ghost ticks are a walk counter, not XP.
 const { test, expect } = require("@playwright/test");
 const fs = require("fs");
@@ -36,56 +36,60 @@ test.describe("labs", () => {
     expect(errors, "browser console must stay clean").toEqual([]);
   });
 
-  test("train lab keeps 8 nodes and stream connector", async ({ page }) => {
+  test("train lab is the generateGraph loop at phase train", async ({ page }) => {
     await page.locator("[data-seed=train]").click();
-    await expect(page.locator("#nodes .node")).toHaveCount(8);
+    await expect(page.locator("#nodes .node")).toHaveCount(7);
+    await expect(page.locator(".node[data-kind=train]")).toHaveCount(1);
+    await expect(page.locator(".node[data-kind=infer]")).toHaveCount(1);
+    await expect(page.locator(".node[data-kind=retrain]")).toHaveCount(1);
     await expect(page.locator("#play-lab")).toHaveText("train");
-    await expect(page.locator("#play-insight")).toContainText("Mock train");
-    await page.locator(".node[data-kind=connector]").click();
-    await expect(page.locator("#inspect-card")).toContainText("stream");
+    await expect(page.locator("#play-insight")).toContainText("Phase 2/4 train");
+    await expect(page.locator("#phase-strip [data-phase=train]")).toHaveClass(/on/);
+    await page.locator(".node[data-kind=train]").click();
+    await expect(page.locator("#inspect-card")).toContainText("Ghost fit");
     await page.screenshot({ path: shot("lab-train.png") });
   });
 
-  test("infer lab has trigger + mock region mark", async ({ page }) => {
+  test("infer lab is the same loop with mock_score mark", async ({ page }) => {
     await page.locator("[data-seed=infer]").click();
-    await expect(page.locator("#nodes .node")).toHaveCount(8);
-    await expect(page.locator(".node[data-kind=trigger]")).toHaveCount(1);
-    await expect(page.locator(".node[data-kind=enhance]")).toHaveCount(1);
-    await expect(page.locator("#wires path")).toHaveCount(7);
-    await page.locator(".node[data-kind=insight]").click();
+    await expect(page.locator("#nodes .node")).toHaveCount(7);
+    await expect(page.locator(".node[data-kind=infer]")).toHaveCount(1);
+    await expect(page.locator(".node[data-kind=trigger]")).toHaveCount(0);
+    await expect(page.locator("#play-lab")).toHaveText("infer");
+    await page.locator(".node[data-kind=infer]").click();
     await expect(page.getByTestId("region-mark")).toBeVisible();
-    await expect(page.getByTestId("region-mark")).toContainText("bent_particle");
-    await expect(page.locator("#play-insight")).toContainText("bent particle");
+    await expect(page.getByTestId("region-mark")).toContainText("mock_score");
+    await expect(page.locator("#play-insight")).toContainText("Phase 3/4 infer");
     await page.screenshot({ path: shot("lab-infer.png") });
   });
 
   test("retrain lab is Cortex DAG notes, not Airflow", async ({ page }) => {
     await page.locator("[data-seed=retrain]").click();
-    await expect(page.locator("#nodes .node")).toHaveCount(8);
-    await page.locator(".node[data-kind=foundry]").click();
-    await expect(page.locator("#inspect-card")).toContainText("Cortex DAG");
-    await expect(page.locator("#inspect-card")).toContainText("Not Apache Airflow");
+    await expect(page.locator("#nodes .node")).toHaveCount(7);
+    await page.locator(".node[data-kind=retrain]").click();
+    await expect(page.locator("#inspect-card")).toContainText("Airflow");
+    await expect(page.locator(".node[data-kind=retrain]")).toHaveClass(/phase-now/);
     await page.screenshot({ path: shot("lab-retrain.png") });
   });
 
-  test("voice and image labs reuse 8 kinds", async ({ page }) => {
+  test("voice and image labs compile from generateGraph", async ({ page }) => {
     await page.locator("details.quiet summary").first().click();
     await page.locator("[data-seed=voice]").click();
-    await expect(page.locator("#nodes .node")).toHaveCount(8);
+    await expect(page.locator("#nodes .node")).toHaveCount(7);
     await expect(page.locator("#play-lab")).toHaveText("voice");
     await page.locator("[data-seed=image]").click();
-    await expect(page.locator("#nodes .node")).toHaveCount(8);
+    await expect(page.locator("#nodes .node")).toHaveCount(7);
     await page.locator(".node[data-kind=insight]").click();
     await expect(page.getByTestId("region-mark")).toContainText("artifact");
   });
 
   test("chat lab infer and define block", async ({ page }) => {
     const loaded = await chat(page, "lab infer");
-    await expect(loaded).toContainText("infer");
-    await expect(page.locator(".node[data-kind=trigger]")).toHaveCount(1);
+    await expect(loaded).toContainText("generateGraph");
+    await expect(page.locator(".node[data-kind=infer]")).toHaveCount(1);
     const defined = await chat(page, "define block particle.mark");
     await expect(defined).toContainText("Defined block particle.mark");
-    await expect(page.locator(".node")).toHaveCount(9);
+    await expect(page.locator(".node")).toHaveCount(8);
     await expect(page.locator(".node[data-kind=tool_call]")).toHaveCount(1);
   });
 
@@ -100,13 +104,14 @@ test.describe("labs", () => {
 
   test("loop lab is a walkable ingest-train-infer-retrain cycle", async ({ page }) => {
     await page.locator("[data-seed=loop]").click();
-    await expect(page.locator("#nodes .node")).toHaveCount(8);
+    await expect(page.locator("#nodes .node")).toHaveCount(7);
     await expect(page.locator(".node[data-kind=train]")).toHaveCount(1);
     await expect(page.locator(".node[data-kind=infer]")).toHaveCount(1);
     await expect(page.locator(".node[data-kind=retrain]")).toHaveCount(1);
     await expect(page.locator("#play-lab")).toHaveText("loop");
     await expect(page.locator("#phase-strip [data-phase=ingest]")).toHaveClass(/on/);
     await expect(page.locator("#play-insight")).toContainText("Phase 1/4 ingest");
+    await expect(page.getByTestId("cortex-brain")).toContainText("pages-sketch");
     await page.locator("#run-graph").click();
     await expect(page.locator("#chat-log .bubble.assistant").last()).toContainText("loss=");
     await expect(page.locator("#chat-log .bubble.assistant").last()).toContainText("Loaded 12");

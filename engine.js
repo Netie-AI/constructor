@@ -21,6 +21,88 @@ function compileIR(state) {
   return ir;
 }
 
+function brainPayload(ir, extra) {
+  extra = extra || {};
+  const remote = extra.remote;
+  const live = cortexOrigin();
+  const nodes = (ir && ir.nodes) || [];
+  const out = {
+    origin: live ? "cortex" : "pages-sketch",
+    engine: live ? "Cortex compile_constructor_graph + run_dag" : "local generateGraph / ghostWalk (no fetch)",
+    lab: extra.lab || null,
+    prompt: extra.prompt || null,
+    entry_node_id: ir && ir.entry_node_id,
+    output_node_id: ir && ir.output_node_id,
+    compile: nodes.map(function (n) {
+      return n.id + " " + (n.constructor_kind || n.kind) + " -> " + n.kind;
+    }),
+  };
+  if (remote) {
+    out.cortex = {
+      ok: remote.ok,
+      status: remote.status || null,
+      error: remote.error || remote.detail || null,
+      ghost: remote.ghost || false,
+      actor: remote.actor || null,
+      entry_node_id: remote.entry_node_id || null,
+      output_node_id: remote.output_node_id || null,
+      dropped_cycle_edges: remote.dropped_cycle_edges || [],
+      dag: remote.ghost ? remote.nodes : null,
+      fetches: remote.fetches || null,
+      run_nodes: remote.ghost ? null : remote.nodes || null,
+    };
+  }
+  return out;
+}
+
+function paintCortexBrain(ir, extra) {
+  extra = extra || {};
+  const pre = document.getElementById("cortex-brain");
+  const status = document.getElementById("cortex-brain-status");
+  const payload = brainPayload(ir, extra);
+  if (pre) pre.textContent = JSON.stringify(payload, null, 2);
+  if (status) {
+    if (!cortexOrigin()) {
+      status.textContent = "Pages sketch. Local compile. Mount at /cortex to show Cortex DAG + run_dag.";
+    } else if (extra.remote && extra.remote.ok && extra.remote.ghost) {
+      status.textContent = "Cortex ghost compile (no writes). Cycle wires drop on the DAG.";
+    } else if (extra.remote && extra.remote.ok) {
+      status.textContent = "Cortex run_dag. Fetches and node outputs are engine truth.";
+    } else if (extra.remote) {
+      status.textContent =
+        "Cortex missed (" +
+        (extra.remote.status || extra.remote.error || extra.remote.detail || "offline") +
+        "). Showing local compile.";
+    } else {
+      status.textContent = "Cortex origin. Ghost or Run fills the engine DAG.";
+    }
+  }
+  return payload;
+}
+
+async function syncCortexBrain(extra) {
+  extra = extra || {};
+  const C = window.Constructor;
+  if (!C || typeof C.getState !== "function") return;
+  const ir = compileIR(C.getState());
+  if (!cortexOrigin()) {
+    paintCortexBrain(ir, extra);
+    return ir;
+  }
+  const remote = await cortexPost("/cortex/constructor/ghost", {
+    nodes: C.getState().nodes,
+    edges: C.getState().edges,
+  });
+  extra.remote = remote;
+  paintCortexBrain(ir, extra);
+  return ir;
+}
+
+async function afterSeed(g) {
+  g = g || {};
+  await syncCortexBrain({ lab: g.lab, prompt: g.prompt, source: "labCompile" });
+}
+
 function ontologyDigest() {
   const O = window.Ontology;
   if (!O || typeof O.get !== "function") return null;
@@ -172,9 +254,10 @@ async function ghostRun() {
       edges: state.edges,
     });
     C.showAudit({ mode: "cortex-ghost", remote: remote });
+    paintCortexBrain(compileIR(state), { remote: remote });
     if (remote && remote.ok) {
       C.markGhostWalk((remote.nodes || []).map((n) => n.id));
-      return "Cortex ghost compile ok. EMIT=" + remote.output_node_id + ". No writes.";
+      return "Cortex ghost compile ok. EMIT=" + remote.output_node_id + ". No writes. Brain shows the DAG.";
     }
     return "Cortex ghost blocked (" + (remote && (remote.status || remote.error) || "offline") + "). Local walk instead. " + localGhostWalk();
   }
@@ -246,6 +329,7 @@ function localGhostWalk() {
     .map(function (s) {
       return s.claim;
     });
+  paintCortexBrain(compileIR(state), { source: "local-ghost" });
   return (
     (C.ghost ? "Ghost run (no writes, not Cortex). " : "Local walk. Tool/app nodes would write. ") +
     walked.steps.length +
@@ -463,6 +547,7 @@ async function liveOrGhost(forceLive) {
       edges: C.getState().edges,
     });
     C.showAudit({ mode: "cortex-run", ir: ir, remote: remote });
+    paintCortexBrain(ir, { remote: remote });
     if (!remote || remote.ok === false) {
       return (
         "Cortex run_dag failed (" +
@@ -501,12 +586,18 @@ async function handleChat(raw) {
   if (lab && C.applySeed) {
     C.applySeed(lab[1]);
     C.setGhost(true);
+    const prompt = (Core.LAB_PROMPTS && Core.LAB_PROMPTS[lab[1]]) || "";
     return (
-      "Loaded " +
+      "Compiled " +
       lab[1] +
-      " lab (mock data). Ghost on. " +
-      (lab[1] === "loop" ? "Press Run to walk ingest -> train -> infer -> retrain. " : "") +
-      "Ticks count ghost walks, not XP. Live webhook/stream/run only on /cortex. Type gaps if a block is missing."
+      " from generateGraph" +
+      (prompt ? ' ("' + prompt + '")' : "") +
+      ". Ghost on. " +
+      (lab[1] === "loop" || lab[1] === "train" || lab[1] === "infer" || lab[1] === "retrain"
+        ? "Press Run to walk ingest -> train -> infer -> retrain. "
+        : "") +
+      (cortexOrigin() ? "Cortex brain shows the engine DAG. " : "Pages sketch, local walk. ") +
+      "Ticks count ghost walks, not XP. Live run only on /cortex."
     );
   }
   const defBlock = t.match(/^define block ([a-z][a-z0-9_.]*)$/);
@@ -750,19 +841,26 @@ async function generateFromChat(text) {
   if (refusePrompt(text)) {
     return generateLocal(text).summary;
   }
-  let graph = null;
+  let graph = generateLocal(text);
+  if (!graph.ok) return graph.summary;
   if (cortexOrigin()) {
-    const remote = await cortexPost("/cortex/constructor/generate", { prompt: text });
+    const remote = await cortexPost("/cortex/constructor/generate", {
+      prompt: text,
+      nodes: graph.nodes,
+      edges: graph.edges,
+    });
     if (remote && remote.ok && Array.isArray(remote.nodes) && remote.nodes.length) {
-      const localObjs = objectsInPrompt(text);
-      if (remote.assumed_object && localObjs.length) graph = null;
-      else graph = remote;
+      graph = Object.assign({}, graph, {
+        nodes: remote.nodes,
+        edges: remote.edges || graph.edges,
+        compiled: remote.compiled,
+        dropped_cycle_edges: remote.dropped_cycle_edges,
+      });
     }
   }
-  if (!graph) graph = generateLocal(text);
-  if (!graph.ok) return graph.summary;
   C.replaceGraph(graph.nodes, graph.edges);
   await rankApproaches();
+  await syncCortexBrain({ prompt: text, source: "generateGraph" });
   const first = C.getState().nodes[0];
   if (first) C.showDecision({ node: first, response: graph.summary });
   return graph.summary || "Compiled the graph. Click a node for doing / action / app / code / response.";
@@ -783,6 +881,7 @@ async function pressNode() {
     });
   }
   const remoteOk = remote && remote.ok !== false && remote.cortex_kind;
+  paintCortexBrain(ir, { remote: remote, source: "decision" });
   const layer = {
     mode: "cortex-decision",
     node_id: node.id,
@@ -921,8 +1020,11 @@ function bindChat() {
     "Chat warehouse, venue/CRM, labs (loop / train / infer / retrain), case desk, or a police suspect desk. Press Loop then Run to walk ingest -> train -> infer -> retrain. Owned images -> enhance (local model or online API) -> match owned.watchlist -> app. Ctrl+/ toggles. I will not compile stalking, doxxing, public-webcam scrape, or sex-work graphs. Type help or click a chip."
   );
   window.Constructor.pressNode = pressNode;
+  window.Constructor.afterSeed = afterSeed;
+  window.Constructor.paintCortexBrain = paintCortexBrain;
   loadOntology();
   rankApproaches();
+  syncCortexBrain({ source: "boot" });
 }
 
 if (document.readyState === "loading") {

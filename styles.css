@@ -450,7 +450,8 @@ h1 {
 
 #inspect-json,
 #decision-facts,
-#decision-json {
+#decision-json,
+#cortex-brain {
   margin: 0;
   white-space: pre-wrap;
   font-family: ui-monospace, Consolas, monospace;
@@ -922,4 +923,30 @@ details.quiet summary {
 
 .node .sub {
   max-width: 11rem;
+}
+
+.cortex-brain {
+  margin: 0.6rem 0 0.8rem;
+  border: 1px solid rgba(126, 184, 255, 0.22);
+  border-radius: 8px;
+  padding: 0.35rem 0.5rem 0.5rem;
+  background: rgba(10, 18, 32, 0.55);
+}
+
+.cortex-brain summary {
+  cursor: pointer;
+  color: #9fd0e8;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+#cortex-brain-status {
+  margin: 0.35rem 0 0.25rem;
+}
+
+#cortex-brain {
+  max-height: 14rem;
+  overflow: auto;
+  font-size: 11px;
 }
