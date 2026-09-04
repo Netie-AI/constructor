@@ -108,8 +108,10 @@ test.describe("labs", () => {
     await expect(page.locator("#phase-strip [data-phase=ingest]")).toHaveClass(/on/);
     await expect(page.locator("#play-insight")).toContainText("Phase 1/4 ingest");
     await page.locator("#run-graph").click();
+    await expect(page.locator("#chat-log .bubble.assistant").last()).toContainText("loss=");
+    await expect(page.locator("#chat-log .bubble.assistant").last()).toContainText("Loaded 12");
+    await expect(page.locator("#play-insight")).toContainText("loss=");
     await expect(page.locator("#phase-strip [data-phase=train]")).toHaveClass(/on/);
-    await expect(page.locator("#play-insight")).toContainText("Phase 2/4 train");
     await page.locator("#phase-strip [data-phase=retrain]").click();
     await expect(page.locator("#phase-strip [data-phase=retrain]")).toHaveClass(/on/);
     await expect(page.locator(".node[data-kind=retrain]")).toHaveClass(/phase-now/);

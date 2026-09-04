@@ -593,11 +593,15 @@ body.chat-open.chat-snap-right .chat-dock {
   font-weight: 500;
 }
 
-.inspect-card .doing {
-  margin: 0.5rem 0 0;
-  font-size: 0.82rem;
+.inspect-card .ghost-out,
+.ghost-out {
+  margin: 0.45rem 0 0;
+  padding: 0.45rem 0.5rem;
+  border-radius: 8px;
+  background: rgba(126, 224, 195, 0.08);
+  border: 1px solid rgba(126, 224, 195, 0.22);
+  font-size: 0.8rem;
   line-height: 1.4;
-  color: var(--text);
 }
 
 .node.pressed {

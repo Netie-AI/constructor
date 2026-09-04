@@ -216,12 +216,142 @@
     return out;
   }
 
+  function ghostResult(node, ctx) {
+    node = node || {};
+    ctx = ctx || {};
+    const k = node.kind;
+    const obj = node.object_type || "rows";
+    if (k === "ingest") {
+      const rows = ctx.rows != null ? ctx.rows : 12;
+      ctx.rows = rows;
+      ctx.object = obj;
+      ctx.place = node.fetch_from || node.source_kind || "place";
+      return {
+        ok: true,
+        rows: rows,
+        object: obj,
+        place: ctx.place,
+        claim: "Loaded " + rows + " " + obj + " rows from " + ctx.place + ". Ghost. No write.",
+      };
+    }
+    if (k === "train") {
+      ctx.epoch = (ctx.epoch || 0) + 1;
+      let loss = Math.round((0.52 - ctx.epoch * 0.07) * 100) / 100;
+      if (loss < 0.08) loss = 0.08;
+      ctx.loss = loss;
+      ctx.checkpoint = node.checkpoint || "weights";
+      return {
+        ok: true,
+        epoch: ctx.epoch,
+        loss: ctx.loss,
+        rows: ctx.rows || 12,
+        checkpoint: ctx.checkpoint,
+        claim:
+          "Ghost fit epoch " +
+          ctx.epoch +
+          " on " +
+          (ctx.rows || 12) +
+          " rows. loss=" +
+          ctx.loss +
+          " -> " +
+          ctx.checkpoint +
+          ". Not GPU weights.",
+      };
+    }
+    if (k === "infer") {
+      const n = ctx.rows || 12;
+      const mean = Math.round((0.58 + (ctx.epoch || 1) * 0.03) * 100) / 100;
+      ctx.mean_score = mean;
+      ctx.scored = n;
+      const why = (String(node.region || "").match(/why=(\S+)/) || [])[1] || "mock_score";
+      return {
+        ok: true,
+        scored: n,
+        mean_score: mean,
+        checkpoint: node.checkpoint || ctx.checkpoint || "weights",
+        mark: why,
+        claim:
+          "Scored " +
+          n +
+          " " +
+          obj +
+          ". mean=" +
+          mean +
+          " mark=" +
+          why +
+          ". Mock, not live CV/LLM.",
+      };
+    }
+    if (k === "audit") {
+      const n = ctx.scored || ctx.rows || 12;
+      const fail = 3;
+      const pass = n - fail;
+      ctx.fail = fail;
+      ctx.pass = pass;
+      ctx.gate = fail > 0 ? "retrain" : "emit";
+      return {
+        ok: true,
+        pass: pass,
+        fail: fail,
+        gate: ctx.gate,
+        claim:
+          "Judge " +
+          pass +
+          " pass / " +
+          fail +
+          " fail of " +
+          n +
+          ". Gate=" +
+          ctx.gate +
+          ". Ghost, not a live LLM.",
+      };
+    }
+    if (k === "retrain") {
+      let next = Math.round(((ctx.loss || 0.45) - 0.05) * 100) / 100;
+      if (next < 0.08) next = 0.08;
+      ctx.loss = next;
+      ctx.epoch = (ctx.epoch || 1) + 1;
+      ctx.checkpoint = node.checkpoint || "next weights";
+      return {
+        ok: true,
+        fail: ctx.fail || 3,
+        next_loss: ctx.loss,
+        epoch: ctx.epoch,
+        checkpoint: ctx.checkpoint,
+        claim:
+          "Retrain from " +
+          (ctx.fail || 3) +
+          " judge fails. next_loss=" +
+          ctx.loss +
+          " -> " +
+          ctx.checkpoint +
+          ". Cortex DAG compile, not Airflow.",
+      };
+    }
+    if (k === "insight") {
+      return {
+        ok: true,
+        claim: node.note || ("Cite " + (ctx.object || obj) + ". Ghost claim, not a live distill."),
+      };
+    }
+    if (k === "app") {
+      return {
+        ok: true,
+        skin: node.skin || "constructor",
+        claim: "Would EMIT " + (node.skin || "constructor") + " inside Cortex. Ghost: no write.",
+      };
+    }
+    return { ok: true, claim: node.note || k };
+  }
+
   function ghostWalk(state, ghost) {
     const order = topo(state);
     const log = [];
+    const ctx = {};
     for (const id of order) {
       const node = state.nodes.find((n) => n.id === id);
       const write = !ghost && (node.kind === "tool_call" || node.kind === "app");
+      const out = ghostResult(node, ctx);
       log.push({
         id: node.id,
         kind: node.kind,
@@ -229,13 +359,15 @@
         ghost: ghost || !write,
         write: !!write,
         would: node.note,
+        claim: out.claim,
+        out: out,
         action_type: node.action_type || (node.kind === "tool_call" ? "export_pptx" : "agent.checked"),
         object_type: node.object_type || null,
         data_point: node.data_point || null,
         fetch_from: node.fetch_from || null,
       });
     }
-    return { order: order, steps: log };
+    return { order: order, steps: log, ctx: ctx };
   }
 
   function rankApproachesForGraph(state) {
@@ -574,6 +706,7 @@
     compileIR: compileIR,
     topo: topo,
     ghostWalk: ghostWalk,
+    ghostResult: ghostResult,
     scoreApproach: scoreApproach,
     rankApproachesForGraph: rankApproachesForGraph,
     objectsInPrompt: objectsInPrompt,

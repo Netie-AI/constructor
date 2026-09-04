@@ -231,16 +231,26 @@ function localGhostWalk() {
   const C = window.Constructor;
   const state = C.getState();
   const walked = Core.ghostWalk(state, !!C.ghost);
-  C.markGhostWalk(walked.order);
+  C.markGhostWalk(walked.order, walked);
   C.showAudit({
     mode: C.ghost ? "ghost" : "live-local",
     engine: cortexOrigin() ? "cortex-origin" : "pages-sketch",
+    cortex: false,
     steps: walked.steps,
+    ctx: walked.ctx,
   });
+  const claims = (walked.steps || [])
+    .filter(function (s) {
+      return s.claim && (s.kind === "ingest" || s.kind === "train" || s.kind === "infer" || s.kind === "audit" || s.kind === "retrain");
+    })
+    .map(function (s) {
+      return s.claim;
+    });
   return (
-    (C.ghost ? "Ghost run (no writes). " : "Local walk. Tool/app nodes would write. ") +
+    (C.ghost ? "Ghost run (no writes, not Cortex). " : "Local walk. Tool/app nodes would write. ") +
     walked.steps.length +
-    " steps. Audit panel has the ledger."
+    " steps. " +
+    (claims.length ? claims.join(" ") : "Audit panel has the ledger.")
   );
 }
 

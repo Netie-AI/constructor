@@ -224,3 +224,21 @@ test("nextLoopPhase wraps retrain to ingest", () => {
   assert.equal(Core.nextLoopPhase("retrain"), "ingest");
   assert.match(Core.loopPhaseInsight("ingest"), /Press Run/);
 });
+
+test("ghostWalk on a train loop emits chained rows/loss/scores/judge", () => {
+  const graph = Core.generateGraph("ingest train set then train then infer then retrain");
+  const walked = Core.ghostWalk(graph, true);
+  const ingest = walked.steps.find((s) => s.kind === "ingest");
+  const train = walked.steps.find((s) => s.kind === "train");
+  const infer = walked.steps.find((s) => s.kind === "infer");
+  const audit = walked.steps.find((s) => s.kind === "audit");
+  const retrain = walked.steps.find((s) => s.kind === "retrain");
+  assert.equal(ingest.out.rows, 12);
+  assert.equal(typeof train.out.loss, "number");
+  assert.match(train.claim, /loss=/);
+  assert.equal(infer.out.scored, 12);
+  assert.equal(audit.out.fail, 3);
+  assert.equal(audit.out.gate, "retrain");
+  assert.equal(retrain.out.next_loss < train.out.loss, true);
+  assert.equal(walked.steps.every((s) => s.write === false), true);
+});

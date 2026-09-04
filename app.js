@@ -397,6 +397,7 @@ let selectedId = state.nodes[0] ? state.nodes[0].id : null;
 let armedPort = null;
 let drag = null;
 let calOpen = false;
+let lastWalk = null;
 const pan = { x: 0, y: 0, k: 1 };
 let spaceDown = false;
 let panning = null;
@@ -1321,6 +1322,19 @@ function parseRegion(spec) {
   return out;
 }
 
+function ghostOutHtml(node) {
+  if (!lastWalk || !lastWalk.steps || !node) return "";
+  const step = lastWalk.steps.find(function (s) {
+    return s.id === node.id;
+  });
+  if (!step || !step.claim) return "";
+  return (
+    '<p class="ghost-out" data-testid="ghost-out">' +
+    escapeAttr(step.claim) +
+    "</p>"
+  );
+}
+
 function regionMarkHtml(spec) {
   const r = parseRegion(spec);
   const cx = Number(r.cx);
@@ -1383,6 +1397,7 @@ function showInspect() {
       '<p class="hint">' +
       escapeAttr(hintForKind(node)) +
       "</p>" +
+      ghostOutHtml(node) +
       (node.region ? regionMarkHtml(node.region) : "") +
       (node.kind === "ontology"
         ? '<p class="hint">' + escapeAttr(ontologySummary(node)) + "</p>" + objectChipsHtml(node)
@@ -1860,19 +1875,30 @@ function showAudit(obj) {
   inspectJson.textContent = JSON.stringify(obj, null, 2);
 }
 
-function markGhostWalk(ids) {
+function markGhostWalk(ids, walked) {
+  if (walked) lastWalk = walked;
   for (const el of nodesEl.querySelectorAll(".node")) {
     el.classList.toggle("ghosting", ids.indexOf(el.dataset.id) !== -1);
   }
   if (ids && ids.length) {
     const p = playState();
     p.ticks += 1;
+    if (walked && walked.steps) {
+      const claims = walked.steps
+        .filter(function (s) {
+          return s.claim && (s.kind === "ingest" || s.kind === "train" || s.kind === "infer" || s.kind === "audit" || s.kind === "retrain");
+        })
+        .map(function (s) {
+          return s.claim;
+        });
+      if (claims.length) p.insight = claims.join(" ");
+    }
     if (currentLab === "loop") {
       const next = (globalThis.NetieConstructorCore && globalThis.NetieConstructorCore.nextLoopPhase)
         ? globalThis.NetieConstructorCore.nextLoopPhase(p.phase || "ingest")
         : "train";
       p.phase = next;
-      p.insight = loopPhaseText(next);
+      if (!walked || !walked.steps) p.insight = loopPhaseText(next);
       const node = state.nodes.find(function (n) { return n.kind === next; });
       if (node) selectedId = node.id;
     }
@@ -2173,6 +2199,7 @@ window.Constructor = {
   openCalPop,
   closeCalPop,
   markGhostWalk,
+  lastWalk: () => lastWalk,
   loadFoundryPath,
   replaceGraph,
   applySeed,
