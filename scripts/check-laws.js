@@ -110,23 +110,29 @@ function checkNoKeys() {
   }
 }
 
-// Law 4: pages.yml cp line copies index.html plus every .js/.css/.html it references.
+// Law 4: pages.yml copy step includes index.html plus every .js/.css/.html it references.
 function checkPagesCp(refs) {
   const rel = ".github/workflows/pages.yml";
   if (!exists(rel)) { fail(rel + " is missing"); return; }
-  const line = read(rel).split(/\r?\n/).find((l) => /\bcp\s+.+\s_site\/?\s*$/.test(l));
-  if (!line) { fail(rel + " has no `cp ... _site/` line"); return; }
-  const m = line.match(/\bcp\s+(.+?)\s+_site\/?\s*$/);
-  const tokens = m ? m[1].trim().split(/\s+/) : [];
+  const line = read(rel).split(/\r?\n/).find((l) => /\bcp\s+/.test(l) && /_site/.test(l));
+  if (!line) { fail(rel + " has no `cp ... _site` copy step"); return; }
+  const tokens = [];
+  const re = /\bcp\s+(.+?)\s+_site(?:\/[^\s]*)?/g;
+  let m;
+  while ((m = re.exec(line))) {
+    m[1].trim().split(/\s+/).forEach(function (t) {
+      if (t && t !== "&&") tokens.push(t);
+    });
+  }
   const need = ["index.html"].concat(refs.map((r) => r.file).filter((f) => /\.(js|css|html)$/i.test(f)));
   const missing = need.filter((f) => tokens.indexOf(f) < 0);
   if (missing.length) {
-    fail("pages.yml cp line misses files index.html needs: " + missing.join(", ") + "\n  cp line: " + line.trim());
+    fail("pages.yml copy step misses files index.html needs: " + missing.join(", ") + "\n  copy: " + line.trim());
   } else {
-    pass("pages.yml cp line copies " + need.join(", "));
+    pass("pages.yml copy step includes " + need.join(", "));
   }
   const absent = tokens.filter((t) => !exists(t));
-  if (absent.length) warn("pages.yml cp line names files not present yet (cp will fail on deploy until they land): " + absent.join(", "));
+  if (absent.length) warn("pages.yml copy step names files not present yet (cp will fail on deploy until they land): " + absent.join(", "));
 }
 
 checkNoFetch();
