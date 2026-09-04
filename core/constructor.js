@@ -100,6 +100,27 @@
     return row.audit * 2 + statusWeight(row.cortex_status) - row.cost - row.blast;
   }
 
+  function nodeIo(n) {
+    n = n || {};
+    const k = n.kind;
+    const obj = n.object_type || "";
+    const place = n.fetch_from || n.source_link || "";
+    if (k === "ingest") return { data_in: place || n.source_kind || "place", data_out: obj || "rows" };
+    if (k === "connector") return { data_in: (n.source_kind || "place") + " bind", data_out: obj || "feed" };
+    if (k === "trigger") return { data_in: n.trigger_kind || "webhook", data_out: "event" };
+    if (k === "ontology") return { data_in: obj || "type", data_out: "schema" };
+    if (k === "insight") return { data_in: obj || "object", data_out: "claim" };
+    if (k === "foundry") return { data_in: "insights", data_out: n.skin || "app IR" };
+    if (k === "app") return { data_in: "compiled IR", data_out: "EMIT " + (n.skin || "constructor") };
+    if (k === "tool_call") return { data_in: obj || "object", data_out: n.action_type || "write" };
+    if (k === "enhance") return { data_in: "owned image", data_out: "enhanced" };
+    if (k === "audit") return { data_in: "claim", data_out: "gate" };
+    if (k === "agent") return { data_in: "task", data_out: "AGENT_TASK" };
+    if (k === "hypothesize") return { data_in: "rows", data_out: "claim" };
+    if (k === "improve") return { data_in: "claim", data_out: "edit" };
+    return { data_in: "in", data_out: "out" };
+  }
+
   function compileIR(state, opts) {
     opts = opts || {};
     const ghost = opts.ghost != null ? !!opts.ghost : true;
@@ -117,6 +138,7 @@
         let kind = CORTEX_KIND[n.kind] || "DOCUMENT_REF";
         if (n.id === output.id) kind = "EMIT";
         else if (kind === "EMIT") kind = "DETERMINISTIC_RULE";
+        const io = nodeIo(n);
         return {
           id: n.id,
           kind: kind,
@@ -126,12 +148,16 @@
           data_type: n.data_type || null,
           action_type: n.action_type || null,
           fetch_from: n.fetch_from || null,
+          skin: n.skin || null,
+          compute: n.compute || (n.kind === "foundry" ? "cortex" : null),
           tier: n.tier || "T0",
           stream: !!n.stream,
           trigger_kind: n.trigger_kind || null,
           source_kind: n.source_kind || null,
           source_link: n.source_link || null,
           region: n.region || null,
+          data_in: io.data_in,
+          data_out: io.data_out,
           note: n.note,
           requires_confirm: n.kind === "tool_call",
         };
@@ -401,14 +427,14 @@
       const node = {
         id: "g" + (i + 1),
         kind: kind,
-        x: 32 + (i % 4) * 208,
-        y: 48 + Math.floor(i / 4) * 168,
+        y: 56,
         note: doing[kind] || meta.note || kind,
         doing: doing[kind] || meta.note || kind,
         persona: meta.persona || "",
         tier: "T0",
         stream: false,
       };
+      node.x = 24 + i * 196;
       if (
         kind === "ingest" ||
         kind === "connector" ||
@@ -432,8 +458,17 @@
         node.source_link = enhanceBind === "online_api" ? "api.enhance" : "local://enhance";
         node.action_type = "image.enhance";
       }
-      if (kind === "tool_call" || kind === "foundry") node.action_type = action;
-      if (kind === "app") node.action_type = "emit";
+      if (kind === "tool_call") node.action_type = action;
+      if (kind === "foundry") {
+        node.action_type = action;
+        node.skin = suspectish ? "suspect" : venueish ? "constructor" : "warehouse";
+        node.compute = "cortex";
+      }
+      if (kind === "app") {
+        node.action_type = "emit";
+        node.skin = suspectish ? "suspect" : venueish ? "constructor" : "warehouse";
+        node.object_type = firstObj;
+      }
       return node;
     });
     const edges = [];
@@ -477,6 +512,7 @@
     refusePrompt: refusePrompt,
     isSuspectDesk: isSuspectDesk,
     fetchPlaceFor: fetchPlaceFor,
+    nodeIo: nodeIo,
     generateGraph: generateGraph,
   };
 });

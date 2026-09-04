@@ -69,6 +69,19 @@ test.describe("canvas", () => {
     await expect(page.locator("#cal-pop")).toBeHidden();
   });
 
+  test("app edit is a skin, not a warehouse fetch", async ({ page }) => {
+    await page.locator(".node[data-kind=app] .node-edit").click();
+    await expect(page.locator("#event-title")).toHaveText("App");
+    await expect(page.locator("#event-fields select[name=skin]")).toHaveValue("warehouse");
+    await expect(page.locator("#event-fields select[name=fetch_from]")).toHaveCount(0);
+    await expect(page.locator("#event-fields select[name=action_type]")).toHaveCount(0);
+    await expect(page.getByTestId("block-io")).toContainText("EMIT warehouse");
+    await page.locator("#event-close").click();
+    await page.locator(".node[data-kind=ingest] .node-edit").click();
+    await expect(page.locator("#event-fields select[name=fetch_from]")).toHaveValue("warehouse.inventory");
+    await expect(page.locator("#event-fields select[name=skin]")).toHaveCount(0);
+  });
+
   test("chat 'add audit' adds a node", async ({ page }) => {
     const reply = await chat(page, "add audit");
     await expect(reply).toContainText("Added audit");
