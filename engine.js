@@ -485,16 +485,18 @@ async function handleChat(raw) {
   const C = window.Constructor;
   if (!t) return "Say the object, point, action, or run all.";
   if (t === "help") {
-    return "Labs: lab train | lab infer | lab retrain | lab voice | lab image. define block <id> adds an ontology action + tool_call (Cortex implements). gaps lists missing core kinds. Chat a whole desk: warehouse, venue/CRM, case rows, or a police suspect desk (owned images -> enhance local model or online API -> match owned.watchlist -> app). Or: issue key. ghost on/off. propose 3. maximize. run all. why. add <kind>. Ontology studio verbs. Ctrl+/ toggles chat.";
+    return "Labs: lab loop | lab train | lab infer | lab retrain | lab voice | lab image. Press Loop then Run to walk ingest -> train -> infer -> retrain. define block <id> adds an ontology action + tool_call (Cortex implements). gaps lists missing core kinds. Chat a whole desk: warehouse, venue/CRM, case rows, or a police suspect desk (owned images -> enhance local model or online API -> match owned.watchlist -> app). Or: issue key. ghost on/off. propose 3. maximize. run all. why. add <kind>. Ontology studio verbs. Ctrl+/ toggles chat.";
   }
-  const lab = t.match(/^(?:lab|seed) (train|infer|retrain|voice|image|warehouse|sample)$/);
+  const lab = t.match(/^(?:lab|seed) (loop|train|infer|retrain|voice|image|warehouse|sample)$/);
   if (lab && C.applySeed) {
     C.applySeed(lab[1]);
     C.setGhost(true);
     return (
       "Loaded " +
       lab[1] +
-      " lab (mock data). Ghost on. Ticks count ghost walks, not XP. Live webhook/stream/run only on /cortex. Type gaps if a block is missing."
+      " lab (mock data). Ghost on. " +
+      (lab[1] === "loop" ? "Press Run to walk ingest -> train -> infer -> retrain. " : "") +
+      "Ticks count ghost walks, not XP. Live webhook/stream/run only on /cortex. Type gaps if a block is missing."
     );
   }
   const defBlock = t.match(/^define block ([a-z][a-z0-9_.]*)$/);
@@ -529,9 +531,11 @@ async function handleChat(raw) {
     const extra = [];
     if (!kinds.has("trigger")) extra.push("trigger (webhook/schedule/message)");
     if (!kinds.has("audit")) extra.push("audit (LLM-as-judge compile)");
+    const loopMissing = ["train", "infer", "retrain"].filter(function (k) { return !kinds.has(k); });
     return (
       (missing.length ? "Missing core: " + missing.join(", ") + ". add <kind> or pick a lab. " : "Core ingest->app path present. ") +
       (extra.length ? "Optional: " + extra.join("; ") + ". " : "") +
+      (loopMissing.length ? "Loop: add " + loopMissing.join(" / add ") + ", or lab loop. " : "Train loop present. ") +
       "New tool = define block <id>."
     );
   }
@@ -904,7 +908,7 @@ function bindChat() {
   }
   chatSay(
     "assistant",
-    "Chat warehouse, venue/CRM, labs (train / infer / retrain), case desk, or a police suspect desk. Owned images -> enhance (local model or online API) -> match owned.watchlist -> app. Ctrl+/ toggles. I will not compile stalking, doxxing, public-webcam scrape, or sex-work graphs. Type help."
+    "Chat warehouse, venue/CRM, labs (loop / train / infer / retrain), case desk, or a police suspect desk. Press Loop then Run to walk ingest -> train -> infer -> retrain. Owned images -> enhance (local model or online API) -> match owned.watchlist -> app. Ctrl+/ toggles. I will not compile stalking, doxxing, public-webcam scrape, or sex-work graphs. Type help or click a chip."
   );
   window.Constructor.pressNode = pressNode;
   loadOntology();

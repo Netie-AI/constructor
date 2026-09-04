@@ -108,9 +108,58 @@ const KINDS = {
     note: "Governed write. requires_confirm.",
     icon: ico('<path d="M13 3l-2 8h6l-8 10 2-8H5z"/>'),
   },
+  train: {
+    label: "Train",
+    persona: "trainer",
+    color: "#7ee0c3",
+    note: "Fit mock weights from ingested rows. Ghost on Pages. Live fit is Cortex.",
+    icon: ico('<path d="M4 18h16M6 18V8l4 3 4-6 4 4v9"/><path d="M4 21h16"/>'),
+  },
+  infer: {
+    label: "Infer",
+    persona: "scorer",
+    color: "#f0c36d",
+    note: "Score a batch with the last checkpoint. Mock mark, not live CV/LLM.",
+    icon: ico('<circle cx="12" cy="12" r="8"/><path d="M10 9l6 3-6 3z"/>'),
+  },
+  retrain: {
+    label: "Retrain",
+    persona: "retrainer",
+    color: "#e8a07a",
+    note: "Feed judge deltas into the next Cortex DAG fit. Not Airflow.",
+    icon: ico('<path d="M20 12a8 8 0 11-2.3-5.6"/><path d="M20 4v4h-4"/>'),
+  },
 };
 
-const PERSONAS = ["loader", "source", "modeler", "analyst", "compiler", "operator", "worker", "skeptic", "editor", "enhancer", "steward", "writer"];
+const PERSONAS = ["loader", "source", "modeler", "analyst", "compiler", "operator", "worker", "skeptic", "editor", "enhancer", "steward", "writer", "trainer", "scorer", "retrainer"];
+const HELP = {
+  run: { title: "Run", press: "Run", type: "run", hint: "Ghost-walks every block. Live POST /cortex/constructor/run only on a /cortex origin. Pages never fetch." },
+  ghost: { title: "Ghost", press: "Ghost on", type: "ghost on", hint: "Dry-run. No writes. Keep Ghost on until you are on Cortex." },
+  chat: { title: "Chat", press: "Chat or Ctrl+/", type: "help", hint: "Compile a desk in words. Labs: lab loop | lab train | lab infer | lab retrain." },
+  loop: { title: "Loop", press: "Loop", type: "lab loop", hint: "One cycle: ingest -> train -> infer -> retrain. Press Run to walk a phase. Cycle wire is the next fit." },
+  train: { title: "Train lab", press: "1 Train", type: "lab train", hint: "Zoomed 8-block train compile. Mock loss, stream connector. Not GPU weights on Pages." },
+  infer: { title: "Infer lab", press: "2 Infer+judge", type: "lab infer", hint: "Trigger + enhance + mock region mark. Live LLM only on /cortex." },
+  retrain: { title: "Retrain lab", press: "3 Retrain", type: "lab retrain", hint: "Judge deltas compile as a Cortex DAG. Not Apache Airflow UI." },
+  ingest: { title: "Ingest", press: "Ingest", type: "add ingest", hint: "Hop 0. Bind a place/stream/db to an object. No write. Edit the block, then Run." },
+  connector: { title: "Connector", press: "Connector", type: "add connector", hint: "First-party Cortex bind. Not n8n. Pick object + source kind." },
+  trigger: { title: "Trigger", press: "Trigger", type: "add trigger", hint: "Webhook, schedule, or message. Ghost on Pages. Type: add trigger" },
+  ontology: { title: "Ontology", press: "Ontology or Ontology studio", type: "ontology", hint: "Object, link, action types. Double-click a chip to open the studio." },
+  insight: { title: "Insight", press: "Insight", type: "add insight", hint: "A claim you may make from the ledger. Region mark is mock, not live CV." },
+  foundry: { title: "Foundry", press: "Foundry", type: "add foundry", hint: "Compile insights into Cortex app IR. Spark/Airflow-class jobs stay Cortex DAG." },
+  app: { title: "App", press: "App", type: "add app", hint: "EMIT skin a stranger runs inside Cortex. Not a warehouse fetch." },
+  tool_call: { title: "Tool call", press: "Tool call", type: "define block my.tool", hint: "Governed write. requires_confirm. Type define block <id> to add an action." },
+  enhance: { title: "Enhance", press: "Enhance", type: "add enhance", hint: "Comfy-style on owned images. Local model or online API. Ghost on Pages." },
+  agent: { title: "Agent", press: "Agent", type: "add agent", hint: "One bounded AGENT_TASK worker. Type: add agent" },
+  hypothesize: { title: "Hypothesize", press: "Hypothesize", type: "add hypothesize", hint: "Surface a testable claim before audit." },
+  improve: { title: "Improve", press: "Improve", type: "add improve", hint: "Change a product from the claim." },
+  audit: { title: "Audit", press: "Audit", type: "add audit", hint: "Pass/fail gate. Not a second EMIT." },
+  propose: { title: "Propose 3", press: "Propose 3", type: "propose 3", hint: "Rank three Cortex coordination patterns for this graph. Then Maximize." },
+  reset: { title: "Reset sample", press: "Reset sample", type: "foundry", hint: "Back to the 8-block warehouse sample. Clears the saved graph." },
+  export: { title: "Export JSON", press: "Export JSON", type: "", hint: "Download nodes, wires, and ontology. Zero fetch." },
+  chips: { title: "Type suggestions", press: "a chip", type: "lab loop", hint: "Click a chip to send that chat. Start with lab loop, then run." },
+};
+
+const CHAT_CHIPS = ["lab loop", "run", "add train", "add infer", "add retrain", "help"];
 const ACTION_META = [
   { id: "export_pptx", objects: ["*"], label: "export_pptx (any object)" },
   { id: "item.intake", objects: ["inventory"], label: "item.intake (inventory)" },
@@ -447,6 +496,35 @@ function seedNode(kind, x, y) {
     node.skin = "constructor";
     node.object_type = "inventory";
   }
+  if (kind === "train") {
+    node.object_type = "inventory";
+    node.data_point = "sku";
+    node.data_type = "string";
+    node.fetch_from = "local.model";
+    node.source_kind = "local_model";
+    node.source_link = "local://fit";
+    node.action_type = "model.fit";
+    node.checkpoint = "weights";
+  }
+  if (kind === "infer") {
+    node.object_type = "inventory";
+    node.data_point = "sku";
+    node.data_type = "string";
+    node.action_type = "model.score";
+    node.checkpoint = "weights";
+    node.scores = "scores";
+    node.region = "cx=62 cy=48 r=18 why=mock_score";
+  }
+  if (kind === "retrain") {
+    node.object_type = "inventory";
+    node.data_point = "sku";
+    node.data_type = "string";
+    node.fetch_from = "local.model";
+    node.source_kind = "local_model";
+    node.source_link = "local://retrain";
+    node.action_type = "model.retrain";
+    node.checkpoint = "next weights";
+  }
   if (kind === "insight" || kind === "audit" || kind === "agent" || kind === "hypothesize" || kind === "improve") {
     node.object_type = node.object_type || "inventory";
   }
@@ -641,6 +719,29 @@ function labGraph(lab) {
     n("a1").note = "Pick a skin. Prebuilt = these 8 kinds, not a plugin store.";
     return { lab: "warehouse", insight: "Warehouse path: ingest -> ontology -> insight -> app.", nodes: base.nodes, edges: base.edges };
   }
+  if (lab === "loop") {
+    const nodes = [
+      { id: "n0", kind: "ingest", x: 24, y: 64, note: "Hop 0. Mock train set from warehouse.inventory. No write.", doing: "Hop 0. Load inventory rows from warehouse.inventory. No write.", object_type: "inventory", data_point: "sku", data_type: "string", source_kind: "place", fetch_from: "warehouse.inventory", persona: "loader" },
+      { id: "tr", kind: "train", x: 220, y: 64, note: "Ghost fit. Mock loss. Live weights stay in Cortex.", doing: "Ghost fit on inventory rows. Mock loss. Live weights stay in Cortex.", object_type: "inventory", data_point: "sku", data_type: "string", source_kind: "local_model", fetch_from: "local.model", source_link: "local://fit", action_type: "model.fit", checkpoint: "weights", persona: "trainer" },
+      { id: "inf", kind: "infer", x: 416, y: 64, note: "Score the batch. Mock mark, not live CV/LLM.", doing: "Score inventory batch with last checkpoint.", object_type: "inventory", data_point: "sku", action_type: "model.score", checkpoint: "weights", scores: "scores", region: "cx=62 cy=48 r=18 why=mock_score", persona: "scorer" },
+      { id: "g1", kind: "audit", x: 612, y: 64, note: "Judge scores vs mock truth. Gate before retrain.", doing: "Judge scores vs mock truth. Gate before retrain.", object_type: "inventory", persona: "steward", region: "cx=62 cy=48 r=18 why=mock_score" },
+      { id: "rt", kind: "retrain", x: 808, y: 64, note: "Judge deltas -> next Cortex DAG fit. Not Airflow.", doing: "Feed judge deltas into the next Cortex DAG fit.", object_type: "inventory", data_point: "sku", source_kind: "local_model", fetch_from: "local.model", action_type: "model.retrain", checkpoint: "next weights", persona: "retrainer" },
+      { id: "o1", kind: "ontology", x: 24, y: 260, note: "Object + PK for the train set.", object_type: "inventory", data_point: "sku", data_type: "string", persona: "modeler" },
+      { id: "f1", kind: "foundry", x: 612, y: 260, note: "Loop compile. Spark/Airflow-class work is Cortex DAG.", action_type: "export_pptx", skin: "warehouse", compute: "cortex", persona: "compiler" },
+      { id: "a1", kind: "app", x: 808, y: 260, note: "EMIT skin. Engine is Cortex.", action_type: "emit", skin: "warehouse", object_type: "inventory", persona: "operator" },
+    ];
+    const edges = [
+      { from: "n0", to: "tr" },
+      { from: "tr", to: "inf" },
+      { from: "inf", to: "g1" },
+      { from: "g1", to: "rt" },
+      { from: "rt", to: "tr" },
+      { from: "n0", to: "o1" },
+      { from: "inf", to: "f1" },
+      { from: "f1", to: "a1" },
+    ];
+    return { lab: "loop", insight: loopPhaseText("ingest"), phase: "ingest", nodes: nodes, edges: edges };
+  }
   return { lab: "sample", insight: "", nodes: base.nodes, edges: base.edges };
 }
 
@@ -650,8 +751,10 @@ function applySeed(lab) {
   const p = playState();
   p.lab = g.lab;
   p.insight = g.insight;
+  p.phase = g.phase || (g.lab === "train" || g.lab === "infer" || g.lab === "retrain" ? g.lab : g.lab === "loop" ? "ingest" : "");
   savePlay(p);
   replaceGraph(g.nodes, g.edges);
+  paintLoopPhase();
   return g.lab;
 }
 
@@ -662,7 +765,66 @@ function playState() {
     const raw = JSON.parse(localStorage.getItem(PLAY_KEY) || "null");
     if (raw && typeof raw.ticks === "number") return raw;
   } catch (e) {}
-  return { ticks: 0, lab: "sample", insight: "" };
+  return { ticks: 0, lab: "sample", insight: "", phase: "" };
+}
+
+function loopPhaseText(phase) {
+  const Core = globalThis.NetieConstructorCore;
+  if (Core && typeof Core.loopPhaseInsight === "function") return Core.loopPhaseInsight(phase);
+  return String(phase || "");
+}
+
+function currentPhase() {
+  const p = playState();
+  if (currentLab === "loop") return p.phase || "ingest";
+  if (currentLab === "train" || currentLab === "infer" || currentLab === "retrain") return currentLab;
+  return p.phase || "";
+}
+
+function paintLoopPhase() {
+  const phase = currentPhase();
+  const strip = document.getElementById("phase-strip");
+  if (strip) {
+    strip.querySelectorAll("[data-phase]").forEach(function (btn) {
+      const on = btn.getAttribute("data-phase") === phase;
+      btn.classList.toggle("on", on);
+      btn.setAttribute("aria-current", on ? "step" : "false");
+    });
+  }
+  for (const el of nodesEl.querySelectorAll(".node")) {
+    el.classList.toggle("phase-now", !!(phase && el.dataset.kind === phase));
+  }
+}
+
+function advanceLoopPhase() {
+  if (currentLab !== "loop") return currentPhase();
+  const Core = globalThis.NetieConstructorCore;
+  const p = playState();
+  const next = Core && Core.nextLoopPhase ? Core.nextLoopPhase(p.phase || "ingest") : "train";
+  p.phase = next;
+  p.insight = loopPhaseText(next);
+  savePlay(p);
+  const node = state.nodes.find(function (n) { return n.kind === next; });
+  if (node) selectedId = node.id;
+  paintLoopPhase();
+  showInspect();
+  return next;
+}
+
+function jumpLoopPhase(phase) {
+  const phases = (globalThis.NetieConstructorCore && globalThis.NetieConstructorCore.LOOP_PHASES) || ["ingest", "train", "infer", "retrain"];
+  if (phases.indexOf(phase) < 0) return false;
+  if (currentLab !== "loop") applySeed("loop");
+  const p = playState();
+  p.phase = phase;
+  p.lab = "loop";
+  p.insight = loopPhaseText(phase);
+  savePlay(p);
+  const node = state.nodes.find(function (n) { return n.kind === phase; });
+  if (node) selectedId = node.id;
+  paintLoopPhase();
+  render();
+  return true;
 }
 
 function savePlay(p) {
@@ -680,6 +842,14 @@ function paintPlayHud() {
   if (t) t.textContent = p.ticks + (p.ticks === 1 ? " tick" : " ticks");
   if (l) l.textContent = currentLab || p.lab || "sample";
   if (i) i.textContent = p.insight || "";
+  const n = document.getElementById("play-next");
+  if (n) {
+    const phase = currentPhase();
+    n.textContent = currentLab === "loop"
+      ? "Next: press Run (or type run) to walk " + ((globalThis.NetieConstructorCore && globalThis.NetieConstructorCore.nextLoopPhase && globalThis.NetieConstructorCore.nextLoopPhase(phase)) || "train")
+      : "Press Loop, then Run. Or type: lab loop";
+  }
+  paintLoopPhase();
 }
 
 function load() {
@@ -707,7 +877,7 @@ function render() {
   for (const node of state.nodes) {
     const el = document.createElement("article");
     const meta = KINDS[node.kind] || { label: node.kind, icon: "", persona: "", color: "#888" };
-    el.className = "node" + (node.id === selectedId ? " selected" : "");
+    el.className = "node" + (node.id === selectedId ? " selected" : "") + (currentPhase() && node.kind === currentPhase() ? " phase-now" : "");
     el.dataset.id = node.id;
     el.dataset.kind = node.kind;
     el.style.left = node.x + "px";
@@ -721,6 +891,9 @@ function render() {
       "</span>" +
       '<div class="kind">' +
       node.kind.toUpperCase() +
+      (node.kind === "train" || node.kind === "infer" || node.kind === "retrain" || node.kind === "ingest"
+        ? '<span class="phase-tag">' + escapeAttr(node.kind) + "</span>"
+        : "") +
       "</div>" +
       '<button type="button" class="node-edit" data-edit="1" aria-label="edit node">+</button>' +
       "</div><h2>" +
@@ -879,6 +1052,12 @@ function openCalPop(node, extra) {
   if (enhanceHelp) enhanceHelp.hidden = node.kind !== "enhance";
   const triggerHelp = document.getElementById("trigger-help");
   if (triggerHelp) triggerHelp.hidden = node.kind !== "trigger";
+  const trainHelp = document.getElementById("train-help");
+  if (trainHelp) trainHelp.hidden = node.kind !== "train";
+  const inferHelp = document.getElementById("infer-help");
+  if (inferHelp) inferHelp.hidden = node.kind !== "infer";
+  const retrainHelp = document.getElementById("retrain-help");
+  if (retrainHelp) retrainHelp.hidden = node.kind !== "retrain";
   if (hint) hint.textContent = hintForKind(node);
   if (fields) {
     fields.innerHTML =
@@ -964,6 +1143,9 @@ function hintForKind(node) {
   if (k === "agent") return "IN task. OUT AGENT_TASK. One worker.";
   if (k === "hypothesize") return "IN rows. OUT testable claim.";
   if (k === "improve") return "IN claim. OUT product edit.";
+  if (k === "train") return "IN dataset rows. OUT mock weights. Press Run to walk the loop. Type: add train";
+  if (k === "infer") return "IN checkpoint + batch. OUT scores. Mock mark. Type: add infer";
+  if (k === "retrain") return "IN judge deltas. OUT next weights as Cortex DAG. Not Airflow. Type: add retrain";
   return "";
 }
 
@@ -1096,6 +1278,34 @@ function eventFieldsHtml(node) {
       fieldTextarea("doing", "Change", node.doing || node.note || "", "What to edit");
     return html;
   }
+  if (kind === "train") {
+    html +=
+      objectPickHtml(node, "Train object", "Data point") +
+      sourceBindHtml(node) +
+      fieldInput("checkpoint", "Checkpoint (mock)", node.checkpoint || "weights", "weights") +
+      fieldInput("action_type", "Fit action", node.action_type || "model.fit", "model.fit") +
+      fieldTextarea("doing", "Fit note", node.doing || node.note || "", "Ghost fit. Live weights stay in Cortex.");
+    return html;
+  }
+  if (kind === "infer") {
+    html +=
+      objectPickHtml(node, "Score object", "Data point") +
+      fieldInput("checkpoint", "Checkpoint in", node.checkpoint || "weights", "weights") +
+      fieldInput("scores", "Scores out", node.scores || "scores", "scores") +
+      fieldInput("region", "Region mark (mock)", node.region || "", "cx=62 cy=48 r=18 why=mock_score") +
+      fieldTextarea("doing", "Score note", node.doing || node.note || "", "Mock mark, not live CV/LLM.");
+    return html;
+  }
+  if (kind === "retrain") {
+    html +=
+      objectPickHtml(node, "Retrain object", "Data point") +
+      sourceBindHtml(node) +
+      fieldInput("checkpoint", "Next checkpoint", node.checkpoint || "next weights", "next weights") +
+      fieldInput("action_type", "Retrain action", node.action_type || "model.retrain", "model.retrain") +
+      '<p class="hint">Spark / Airflow-class retrain is a Cortex DAG. No Airflow UI here.</p>' +
+      fieldTextarea("doing", "Retrain note", node.doing || node.note || "", "Judge deltas -> next fit.");
+    return html;
+  }
   html += fieldSelect("persona", "Persona", PERSONAS, persona);
   return html;
 }
@@ -1141,6 +1351,13 @@ function showInspect() {
     inspectForm.hidden = true;
     if (inspectCard) inspectCard.hidden = true;
     inspectEmpty.hidden = false;
+    inspectEmpty.innerHTML =
+      '<p class="hint">Select a block. Press Loop, then Run to walk ingest -> train -> infer -> retrain.</p>' +
+      '<div class="suggest-row">' +
+      '<button type="button" data-chip="lab loop">lab loop</button>' +
+      '<button type="button" data-chip="run">run</button>' +
+      '<button type="button" data-chip="add train">add train</button>' +
+      "</div>";
     showDecision(null);
     return;
   }
@@ -1525,6 +1742,7 @@ document.getElementById("reset-graph").addEventListener("click", () => {
   const p = playState();
   p.lab = "sample";
   p.insight = "";
+  p.phase = "";
   savePlay(p);
   localStorage.removeItem(STORAGE_KEY);
   save();
@@ -1649,7 +1867,18 @@ function markGhostWalk(ids) {
   if (ids && ids.length) {
     const p = playState();
     p.ticks += 1;
+    if (currentLab === "loop") {
+      const next = (globalThis.NetieConstructorCore && globalThis.NetieConstructorCore.nextLoopPhase)
+        ? globalThis.NetieConstructorCore.nextLoopPhase(p.phase || "ingest")
+        : "train";
+      p.phase = next;
+      p.insight = loopPhaseText(next);
+      const node = state.nodes.find(function (n) { return n.kind === next; });
+      if (node) selectedId = node.id;
+    }
     savePlay(p);
+    paintLoopPhase();
+    if (currentLab === "loop") showInspect();
   }
 }
 
@@ -1840,6 +2069,86 @@ function ensureChatOpen() {
   });
 })();
 
+function sendChatChip(text) {
+  const input = document.getElementById("chat-input");
+  const form = document.getElementById("chat-form");
+  if (!input || !form || !text) return false;
+  if (window.Constructor && window.Constructor.ensureChatOpen) window.Constructor.ensureChatOpen();
+  input.value = text;
+  if (typeof form.requestSubmit === "function") form.requestSubmit();
+  else form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  return true;
+}
+
+function openHelp(id, anchor) {
+  const tip = HELP[id];
+  const pop = document.getElementById("help-pop");
+  if (!tip || !pop) return false;
+  document.getElementById("help-title").textContent = tip.title;
+  document.getElementById("help-body").textContent = tip.hint;
+  document.getElementById("help-press").textContent = tip.press || "-";
+  document.getElementById("help-type").textContent = tip.type || "-";
+  const tryBtn = document.getElementById("help-try");
+  if (tryBtn) {
+    tryBtn.hidden = !tip.type;
+    tryBtn.setAttribute("data-chip", tip.type || "");
+  }
+  pop.hidden = false;
+  if (anchor && anchor.getBoundingClientRect) {
+    const r = anchor.getBoundingClientRect();
+    let left = r.right + 8;
+    let top = r.top;
+    if (left + 320 > window.innerWidth) left = Math.max(8, r.left - 328);
+    if (top + 220 > window.innerHeight) top = Math.max(8, window.innerHeight - 228);
+    pop.style.left = left + "px";
+    pop.style.top = top + "px";
+  }
+  return true;
+}
+
+function closeHelp() {
+  const pop = document.getElementById("help-pop");
+  if (pop) pop.hidden = true;
+}
+
+(function bindHelpAndChips() {
+  document.addEventListener("click", function (event) {
+    const q = event.target.closest && event.target.closest(".help-q");
+    if (q) {
+      event.preventDefault();
+      event.stopPropagation();
+      openHelp(q.getAttribute("data-help"), q);
+      return;
+    }
+    const chip = event.target.closest && event.target.closest("[data-chip]");
+    if (chip && !chip.classList.contains("help-q")) {
+      const text = chip.getAttribute("data-chip");
+      if (text) {
+        event.preventDefault();
+        closeHelp();
+        sendChatChip(text);
+      }
+      return;
+    }
+    const pop = document.getElementById("help-pop");
+    if (pop && !pop.hidden && !pop.contains(event.target)) closeHelp();
+  });
+  const close = document.getElementById("help-close");
+  if (close) close.addEventListener("click", closeHelp);
+  document.getElementById("phase-strip") &&
+    document.getElementById("phase-strip").addEventListener("click", function (event) {
+      const btn = event.target.closest("[data-phase]");
+      if (!btn) return;
+      jumpLoopPhase(btn.getAttribute("data-phase"));
+    });
+  const chips = document.getElementById("chat-chips");
+  if (chips && !chips.childElementCount) {
+    chips.innerHTML = CHAT_CHIPS.map(function (c) {
+      return '<button type="button" data-chip="' + escapeAttr(c) + '">' + escapeAttr(c) + "</button>";
+    }).join("");
+  }
+})();
+
 window.Constructor = {
   KINDS,
   OBJECTS,
@@ -1880,6 +2189,13 @@ window.Constructor = {
   setChatDock,
   toggleChatDock,
   ensureChatOpen,
+  HELP,
+  CHAT_CHIPS,
+  jumpLoopPhase,
+  advanceLoopPhase,
+  currentPhase,
+  sendChatChip,
+  openHelp,
 };
 
 const power = document.getElementById("power");

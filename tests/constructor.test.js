@@ -166,3 +166,61 @@ test("refused generateGraph does not emit nodes", () => {
   assert.equal(graph.refused, true);
   assert.equal(graph.nodes, undefined);
 });
+
+test("train/infer/retrain compile as DOCUMENT_REF with loop IO", () => {
+  assert.equal(Core.CORTEX_KIND.train, "DOCUMENT_REF");
+  assert.equal(Core.CORTEX_KIND.infer, "DOCUMENT_REF");
+  assert.equal(Core.CORTEX_KIND.retrain, "DOCUMENT_REF");
+  const ir = Core.compileIR(
+    {
+      nodes: [
+        { id: "n0", kind: "ingest", fetch_from: "warehouse.inventory", object_type: "inventory" },
+        { id: "tr", kind: "train", object_type: "inventory", checkpoint: "weights", action_type: "model.fit" },
+        { id: "inf", kind: "infer", object_type: "inventory", checkpoint: "weights", scores: "scores" },
+        { id: "rt", kind: "retrain", checkpoint: "next weights" },
+        { id: "a", kind: "app", action_type: "emit", skin: "warehouse" },
+      ],
+      edges: [
+        { from: "n0", to: "tr" },
+        { from: "tr", to: "inf" },
+        { from: "inf", to: "rt" },
+        { from: "rt", to: "tr" },
+        { from: "inf", to: "a" },
+      ],
+    },
+    { ghost: true }
+  );
+  const train = ir.nodes.find((n) => n.id === "tr");
+  const infer = ir.nodes.find((n) => n.id === "inf");
+  const retrain = ir.nodes.find((n) => n.id === "rt");
+  assert.equal(train.constructor_kind, "train");
+  assert.equal(train.kind, "DOCUMENT_REF");
+  assert.equal(train.data_out, "weights");
+  assert.equal(infer.data_out, "scores");
+  assert.equal(retrain.data_in, "judge deltas");
+  assert.equal(retrain.checkpoint, "next weights");
+});
+
+test("training loop chat compiles ingest -> train -> infer -> retrain cycle", () => {
+  const graph = Core.generateGraph("ingest train set then train then infer then retrain");
+  assert.equal(graph.ok, true);
+  const kinds = graph.nodes.map((n) => n.kind);
+  assert.deepEqual(kinds, ["ingest", "train", "infer", "audit", "retrain", "foundry", "app"]);
+  assert.equal(graph.pattern, "generator_verifier");
+  assert.equal(
+    graph.edges.some((e) => {
+      const from = graph.nodes.find((n) => n.id === e.from);
+      const to = graph.nodes.find((n) => n.id === e.to);
+      return from && to && from.kind === "retrain" && to.kind === "train";
+    }),
+    true
+  );
+});
+
+test("nextLoopPhase wraps retrain to ingest", () => {
+  assert.equal(Core.nextLoopPhase("ingest"), "train");
+  assert.equal(Core.nextLoopPhase("train"), "infer");
+  assert.equal(Core.nextLoopPhase("infer"), "retrain");
+  assert.equal(Core.nextLoopPhase("retrain"), "ingest");
+  assert.match(Core.loopPhaseInsight("ingest"), /Press Run/);
+});

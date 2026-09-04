@@ -90,9 +90,54 @@ test.describe("labs", () => {
   });
 
   test("ghost run bumps play ticks", async ({ page }) => {
-    await expect(page.locator("#play-ticks")).toHaveText("0 ticks");
+    const before = await page.locator("#play-ticks").textContent();
+    const n = parseInt(before, 10) || 0;
     await page.locator("#run-graph").click();
     await expect(page.locator("#chat-log .bubble.assistant").last()).toContainText("Ghost run");
-    await expect(page.locator("#play-ticks")).toHaveText("1 tick");
+    const expectLabel = n + 1 === 1 ? "1 tick" : n + 1 + " ticks";
+    await expect(page.locator("#play-ticks")).toHaveText(expectLabel);
+  });
+
+  test("loop lab is a walkable ingest-train-infer-retrain cycle", async ({ page }) => {
+    await page.locator("[data-seed=loop]").click();
+    await expect(page.locator("#nodes .node")).toHaveCount(8);
+    await expect(page.locator(".node[data-kind=train]")).toHaveCount(1);
+    await expect(page.locator(".node[data-kind=infer]")).toHaveCount(1);
+    await expect(page.locator(".node[data-kind=retrain]")).toHaveCount(1);
+    await expect(page.locator("#play-lab")).toHaveText("loop");
+    await expect(page.locator("#phase-strip [data-phase=ingest]")).toHaveClass(/on/);
+    await expect(page.locator("#play-insight")).toContainText("Phase 1/4 ingest");
+    await page.locator("#run-graph").click();
+    await expect(page.locator("#phase-strip [data-phase=train]")).toHaveClass(/on/);
+    await expect(page.locator("#play-insight")).toContainText("Phase 2/4 train");
+    await page.locator("#phase-strip [data-phase=retrain]").click();
+    await expect(page.locator("#phase-strip [data-phase=retrain]")).toHaveClass(/on/);
+    await expect(page.locator(".node[data-kind=retrain]")).toHaveClass(/phase-now/);
+    await page.locator(".node[data-kind=train] .node-edit").click();
+    await expect(page.locator("#event-title")).toHaveText("Train");
+    await expect(page.getByTestId("block-io")).toContainText("weights");
+    await page.screenshot({ path: shot("lab-loop.png") });
+  });
+
+  test("help mark explains Run press and type", async ({ page }) => {
+    await page.locator('[data-help=run]').click();
+    await expect(page.locator("#help-pop")).toBeVisible();
+    await expect(page.locator("#help-title")).toHaveText("Run");
+    await expect(page.locator("#help-press")).toHaveText("Run");
+    await expect(page.locator("#help-type")).toHaveText("run");
+    await expect(page.locator("#help-body")).toContainText("Ghost-walks");
+    await page.screenshot({ path: shot("help-run.png") });
+    await page.locator("#help-close").click();
+    await expect(page.locator("#help-pop")).toBeHidden();
+  });
+
+  test("chat chip lab loop and add train are interactive", async ({ page }) => {
+    await page.locator('#chat-chips [data-chip="lab loop"]').click();
+    await expect(page.locator("#chat-log .bubble.assistant").last()).toContainText("loop");
+    await expect(page.locator(".node[data-kind=train]")).toHaveCount(1);
+    await page.locator("[data-add=train]").click();
+    await expect(page.locator(".node[data-kind=train]")).toHaveCount(2);
+    await expect(page.locator("#cal-pop")).toBeVisible();
+    await expect(page.locator("#event-title")).toHaveText("Train");
   });
 });

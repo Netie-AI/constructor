@@ -26,6 +26,9 @@
     improve: "DOCUMENT_REF",
     audit: "DOCUMENT_REF",
     tool_call: "TOOL_CALL",
+    train: "DOCUMENT_REF",
+    infer: "DOCUMENT_REF",
+    retrain: "DOCUMENT_REF",
   };
 
   const KIND_NOTES = {
@@ -42,7 +45,12 @@
     improve: { persona: "editor", note: "Change a product from the claim." },
     audit: { persona: "steward", note: "Why this node exists. DETERMINISTIC_RULE, not a second EMIT." },
     tool_call: { persona: "writer", note: "Governed write. requires_confirm." },
+    train: { persona: "trainer", note: "Fit mock weights from ingested rows. Ghost on Pages. Live fit is Cortex." },
+    infer: { persona: "scorer", note: "Score a batch with the last checkpoint. Mock mark, not live CV/LLM." },
+    retrain: { persona: "retrainer", note: "Feed judge deltas into the next Cortex DAG fit. Not Airflow." },
   };
+
+  const LOOP_PHASES = ["ingest", "train", "infer", "retrain"];
 
   const APPROACHES = [
     {
@@ -118,7 +126,24 @@
     if (k === "agent") return { data_in: "task", data_out: "AGENT_TASK" };
     if (k === "hypothesize") return { data_in: "rows", data_out: "claim" };
     if (k === "improve") return { data_in: "claim", data_out: "edit" };
+    if (k === "train") return { data_in: obj || place || "dataset", data_out: n.checkpoint || "weights" };
+    if (k === "infer") return { data_in: (n.checkpoint || "weights") + "+" + (obj || "batch"), data_out: n.scores || "scores" };
+    if (k === "retrain") return { data_in: "judge deltas", data_out: n.checkpoint || "next weights" };
     return { data_in: "in", data_out: "out" };
+  }
+
+  function nextLoopPhase(phase) {
+    const i = LOOP_PHASES.indexOf(phase);
+    if (i < 0) return LOOP_PHASES[0];
+    return LOOP_PHASES[(i + 1) % LOOP_PHASES.length];
+  }
+
+  function loopPhaseInsight(phase) {
+    if (phase === "ingest") return "Phase 1/4 ingest. Load the mock train set. Press Run, or type: run";
+    if (phase === "train") return "Phase 2/4 train. Ghost fit. Next press Infer, or type: lab infer";
+    if (phase === "infer") return "Phase 3/4 infer. Score the batch. Next press Retrain, or type: lab retrain";
+    if (phase === "retrain") return "Phase 4/4 retrain. Judge deltas -> next fit. Loop wraps to ingest. Type: lab loop";
+    return "Pick Loop, then press Run to walk ingest -> train -> infer -> retrain.";
   }
 
   function compileIR(state, opts) {
@@ -156,6 +181,8 @@
           source_kind: n.source_kind || null,
           source_link: n.source_link || null,
           region: n.region || null,
+          checkpoint: n.checkpoint || null,
+          scores: n.scores || null,
           data_in: io.data_in,
           data_out: io.data_out,
           note: n.note,
@@ -216,11 +243,13 @@
     const foundry = ["ontology", "insight", "foundry", "app"].every((k) => kinds.has(k));
     const verify = kinds.has("hypothesize") && kinds.has("audit") && !foundry;
     const judge = kinds.has("audit") && kinds.has("trigger");
+    const loop = kinds.has("train") && kinds.has("infer") && kinds.has("retrain");
     const ranked = APPROACHES.map((row) => {
       let score = scoreApproach(row);
       if (foundry && row.id === "orchestrator_subagent") score += 20;
       if (verify && row.id === "generator_verifier") score += 20;
       if (judge && row.id === "generator_verifier") score += 22;
+      if (loop && row.id === "generator_verifier") score += 16;
       return Object.assign({}, row, { score: score });
     }).sort((a, b) => b.score - a.score);
     return ranked;
@@ -233,7 +262,7 @@
       ["venues", ["club", "clubs", "venue", "venues", "nightlife", "restaurant"]],
       ["contacts", ["contact", "contacts"]],
       ["leads", ["customer", "customers", "lead", "leads", "prospect"]],
-      ["inventory", ["inventory", "sku", "stock", "warehouse"]],
+      ["inventory", ["inventory", "sku", "stock", "warehouse", "train set", "training set", "dataset", "batch"]],
       ["suppliers", ["supplier", "vendor"]],
       ["locations", ["location", "site", "bin"]],
       ["shipments", ["shipment", "consignment", "carrier"]],
@@ -343,6 +372,7 @@
     }
     const verify = /verify|audit|hypothes|claim|fact-?check/.test(low);
     const agentish = /single agent|one agent|worker loop/.test(low);
+    const loopish = /retrain|training loop|train then infer|ingest.{0,40}train.{0,40}infer|\bml loop\b|\bai train/.test(low);
     const foundryish = /foundry|create app|whole (app|workflow|desk)|generate whole|pptx|export|ontology|insight|\bapp\b|maps|club|venue|contact|customer|incident|case desk|suspect|face|cctv|enhance|comfy|police|watchlist/.test(
       low
     );
@@ -354,6 +384,9 @@
       kinds = ["ingest", "enhance", "ontology", "insight", "foundry", "app", "tool_call"];
       if (sourceKind === "local_model" || sourceKind === "online_api") enhanceBind = sourceKind;
       sourceKind = "database";
+    } else if (loopish && !suspectish) {
+      pattern = "generator_verifier";
+      kinds = ["ingest", "train", "infer", "audit", "retrain", "foundry", "app"];
     } else if (verify && !foundryish) {
       pattern = "generator_verifier";
       kinds = ["ingest", "hypothesize", "audit"];
@@ -408,8 +441,13 @@
         ? "F8 governed write. requires_confirm. Action suspect.match against owned.watchlist."
         : "F8 governed write. requires_confirm. Real tool is export_pptx.",
       hypothesize: "Surface a testable claim.",
-      audit: "Why this node exists. DETERMINISTIC_RULE, not a second EMIT.",
+      audit: loopish
+        ? "Judge scores vs mock truth. Gate before retrain. Not a live LLM on Pages."
+        : "Why this node exists. DETERMINISTIC_RULE, not a second EMIT.",
       agent: "AGENT_TASK loop. One bounded worker.",
+      train: "Ghost fit on the ingested " + objects.join("/") + " rows. Mock loss. Live weights stay in Cortex.",
+      infer: "Score the batch with the last checkpoint. Mock mark, not live CV/LLM on Pages.",
+      retrain: "Feed judge deltas into the next Cortex DAG fit. Not Apache Airflow UI.",
       insight: suspectish
         ? "Cite enhanced image vs owned.watchlist. Score is a claim, steward reviews. Not a conviction."
         : venueish
@@ -441,7 +479,11 @@
         kind === "ontology" ||
         kind === "tool_call" ||
         kind === "insight" ||
-        kind === "enhance"
+        kind === "enhance" ||
+        kind === "train" ||
+        kind === "infer" ||
+        kind === "retrain" ||
+        kind === "audit"
       ) {
         node.object_type = obj;
         node.data_point = points[obj] || "sku";
@@ -458,6 +500,24 @@
         node.source_link = enhanceBind === "online_api" ? "api.enhance" : "local://enhance";
         node.action_type = "image.enhance";
       }
+      if (kind === "train") {
+        node.action_type = "model.fit";
+        node.checkpoint = "weights";
+        node.source_kind = "local_model";
+        node.fetch_from = "local.model";
+      }
+      if (kind === "infer") {
+        node.action_type = "model.score";
+        node.checkpoint = "weights";
+        node.scores = "scores";
+        node.region = node.region || "cx=62 cy=48 r=18 why=mock_score";
+      }
+      if (kind === "retrain") {
+        node.action_type = "model.retrain";
+        node.checkpoint = "next weights";
+        node.source_kind = "local_model";
+        node.fetch_from = "local.model";
+      }
       if (kind === "tool_call") node.action_type = action;
       if (kind === "foundry") {
         node.action_type = action;
@@ -473,6 +533,13 @@
     });
     const edges = [];
     for (let i = 0; i < nodes.length - 1; i++) edges.push({ from: nodes[i].id, to: nodes[i + 1].id });
+    if (loopish) {
+      const trainN = nodes.find(function (n) { return n.kind === "train"; });
+      const retrainN = nodes.find(function (n) { return n.kind === "retrain"; });
+      if (trainN && retrainN && !edges.some(function (e) { return e.from === retrainN.id && e.to === trainN.id; })) {
+        edges.push({ from: retrainN.id, to: trainN.id });
+      }
+    }
     return {
       ok: true,
       pattern: pattern,
@@ -501,6 +568,7 @@
     ENGINE: ENGINE,
     CORTEX_KIND: CORTEX_KIND,
     KIND_NOTES: KIND_NOTES,
+    LOOP_PHASES: LOOP_PHASES,
     APPROACHES: APPROACHES,
     cortexOriginFrom: cortexOriginFrom,
     compileIR: compileIR,
@@ -513,6 +581,8 @@
     isSuspectDesk: isSuspectDesk,
     fetchPlaceFor: fetchPlaceFor,
     nodeIo: nodeIo,
+    nextLoopPhase: nextLoopPhase,
+    loopPhaseInsight: loopPhaseInsight,
     generateGraph: generateGraph,
   };
 });
