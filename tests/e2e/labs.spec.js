@@ -107,4 +107,30 @@ test.describe("labs", () => {
     await expect(page.locator("#play-lab")).toHaveText("infer");
     await expect(page.locator("#play-ticks")).toHaveText("1 tick");
   });
+
+  test("factory pressure chat is retrain, not pptx", async ({ page }) => {
+    const reply = await chat(
+      page,
+      "8 pressure sensors from factory c ingest last week's anomaly model then retrain"
+    );
+    await expect(reply).toContainText("Ghost sketch");
+    await expect(reply).toContainText("factory.c");
+    await expect(reply).not.toContainText("export_pptx");
+    await expect(reply).not.toContainText("Assumed inventory");
+    await expect(page.locator("#play-lab")).toHaveText("retrain");
+    await page.locator(".node[data-kind=foundry]").click();
+    await expect(page.locator("#inspect-card")).toContainText("Cortex DAG");
+    await expect(page.locator("#inspect-card")).not.toContainText("export_pptx");
+  });
+
+  test("cctv human detection is owned infer, not watchlist", async ({ page }) => {
+    const reply = await chat(page, "create a full flow for cctv human detection");
+    await expect(reply).toContainText("Ghost sketch");
+    await expect(reply).not.toContainText("Assumed inventory");
+    await expect(page.locator(".node[data-kind=trigger]")).toHaveCount(1);
+    await expect(page.locator("#play-lab")).toHaveText("infer");
+    await page.locator(".node[data-kind=insight]").click();
+    await expect(page.getByTestId("region-mark")).toBeVisible();
+    await expect(page.getByTestId("region-mark")).toContainText("human");
+  });
 });

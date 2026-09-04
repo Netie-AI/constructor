@@ -485,23 +485,18 @@ async function handleChat(raw) {
   const C = window.Constructor;
   if (!t) return "Say the object, point, action, or run all.";
   if (t === "help") {
-    return "Click Check. Or chat: check | lab infer | run | gaps | define block <id>. Labs: train infer retrain voice image. Ghost on Pages. Live run only on /cortex. Ctrl+/ toggles chat.";
+    return "Click Check, or type a real line: Factory C 8 pressure sensors, last week's anomaly, retrain. Ghost drawing. Live only on /cortex.";
   }
   if (/^check$/.test(t)) {
-    const loaded = await handleChat("lab infer");
-    const walked = await handleChat("run");
-    const missing = await handleChat("gaps");
-    return "Check done. " + loaded + " " + walked + " " + missing;
+    await handleChat("lab infer");
+    await handleChat("run");
+    return "Check done. Ghost infer, 8 steps, no writes. Missing connector. Drawing only -- nothing live moved.";
   }
   const lab = t.match(/^(?:lab|seed) (train|infer|retrain|voice|image|warehouse|sample)$/);
   if (lab && C.applySeed) {
     C.applySeed(lab[1]);
     C.setGhost(true);
-    return (
-      "Loaded " +
-      lab[1] +
-      " lab (mock data). Ghost on. Ticks count ghost walks, not XP. Live webhook/stream/run only on /cortex. Type gaps if a block is missing."
-    );
+    return "Ghost " + lab[1] + " lab. Mock data. Click a node, then Run. Live only on /cortex.";
   }
   const defBlock = t.match(/^define block ([a-z][a-z0-9_.]*)$/);
   if (defBlock) {
@@ -525,19 +520,15 @@ async function handleChat(raw) {
       "Defined block " +
       id +
       (exists ? " (already in ontology). " : ". ") +
-      "Added tool_call. Cortex must implement the tool. Pages never fetch."
+      "Ghost tool_call added. Cortex implements it later."
     );
   }
   if (/^gaps$/.test(t)) {
     const kinds = new Set((C.getState().nodes || []).map(function (n) { return n.kind; }));
     const need = ["ingest", "connector", "ontology", "insight", "foundry", "app"];
     const missing = need.filter(function (k) { return !kinds.has(k); });
-    const extra = [];
-    if (!kinds.has("trigger")) extra.push("trigger (webhook/schedule/message)");
-    if (!kinds.has("audit")) extra.push("audit (LLM-as-judge compile)");
     return (
-      (missing.length ? "Missing core: " + missing.join(", ") + ". add <kind> or pick a lab. " : "Core ingest->app path present. ") +
-      (extra.length ? "Optional: " + extra.join("; ") + ". " : "") +
+      (missing.length ? "Missing " + missing.join(", ") + ". Add from the rail. " : "Ingest to app path is here. ") +
       "New tool = define block <id>."
     );
   }
@@ -739,25 +730,27 @@ function generateLocal(prompt) {
 
 async function generateFromChat(text) {
   const C = window.Constructor;
-  if (refusePrompt(text)) {
-    return generateLocal(text).summary;
-  }
+  const local = generateLocal(text);
+  if (!local.ok) return local.summary;
   let graph = null;
   if (cortexOrigin()) {
     const remote = await cortexPost("/cortex/constructor/generate", { prompt: text });
     if (remote && remote.ok && Array.isArray(remote.nodes) && remote.nodes.length) {
       const localObjs = objectsInPrompt(text);
-      if (remote.assumed_object && localObjs.length) graph = null;
-      else graph = remote;
+      const keepLocal =
+        remote.assumed_object &&
+        (localObjs.length || local.flow === "plant" || local.flow === "infer" || local.flow === "suspect");
+      if (!keepLocal) graph = remote;
     }
   }
-  if (!graph) graph = generateLocal(text);
-  if (!graph.ok) return graph.summary;
+  if (!graph) graph = local;
+  C.setGhost(true);
   C.replaceGraph(graph.nodes, graph.edges);
+  if (C.setPlayLab) C.setPlayLab(graph.lab || "sample", graph.insight || "");
   await rankApproaches();
   const first = C.getState().nodes[0];
   if (first) C.showDecision({ node: first, response: graph.summary });
-  return graph.summary || "Compiled the graph. Click a node for doing / action / app / code / response.";
+  return graph.summary || "Ghost sketch. Click a node, then Run.";
 }
 
 async function pressNode() {
@@ -927,7 +920,7 @@ function bindChat() {
   }
   chatSay(
     "assistant",
-    "Chat warehouse, venue/CRM, labs (train / infer / retrain), case desk, or a police suspect desk. Owned images -> enhance (local model or online API) -> match owned.watchlist -> app. Ctrl+/ toggles. I will not compile stalking, doxxing, public-webcam scrape, or sex-work graphs. Type help."
+    "Chat warehouse, labs, or a real desk. Ghost drawing -- nothing live starts. Factory sensors, infer, or police suspect desk. Type help."
   );
   window.Constructor.pressNode = pressNode;
   loadOntology();

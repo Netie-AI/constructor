@@ -166,3 +166,36 @@ test("refused generateGraph does not emit nodes", () => {
   assert.equal(graph.refused, true);
   assert.equal(graph.nodes, undefined);
 });
+
+test("factory pressure chat is retrain DAG, not pptx", () => {
+  const graph = Core.generateGraph(
+    "an automation for pressure detection sensor multiple 8snesors from facotry c and inget then train model anomalay detction modle we traine dlast week then feed it to retrain it"
+  );
+  assert.equal(graph.ok, true);
+  assert.equal(graph.flow, "plant");
+  assert.equal(graph.lab, "retrain");
+  assert.equal(graph.action, "agent.checked");
+  assert.equal(graph.assumed_object, false);
+  assert.equal(graph.summary.indexOf("export_pptx") >= 0, false);
+  assert.equal(graph.summary.indexOf("Assumed") >= 0, false);
+  const ingest = graph.nodes.find((n) => n.kind === "ingest");
+  assert.equal(ingest.fetch_from, "factory.c");
+  assert.equal(ingest.object_type, "alerts");
+  const foundry = graph.nodes.find((n) => n.kind === "foundry");
+  assert.equal(foundry.action_type, "agent.checked");
+  assert.equal(foundry.note.indexOf("Cortex DAG") >= 0, true);
+  const tool = graph.nodes.find((n) => n.kind === "tool_call");
+  assert.equal(tool.action_type, "agent.checked");
+});
+
+test("cctv human detection is infer mark, not watchlist", () => {
+  const graph = Core.generateGraph("create a full flow for cctv human detection");
+  assert.equal(graph.ok, true);
+  assert.equal(graph.flow, "infer");
+  assert.equal(graph.action, "agent.checked");
+  assert.equal(graph.nodes.some((n) => n.kind === "trigger"), true);
+  const insight = graph.nodes.find((n) => n.kind === "insight");
+  assert.equal(insight.region.indexOf("human") >= 0, true);
+  assert.equal(graph.nodes.some((n) => n.action_type === "suspect.match"), false);
+  assert.equal(graph.summary.indexOf("Assumed inventory") >= 0, false);
+});
