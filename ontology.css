@@ -1,0 +1,435 @@
+/* Ontology Studio overlay. Tokens from styles.css. Distill Foundry Ontology Manager density, do not clone. */
+.ontology-studio {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  grid-template-columns: 260px 1fr 360px;
+  grid-template-rows: 48px 1fr 200px;
+  grid-template-areas:
+    "head head head"
+    "rail editor graph"
+    "issues issues changelog";
+  background: #070707;
+  color: var(--text);
+  border: 0;
+  font-size: 13px;
+}
+
+.ontology-studio[hidden] {
+  display: none !important;
+}
+
+.os-head {
+  grid-area: head;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--border);
+  background: #0d0d0d;
+  min-width: 0;
+}
+
+.os-head h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-family: ui-monospace, Consolas, monospace;
+  white-space: nowrap;
+}
+
+.os-rev,
+.os-badge {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: ui-monospace, Consolas, monospace;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.os-badge.is-error {
+  color: #f2a3a3;
+  border-color: rgba(242, 163, 163, 0.4);
+}
+
+.os-badge.is-warn {
+  color: #f0c36d;
+  border-color: rgba(240, 195, 109, 0.4);
+}
+
+.os-badge.is-ok {
+  color: #9ad7c2;
+  border-color: rgba(154, 215, 194, 0.35);
+}
+
+.os-search {
+  flex: 1;
+  min-width: 80px;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.45rem;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+.os-head button,
+.os-rail button,
+.os-editor button,
+.os-graph-tools button,
+.os-export-menu button {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 0.28rem 0.5rem;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.os-head button:hover,
+.os-rail button:hover,
+.os-editor button:hover,
+.os-graph-tools button:hover,
+.os-export-menu button:hover {
+  border-color: var(--accent);
+}
+
+.os-head button:focus-visible,
+.os-rail button:focus-visible,
+.os-editor button:focus-visible,
+.os-search:focus-visible,
+.os-editor input:focus-visible,
+.os-editor select:focus-visible,
+.os-export-menu button:focus-visible,
+.os-graph-tools button:focus-visible,
+.os-list button:focus-visible {
+  outline: 1px dashed var(--accent);
+  outline-offset: 2px;
+}
+
+.os-export-wrap {
+  position: relative;
+}
+
+.os-export-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  background: #0d0d0d;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-width: 140px;
+}
+
+.os-export-menu[hidden] {
+  display: none;
+}
+
+.os-rail {
+  grid-area: rail;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-right: 1px solid var(--border);
+  background: #0d0d0d;
+}
+
+.os-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.os-tabs button[aria-selected="true"] {
+  background: var(--accent);
+  color: #070707;
+  border-color: var(--accent);
+}
+
+.os-list {
+  flex: 1;
+  overflow: auto;
+  padding: 4px;
+}
+
+.os-list [data-id] {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.os-list [data-id].is-on {
+  border-color: var(--accent);
+  background: var(--panel);
+}
+
+.os-list .os-row-id {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px;
+}
+
+.os-list .os-row-sub {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.os-new {
+  margin: 6px;
+}
+
+.os-editor {
+  grid-area: editor;
+  overflow: auto;
+  padding: 10px 12px 16px;
+  min-width: 0;
+  background: #070707;
+}
+
+.os-editor h3 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+.os-form {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 6px 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.os-form label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.os-editor input,
+.os-editor select,
+.os-editor textarea {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.45rem;
+  font-size: 12px;
+  border-radius: 6px;
+  width: 100%;
+}
+
+.os-editor textarea {
+  min-height: 48px;
+  resize: vertical;
+  grid-column: 2;
+}
+
+.os-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f2a3a3;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.os-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin: 6px 0 10px;
+}
+
+.os-table th {
+  text-align: left;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 500;
+  padding: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.os-table td {
+  padding: 3px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  vertical-align: middle;
+}
+
+.os-table input,
+.os-table select {
+  font-size: 12px;
+}
+
+.os-table input[type="checkbox"] {
+  width: auto;
+}
+
+.os-graph {
+  grid-area: graph;
+  position: relative;
+  min-width: 0;
+  border-left: 1px solid var(--border);
+  background: #0d0d0d;
+  overflow: hidden;
+}
+
+.os-graph-tools {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+}
+
+.os-graph svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+}
+
+.os-graph svg.is-grabbing {
+  cursor: grabbing;
+}
+
+.os-box text {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px;
+  fill: var(--text);
+  pointer-events: none;
+}
+
+.os-box .os-box-sub {
+  fill: var(--muted);
+  font-size: 10px;
+}
+
+.os-edge {
+  stroke: rgba(255, 255, 255, 0.28);
+  fill: none;
+}
+
+.os-edge-label {
+  fill: var(--muted);
+  font-size: 10px;
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+.os-issues {
+  grid-area: issues;
+  overflow: auto;
+  border-top: 1px solid var(--border);
+  padding: 8px 10px;
+  background: #0d0d0d;
+}
+
+.os-changelog {
+  grid-area: changelog;
+  overflow: auto;
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  padding: 8px 10px;
+  background: #0d0d0d;
+}
+
+.os-issues h3,
+.os-changelog h3 {
+  margin: 0 0 6px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+.os-issues [data-code],
+.os-changelog li {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: var(--text);
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 5px 2px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.os-issues [data-code] .os-code {
+  font-family: ui-monospace, Consolas, monospace;
+  color: #f2a3a3;
+  margin-right: 8px;
+  font-size: 11px;
+}
+
+.os-issues [data-code].is-warn .os-code {
+  color: #f0c36d;
+}
+
+.os-issues [data-code].is-info .os-code {
+  color: var(--muted);
+}
+
+.os-changelog .os-when {
+  color: var(--muted);
+  font-size: 10px;
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+.os-empty {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (max-width: 1000px) {
+  .ontology-studio {
+    grid-template-columns: 1fr;
+    grid-template-rows: 48px auto 1fr 220px 180px 180px;
+    grid-template-areas:
+      "head"
+      "rail"
+      "editor"
+      "graph"
+      "issues"
+      "changelog";
+  }
+
+  .os-graph {
+    min-height: 220px;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .os-changelog {
+    border-left: 0;
+  }
+}

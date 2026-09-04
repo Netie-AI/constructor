@@ -1,0 +1,18 @@
+{
+  "name": "constructor-skin",
+  "version": "0.0.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "Constructor skin. Static Pages sketch; Cortex is the only engine.",
+  "scripts": {
+    "test:laws": "node scripts/check-laws.js",
+    "test:unit": "node --test \"tests/unit/*.test.js\"",
+    "test:e2e": "playwright test",
+    "test": "npm run test:laws && npm run test:unit && npm run test:e2e",
+    "serve": "http-server -p 8125 -s -c-1 ."
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "http-server": "^14.1.1"
+  }
+}

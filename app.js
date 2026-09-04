@@ -260,6 +260,78 @@ const FETCH_PLACES = [
 ];
 const TIERS = ["T0", "T1"];
 
+/* The static catalog above is the Pages fallback. When ontology.js is loaded,
+   OBJECTS / LINKS / ACTION_META / ACTIONS / FETCH_PLACES become in-place views
+   over window.Ontology so engine.js keeps its references. */
+function ontologyModel() {
+  const O = typeof window !== "undefined" ? window.Ontology : null;
+  return O && typeof O.toCatalog === "function" ? O : null;
+}
+
+function syncCatalog() {
+  const O = ontologyModel();
+  if (!O) return false;
+  let cat = null;
+  try {
+    cat = O.toCatalog();
+  } catch (err) {
+    cat = null;
+  }
+  if (!cat || !cat.objects || !Object.keys(cat.objects).length) return false;
+  Object.keys(OBJECTS).forEach(function (k) {
+    delete OBJECTS[k];
+  });
+  Object.keys(cat.objects).forEach(function (k) {
+    OBJECTS[k] = cat.objects[k];
+  });
+  LINKS.length = 0;
+  (cat.links || []).forEach(function (row) {
+    LINKS.push(row);
+  });
+  ACTION_META.length = 0;
+  (cat.action_meta || []).forEach(function (row) {
+    ACTION_META.push(row);
+  });
+  ACTIONS.length = 0;
+  (cat.actions || []).forEach(function (id) {
+    ACTIONS.push(id);
+  });
+  FETCH_PLACES.length = 0;
+  (cat.fetch_places || []).forEach(function (id) {
+    FETCH_PLACES.push(id);
+  });
+  return true;
+}
+syncCatalog();
+
+function ontologySummary(node) {
+  const O = ontologyModel();
+  const rev = O ? O.get().revision : null;
+  return (
+    (node.object_type ? node.object_type + " · " : "") +
+    Object.keys(OBJECTS).length +
+    " objects · " +
+    LINKS.length +
+    " links · " +
+    ACTIONS.length +
+    " actions" +
+    (rev != null ? " · rev " + rev : "")
+  );
+}
+
+function openOntologyStudio(opts) {
+  const S = typeof window !== "undefined" ? window.OntologyStudio : null;
+  if (!S || typeof S.open !== "function") return false;
+  const node = state.nodes.find((n) => n.id === selectedId);
+  const args = Object.assign({}, opts || {});
+  if (!args.objectType && node && node.object_type && OBJECTS[node.object_type]) {
+    args.objectType = node.object_type;
+  }
+  closeCalPop();
+  S.open(args);
+  return true;
+}
+
 const state = load() || sample();
 let selectedId = state.nodes[0] ? state.nodes[0].id : null;
 let armedPort = null;
@@ -273,6 +345,31 @@ function applyPan() {
   const world = document.getElementById("world");
   if (!world) return;
   world.style.transform = "translate(" + pan.x + "px, " + pan.y + "px) scale(" + pan.k + ")";
+}
+
+function fitView() {
+  const stage = document.getElementById("stage");
+  if (!stage || !state.nodes.length) return false;
+  const rect = stage.getBoundingClientRect();
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const n of state.nodes) {
+    minX = Math.min(minX, n.x);
+    minY = Math.min(minY, n.y);
+    maxX = Math.max(maxX, n.x + 188);
+    maxY = Math.max(maxY, n.y + 110);
+  }
+  const pad = 24;
+  const bw = Math.max(1, maxX - minX);
+  const bh = Math.max(1, maxY - minY);
+  const k = Math.min(1.15, Math.max(0.35, Math.min((rect.width - pad * 2) / bw, (rect.height - pad * 2) / bh)));
+  pan.k = k;
+  pan.x = Math.round((rect.width - bw * k) / 2 - minX * k);
+  pan.y = Math.round((rect.height - bh * k) / 2 - minY * k);
+  applyPan();
+  return true;
 }
 
 function screenToWorld(clientX, clientY) {
@@ -471,9 +568,12 @@ function render() {
     el.style.top = node.y + "px";
     el.style.setProperty("--kind", meta.color);
     const persona = node.persona || meta.persona;
-    const sub = node.object_type
-      ? node.object_type + (node.data_point ? " · " + node.data_point : "")
-      : node.action_type || "";
+    const sub =
+      node.kind === "ontology"
+        ? ontologySummary(node)
+        : node.object_type
+          ? node.object_type + (node.data_point ? " · " + node.data_point : "")
+          : node.action_type || "";
     el.innerHTML =
       '<div class="node-head">' +
       '<span class="ico">' +
@@ -640,7 +740,13 @@ function openCalPop(node, extra) {
         ? "Ingest has no action. Wire it into ontology, then foundry/tool_call to act."
         : "Actions on " + obj + ": " + allowed.join(", ") + ".";
   }
-  if (fields) fields.innerHTML = eventFieldsHtml(node);
+  if (fields) {
+    fields.innerHTML =
+      eventFieldsHtml(node) +
+      (node.kind === "ontology"
+        ? '<button type="button" id="open-studio-node">Open Ontology Studio</button>'
+        : "");
+  }
   const facts = document.getElementById("decision-facts");
   const js = document.getElementById("decision-json");
   if (facts) facts.textContent = extra.cortex_kind ? decisionText(node, extra) : "";
@@ -754,7 +860,13 @@ function showInspect() {
         ? ". Hop 0: rows in, no write."
         : ". Actions: " + allowed.join(", ") + ".") +
       "</p>" +
-      '<button type="button" id="press-decision">Edit node</button>';
+      (node.kind === "ontology"
+        ? '<p class="hint">' + escapeAttr(ontologySummary(node)) + "</p>" + objectChipsHtml(node)
+        : "") +
+      '<button type="button" id="press-decision">Edit node</button>' +
+      (node.kind === "ontology"
+        ? ' <button type="button" id="inspect-open-studio">Open Ontology Studio</button>'
+        : "");
     const press = document.getElementById("press-decision");
     if (press) {
       press.addEventListener("click", function (event) {
@@ -762,8 +874,63 @@ function showInspect() {
         if (window.Constructor && window.Constructor.pressNode) window.Constructor.pressNode();
       });
     }
+    const studioBtn = document.getElementById("inspect-open-studio");
+    if (studioBtn) {
+      studioBtn.addEventListener("click", function (event) {
+        event.preventDefault();
+        openOntologyStudio();
+      });
+    }
+    inspectCard.querySelectorAll("[data-pick-object]").forEach(function (chip) {
+      chip.addEventListener("click", function (event) {
+        event.preventDefault();
+        const id = chip.getAttribute("data-pick-object");
+        if (event.altKey || event.detail === 2) {
+          openOntologyStudio({ objectType: id });
+          return;
+        }
+        patchSelected("object_type", id);
+      });
+    });
   }
   showDecision({ node: node, response: "local preview. Press to edit." });
+}
+
+/* Compact object browser for the ontology node: one chip per object type with its
+   property and link counts. Click binds the node; double-click opens the studio there. */
+function objectChipsHtml(node) {
+  const ids = Object.keys(OBJECTS);
+  if (!ids.length) return "";
+  const O = ontologyModel();
+  const chips = ids
+    .map(function (id) {
+      const nprops = Object.keys(OBJECTS[id].points || {}).length;
+      const nlinks = LINKS.filter(function (l) {
+        return l.from === id || l.to === id;
+      }).length;
+      const color = O && O.get().objectTypes[id] ? O.get().objectTypes[id].color : "";
+      return (
+        '<button type="button" class="obj-chip' +
+        (node.object_type === id ? " on" : "") +
+        '" data-pick-object="' +
+        escapeAttr(id) +
+        '" title="' +
+        nprops +
+        " properties · " +
+        nlinks +
+        ' links. Double-click opens the studio."' +
+        (color ? ' style="--kind:' + escapeAttr(color) + '"' : "") +
+        ">" +
+        escapeAttr(id) +
+        '<span class="obj-chip-n">' +
+        nprops +
+        "·" +
+        nlinks +
+        "</span></button>"
+      );
+    })
+    .join("");
+  return '<div class="obj-chips" aria-label="object types">' + chips + "</div>";
 }
 
 function fieldSelect(name, label, values, current) {
@@ -881,6 +1048,11 @@ if (eventForm) {
     patchSelected(el.name, el.value);
   });
   eventForm.addEventListener("click", function (event) {
+    if (event.target && event.target.id === "open-studio-node") {
+      event.preventDefault();
+      openOntologyStudio();
+      return;
+    }
     if (!event.target || event.target.id !== "cloud-signin") return;
     event.preventDefault();
     const node = state.nodes.find((n) => n.id === selectedId);
@@ -1006,7 +1178,9 @@ nodesEl.addEventListener("pointerup", () => {
 });
 
 document.getElementById("export-json").addEventListener("click", () => {
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+  const O = ontologyModel();
+  const payload = Object.assign({}, state, { ontology: O ? O.get() : null });
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -1154,8 +1328,26 @@ function replaceGraph(nodes, edges) {
   selectedId = state.nodes[0].id;
   save();
   render();
+  fitView();
   return true;
 }
+
+(function bindFit() {
+  const btn = document.getElementById("fit-view");
+  if (btn) {
+    btn.addEventListener("click", function (event) {
+      event.preventDefault();
+      fitView();
+    });
+  }
+  document.addEventListener("keydown", function (event) {
+    if (event.key !== "f" || event.ctrlKey || event.metaKey || event.altKey) return;
+    const tag = (event.target && event.target.tagName) || "";
+    if (tag === "TEXTAREA" || tag === "INPUT" || tag === "SELECT") return;
+    if (window.OntologyStudio && window.OntologyStudio.isOpen && window.OntologyStudio.isOpen()) return;
+    fitView();
+  });
+})();
 
 function ensureKinds(kinds) {
   for (const kind of kinds) {
@@ -1164,6 +1356,17 @@ function ensureKinds(kinds) {
 }
 
 function replaceCatalog(objects, actions, places) {
+  const O = ontologyModel();
+  if (O && typeof O.importJSON === "function") {
+    const res = O.importJSON(
+      JSON.stringify({ objects: objects || {}, actions: actions || [], fetch_places: places || [] })
+    );
+    if (res && res.ok) {
+      syncCatalog();
+      render();
+      return;
+    }
+  }
   Object.keys(objects || {}).forEach(function (k) {
     OBJECTS[k] = objects[k];
   });
@@ -1258,6 +1461,44 @@ function ensureChatOpen() {
   });
 })();
 
+(function bindOntology() {
+  const openBtn = document.getElementById("open-ontology");
+  const hdrBtn = document.getElementById("ontology-btn");
+  function onOpen(event) {
+    event.preventDefault();
+    if (!openOntologyStudio()) {
+      const power = document.getElementById("power");
+      if (power) power.textContent = "Ontology Studio did not load. Refresh the page.";
+    }
+  }
+  if (openBtn) openBtn.addEventListener("click", onOpen);
+  if (hdrBtn) hdrBtn.addEventListener("click", onOpen);
+  const O = ontologyModel();
+  if (!O || typeof O.subscribe !== "function") return;
+  O.subscribe(function () {
+    syncCatalog();
+    for (const node of state.nodes) {
+      if (node.object_type && !OBJECTS[node.object_type]) continue;
+      if (
+        node.object_type &&
+        node.data_point &&
+        OBJECTS[node.object_type] &&
+        !OBJECTS[node.object_type].points[node.data_point]
+      ) {
+        const first = Object.keys(OBJECTS[node.object_type].points)[0];
+        node.data_point = first || "";
+        node.data_type = first ? OBJECTS[node.object_type].points[first] : "";
+      }
+    }
+    save();
+    render();
+    if (calOpen) {
+      const next = state.nodes.find((n) => n.id === selectedId);
+      if (next) openCalPop(next, { response: "ontology rev " + O.get().revision });
+    }
+  });
+})();
+
 window.Constructor = {
   KINDS,
   OBJECTS,
@@ -1285,6 +1526,10 @@ window.Constructor = {
   ensureKinds,
   patchSelected,
   replaceCatalog,
+  syncCatalog,
+  openOntologyStudio,
+  ontologySummary,
+  fitView,
   selectedId: () => selectedId,
   render,
   save,

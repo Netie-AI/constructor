@@ -8,4 +8,6 @@ Consumer skin for the Cortex engine. Ticket: [landing#9](https://github.com/Neti
 
 ChatGPT-style box compiles the canvas. Ghost mode dry-runs (no writes). Propose 3 ranks Cortex coordination patterns. Maximize applies the winner. Default graph is connector -> ontology -> insight -> foundry -> app.
 
+Ontology Studio (rail `Ontology studio`, header `Ontology`, chat `ontology`) edits object types, properties, link types, action types, interfaces and fetch places in place, with an SVG graph, validation issues, changelog, undo/redo, and export as native JSON, Cortex catalog, JSON-LD, or Turtle. Contract: `docs/ONTOLOGY_STUDIO.md`. Tests: `npm test` (laws, unit, Playwright e2e with screenshots).
+
 Do not merge landing. Do not clone n8n/Activepieces.

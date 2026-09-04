@@ -2,6 +2,7 @@
 
 | Date | Topic | Keywords | Main idea | Path |
 |------|-------|----------|-----------|------|
+| 2026-09-03 | constructor-ontology-studio | constructor, ontology, studio, foundry, semantica, validate, owl, jsonld, playwright, ci | Ontology Studio: `ontology.js` model (objects/properties/links/actions/interfaces/places, validation codes, undo, changelog, native/Cortex/JSON-LD/Turtle export) + workbench overlay + chat verbs. Catalog arrays are views over the model. Playwright e2e + laws + CI. Parallel lanes hit a 429 session limit; QA lane survived. | `2026-09-03_constructor-ontology-studio.md` |
 | 2026-08-28 | constructor-ghost-honesty | constructor, ghost, 404, n8n, dry-run | README no longer claims app.netie.ai live. Cortex tests assert ghost is compile-only and 404 is blocked. | `2026-08-28_constructor-ghost-honesty.md` |
 | 2026-08-28 | constructor-suspect-desk-enhance | constructor, suspect, enhance, comfy, watchlist, police, face, refuse | Police suspect desk compiles owned images -> Comfy-style enhance (local model or online API) -> match owned.watchlist -> app. Face/CCTV on owned data is allowed. Stalk, doxx, public-webcam scrape, sex-work stay refused. | `2026-08-28_constructor-suspect-desk-enhance.md` |
 | 2026-08-28 | constructor-pan-automate | constructor, pan, zoom, automate, ghost, run_dag, ov_ | World transform pan/zoom + Automate 15s ghost. Live run_dag ok for ingest->app with ov_; tool_call can hang; DuckDB lock if 8010+8012 share the file. | `2026-08-28_constructor-pan-automate.md` |
