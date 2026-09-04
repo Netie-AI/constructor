@@ -575,6 +575,12 @@ function labGraph(lab) {
   const n = function (id) {
     return base.nodes.find(function (x) { return x.id === id; });
   };
+  if (lab !== "warehouse" && lab !== "sample") {
+    n("f1").action_type = "agent.checked";
+    n("t1").action_type = "agent.checked";
+    n("f1").skin = "constructor";
+    n("a1").skin = "constructor";
+  }
   if (lab === "train") {
     n("n0").note = "Mock train set. Distill facts. Not GPU weights on Pages.";
     n("c1").stream = true;
@@ -593,7 +599,7 @@ function labGraph(lab) {
       { id: "e1", kind: "enhance", x: 416, y: 64, note: "Resize. File-type check in Cortex, not here.", object_type: "images", data_point: "image_id", source_kind: "local_model", source_link: "local://enhance", fetch_from: "local.model", action_type: "image.enhance", persona: "enhancer" },
       { id: "o1", kind: "ontology", x: 612, y: 64, note: "Object + PK. Studio for inventory.", object_type: "images", data_point: "image_id", persona: "modeler" },
       { id: "i1", kind: "insight", x: 808, y: 64, note: "Region mark: bent particle. Mock SVG, not CV.", region: "cx=62 cy=48 r=18 why=bent_particle", object_type: "images", persona: "analyst" },
-      { id: "f1", kind: "foundry", x: 1004, y: 64, note: "Infer compile. Weights stay in Cortex.", action_type: "export_pptx", skin: "constructor", compute: "cortex", persona: "compiler" },
+      { id: "f1", kind: "foundry", x: 1004, y: 64, note: "Infer compile. Weights stay in Cortex.", action_type: "agent.checked", skin: "constructor", compute: "cortex", persona: "compiler" },
       { id: "a1", kind: "app", x: 1004, y: 260, note: "Skin. Engine is Cortex.", action_type: "emit", skin: "constructor", object_type: "images", persona: "operator" },
       { id: "g1", kind: "audit", x: 808, y: 260, note: "LLM-as-judge mock: label vs region. Not a live LLM on Pages.", region: "cx=62 cy=48 r=18 why=bent_particle", object_type: "images", persona: "steward" },
     ];
@@ -646,13 +652,17 @@ function labGraph(lab) {
 
 function applySeed(lab) {
   const g = labGraph(lab);
-  currentLab = g.lab;
-  const p = playState();
-  p.lab = g.lab;
-  p.insight = g.insight;
-  savePlay(p);
+  setPlayLab(g.lab, g.insight);
   replaceGraph(g.nodes, g.edges);
   return g.lab;
+}
+
+function setPlayLab(lab, insight) {
+  if (lab) currentLab = lab;
+  const p = playState();
+  if (lab) p.lab = lab;
+  if (insight != null) p.insight = insight;
+  savePlay(p);
 }
 
 let currentLab = "sample";
@@ -1867,6 +1877,7 @@ window.Constructor = {
   loadFoundryPath,
   replaceGraph,
   applySeed,
+  setPlayLab,
   ensureKinds,
   patchSelected,
   replaceCatalog,

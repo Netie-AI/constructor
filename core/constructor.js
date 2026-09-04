@@ -238,7 +238,7 @@
       ["locations", ["location", "site", "bin"]],
       ["shipments", ["shipment", "consignment", "carrier"]],
       ["transactions", ["transaction", "txn", "movement"]],
-      ["alerts", ["alert", "alarm"]],
+      ["alerts", ["alert", "alarm", "anomal", "sensor", "snesor", "pressure"]],
       ["incidents", ["incident", "case desk", "case file", "ops desk"]],
       ["images", ["image", "images", "footage", "cctv", "camera"]],
       ["suspects", ["suspect", "watchlist", "police"]],
@@ -274,7 +274,51 @@
   }
 
   function isSuspectDesk(low) {
-    return /suspect|watchlist|face|cctv|camera|police|comfy|image enhance|enhance image|label face/.test(low || "");
+    return /suspect|watchlist|\bpolice\b/.test(low || "");
+  }
+
+  function flowFromPrompt(low) {
+    const s = String(low || "");
+    if (isSuspectDesk(s)) return "suspect";
+    if (/retrain|anomal|sensor|snesor|pressure|factory|facotry|\bplc\b/.test(s)) return "plant";
+    if (/detect|infer|cctv|camera|particle|region/.test(s)) return "infer";
+    return "desk";
+  }
+
+  function plantPlace(low) {
+    const m = String(low || "").match(/(?:factory|facotry)\s*([a-z0-9]+)/);
+    return "factory." + ((m && m[1]) || "c");
+  }
+
+  function sensorCount(low) {
+    const s = String(low || "");
+    const m =
+      s.match(/(\d+)\s*(?:pressure\s*)?(?:detection\s*)?(?:snesors?|sensors?)/) ||
+      s.match(/(\d+)(?:snesors?|sensors?)/);
+    return (m && m[1]) || "8";
+  }
+
+  function naturalSummary(opts) {
+    if (opts.flow === "plant") {
+      return (
+        "Ghost sketch, not live plant. " +
+        opts.place +
+        ", " +
+        opts.sensors +
+        " pressure feeds -> last week's anomaly model -> retrain DAG. Nothing at the factory moved. Click a node, then Run."
+      );
+    }
+    if (opts.flow === "infer") {
+      return "Ghost sketch, not live cameras. Owned frames -> human mark -> judge. No scrape. Click a node, then Run.";
+    }
+    if (opts.flow === "suspect") {
+      return "Ghost sketch of a police suspect desk on owned images + owned.watchlist. Not live CCTV. Click a node, then Run.";
+    }
+    return (
+      "Ghost sketch. " +
+      (opts.assumed ? "No object named, so warehouse inventory. " : "Objects " + (opts.objects || []).join(", ") + ". ") +
+      "Ghost is on. Click a node, then Run."
+    );
   }
 
   function fetchPlaceFor(obj) {
@@ -300,9 +344,18 @@
           "Refused. Constructor will not compile internet stalking, doxxing, public-webcam scrape, or sex-work targeting. A police suspect desk is allowed on owned images + owned.watchlist. Chat: police suspect desk, local model enhance, match watchlist.",
       };
     }
+    const flow = flowFromPrompt(low);
+    const place = flow === "plant" ? plantPlace(low) : "";
+    const sensors = flow === "plant" ? sensorCount(low) : "";
     let objects = objectsInPrompt(prompt);
     let assumed = false;
-    if (!objects.length) {
+    if (flow === "plant") {
+      objects = ["alerts"];
+    } else if (flow === "infer") {
+      objects = ["images"];
+    } else if (flow === "suspect") {
+      objects = ["images", "suspects", "matches"];
+    } else if (!objects.length) {
       objects = ["inventory"];
       assumed = true;
     }
@@ -327,18 +380,14 @@
     if (/database|db link|postgres|add link|db\./.test(low)) sourceKind = "database";
     if (/local model|comfy|onnx|ollama/.test(low)) sourceKind = "local_model";
     if (/online api|http api|replicate/.test(low)) sourceKind = "online_api";
-    const suspectish = isSuspectDesk(low);
-    if (suspectish) {
-      objects = ["images", "suspects", "matches"];
-      assumed = false;
-    }
+    if (flow === "plant") sourceKind = "stream";
+    const suspectish = flow === "suspect";
     let action = "export_pptx";
-    if (low.indexOf("intake") >= 0) action = "item.intake";
+    if (flow === "plant" || flow === "infer") action = "agent.checked";
+    else if (low.indexOf("intake") >= 0) action = "item.intake";
     else if (low.indexOf("agent.checked") >= 0 || (low.indexOf("check") >= 0 && low.indexOf("agent") >= 0)) {
       action = "agent.checked";
     } else if (suspectish || /suspect\.match/.test(low)) {
-      action = "suspect.match";
-    } else if (/image\.enhance|enhance/.test(low) && suspectish) {
       action = "suspect.match";
     }
     const verify = /verify|audit|hypothes|claim|fact-?check/.test(low);
@@ -350,7 +399,11 @@
     let kinds = ["ingest", "connector", "ontology", "insight", "foundry", "app", "tool_call"];
     let enhanceBind = "local_model";
     if (/online api|http api|replicate/.test(low)) enhanceBind = "online_api";
-    if (suspectish) {
+    if (flow === "infer") {
+      kinds = ["trigger", "ingest", "enhance", "ontology", "insight", "foundry", "app", "audit"];
+    } else if (flow === "plant") {
+      kinds = ["ingest", "connector", "ontology", "insight", "foundry", "app", "audit", "tool_call"];
+    } else if (suspectish) {
       kinds = ["ingest", "enhance", "ontology", "insight", "foundry", "app", "tool_call"];
       if (sourceKind === "local_model" || sourceKind === "online_api") enhanceBind = sourceKind;
       sourceKind = "database";
@@ -366,57 +419,94 @@
     });
     const firstObj = objects[0];
     const sourcePlace =
-      sourceKind === "cloud"
-        ? "cloud.signed_in"
-        : sourceKind === "local_model"
-          ? "local.model"
-          : sourceKind === "online_api"
-            ? "api.enhance"
-            : fetchPlaceFor(firstObj);
+      flow === "plant"
+        ? place
+        : flow === "infer"
+          ? "owned.images"
+          : sourceKind === "cloud"
+            ? "cloud.signed_in"
+            : sourceKind === "local_model"
+              ? "local.model"
+              : sourceKind === "online_api"
+                ? "api.enhance"
+                : fetchPlaceFor(firstObj);
     const doing = {
-      ingest: suspectish
-        ? "Hop 0. Load owned images from owned.images (station archive or operator upload). Ghost on Pages. No write. No internet scrape."
-        : "Hop 0. Load " +
-          objects.join("/") +
-          " rows from " +
-          sourcePlace +
-          " (" +
-          sourceKind +
-          "). Ghost on Pages. No write.",
+      ingest:
+        flow === "plant"
+          ? "Ghost. " + sensors + " pressure sensors from " + place + ". Not a live PLC."
+          : flow === "infer"
+            ? "Ghost. Owned frames, not a live camera."
+            : suspectish
+              ? "Hop 0. Load owned images from owned.images (station archive or operator upload). Ghost on Pages. No write. No internet scrape."
+              : "Hop 0. Load " +
+                objects.join("/") +
+                " rows from " +
+                sourcePlace +
+                " (" +
+                sourceKind +
+                "). Ghost on Pages. No write.",
       connector:
-        sourceKind === "cloud"
-          ? "Ghost cloud sign-in. Bind the signed-in catalog to an object. No OAuth. No fetch on Pages."
-          : sourceKind === "database"
-            ? "Bind a database link the operator pasted. Ghost on Pages. No live driver."
-            : venueish
-              ? "Bind Place/Venue fields to Cortex objects. Ghost on Pages. No live scrape."
-              : "First-party Cortex input bound to the ingested object.",
+        flow === "plant"
+          ? "Stream bind for those " + sensors + " feeds. Pages cannot open the factory bus."
+          : sourceKind === "cloud"
+            ? "Ghost cloud sign-in. Bind the signed-in catalog to an object. No OAuth. No fetch on Pages."
+            : sourceKind === "database"
+              ? "Bind a database link the operator pasted. Ghost on Pages. No live driver."
+              : venueish
+                ? "Bind Place/Venue fields to Cortex objects. Ghost on Pages. No live scrape."
+                : "First-party Cortex input bound to the ingested object.",
+      trigger: flow === "infer" ? "Webhook / message. Ghost on Pages. Not a live CCTV tap." : "Webhook, schedule, or message. Ghost on Pages.",
       enhance:
-        "Comfy-style enhance. Bind a " +
-        enhanceBind +
-        ". Ghost on Pages. Distill Comfy, do not clone. Zoom/refresh/improve quality. No public scrape.",
-      ontology: suspectish
-        ? "Object types images, suspects, matches. Links image_at_location, suspect_image, match_of_image, match_of_suspect. Owned watchlist only."
-        : venueish
-          ? "Object types " + objects.join(", ") + ". Links venue_at_place, contact_at_venue, lead_of_contact."
-          : objects.indexOf("incidents") >= 0
-            ? "Object types " + objects.join(", ") + ". Link incident_at_location. Owned rows."
-            : "Cortex ontology objects/links/actions. Not a custom type picker.",
-      foundry: "Compile insights into a governed Cortex app. Not an n8n clone.",
-      app: "Runnable output. Hosted inside Cortex at /cortex/constructor/.",
-      tool_call: suspectish
-        ? "F8 governed write. requires_confirm. Action suspect.match against owned.watchlist."
-        : "F8 governed write. requires_confirm. Real tool is export_pptx.",
+        flow === "infer"
+          ? "Resize / detect stub. Human mark is mock SVG. Live model is Cortex."
+          : "Comfy-style enhance. Bind a " +
+            enhanceBind +
+            ". Ghost on Pages. Distill Comfy, do not clone. Zoom/refresh/improve quality. No public scrape.",
+      ontology:
+        flow === "plant"
+          ? "Alerts on sensor id. Last week's model is a Cortex weight, not a new type."
+          : flow === "infer"
+            ? "Owned image frames. Studio for the PK, not a detector store."
+            : suspectish
+              ? "Object types images, suspects, matches. Links image_at_location, suspect_image, match_of_image, match_of_suspect. Owned watchlist only."
+              : venueish
+                ? "Object types " + objects.join(", ") + ". Links venue_at_place, contact_at_venue, lead_of_contact."
+                : objects.indexOf("incidents") >= 0
+                  ? "Object types " + objects.join(", ") + ". Link incident_at_location. Owned rows."
+                  : "Cortex ontology objects/links/actions. Not a custom type picker.",
+      foundry:
+        flow === "plant"
+          ? "Retrain as Cortex DAG. Last week's anomaly weights stay in Cortex. Not Apache Airflow."
+          : flow === "infer"
+            ? "Infer compile. Weights stay in Cortex."
+            : "Compile insights into a governed Cortex app. Not an n8n clone.",
+      app: "Skin only. Engine is Cortex. Ghost on Pages.",
+      tool_call:
+        flow === "plant"
+          ? "Handoff to Cortex retrain. requires_confirm. Not export_pptx."
+          : suspectish
+            ? "F8 governed write. requires_confirm. Action suspect.match against owned.watchlist."
+            : "F8 governed write. requires_confirm. Real tool is export_pptx.",
       hypothesize: "Surface a testable claim.",
-      audit: "Why this node exists. DETERMINISTIC_RULE, not a second EMIT.",
+      audit:
+        flow === "plant"
+          ? "Gate mock metrics vs last week's model. Live gate is Cortex."
+          : flow === "infer"
+            ? "LLM-as-judge mock: label vs human mark. Not a live LLM on Pages."
+            : "Why this node exists. DETERMINISTIC_RULE, not a second EMIT.",
       agent: "AGENT_TASK loop. One bounded worker.",
-      insight: suspectish
-        ? "Cite enhanced image vs owned.watchlist. Score is a claim, steward reviews. Not a conviction."
-        : venueish
-          ? "Cite nearby venues by Place lat/lng, contacts at those venues, leads from contacts."
-          : objects.indexOf("incidents") >= 0
-            ? "Cite incident rows + location links. What you may claim from the owned ledger."
-            : "Cite ontology + ledger. What you may claim from those objects.",
+      insight:
+        flow === "plant"
+          ? "Anomaly score vs last week's model. Mock curve, not a live trainer."
+          : flow === "infer"
+            ? "Region mark: human. Mock SVG, not CV."
+            : suspectish
+              ? "Cite enhanced image vs owned.watchlist. Score is a claim, steward reviews. Not a conviction."
+              : venueish
+                ? "Cite nearby venues by Place lat/lng, contacts at those venues, leads from contacts."
+                : objects.indexOf("incidents") >= 0
+                  ? "Cite incident rows + location links. What you may claim from the owned ledger."
+                  : "Cite ontology + ledger. What you may claim from those objects.",
     };
     const nodes = kinds.map(function (kind, i) {
       let obj = objects[0];
@@ -432,23 +522,31 @@
         doing: doing[kind] || meta.note || kind,
         persona: meta.persona || "",
         tier: "T0",
-        stream: false,
+        stream: flow === "plant" && (kind === "ingest" || kind === "connector"),
       };
       node.x = 24 + i * 196;
+      if (kind === "trigger") {
+        node.trigger_kind = "webhook";
+        node.stream = true;
+        node.source_kind = "stream";
+        node.source_link = "streams.open";
+        node.fetch_from = "streams.open";
+      }
       if (
         kind === "ingest" ||
         kind === "connector" ||
         kind === "ontology" ||
         kind === "tool_call" ||
         kind === "insight" ||
-        kind === "enhance"
+        kind === "enhance" ||
+        kind === "audit"
       ) {
         node.object_type = obj;
         node.data_point = points[obj] || "sku";
         node.data_type = "string";
-        node.fetch_from = sourceKind === "cloud" ? "cloud.signed_in" : fetchPlaceFor(obj);
+        node.fetch_from = sourceKind === "cloud" ? "cloud.signed_in" : sourcePlace || fetchPlaceFor(obj);
         node.source_kind = sourceKind;
-        node.source_link = sourceKind === "cloud" ? "signed-in" : sourceKind === "database" ? node.fetch_from : "";
+        node.source_link = sourceKind === "cloud" ? "signed-in" : sourceKind === "database" ? node.fetch_from : sourceKind === "stream" ? node.fetch_from : "";
       }
       if (kind === "enhance") {
         node.object_type = "images";
@@ -458,41 +556,49 @@
         node.source_link = enhanceBind === "online_api" ? "api.enhance" : "local://enhance";
         node.action_type = "image.enhance";
       }
+      if ((kind === "insight" || kind === "audit") && flow === "infer") {
+        node.region = "cx=62 cy=48 r=18 why=human";
+      }
       if (kind === "tool_call") node.action_type = action;
       if (kind === "foundry") {
         node.action_type = action;
-        node.skin = suspectish ? "suspect" : venueish ? "constructor" : "warehouse";
+        node.skin = suspectish ? "suspect" : flow === "plant" || flow === "infer" || venueish ? "constructor" : "warehouse";
         node.compute = "cortex";
       }
       if (kind === "app") {
         node.action_type = "emit";
-        node.skin = suspectish ? "suspect" : venueish ? "constructor" : "warehouse";
+        node.skin = suspectish ? "suspect" : flow === "plant" || flow === "infer" || venueish ? "constructor" : "warehouse";
         node.object_type = firstObj;
       }
       return node;
     });
     const edges = [];
     for (let i = 0; i < nodes.length - 1; i++) edges.push({ from: nodes[i].id, to: nodes[i + 1].id });
+    const lab = flow === "plant" ? "retrain" : flow === "infer" || flow === "suspect" ? "infer" : assumed ? "sample" : "warehouse";
+    const insight =
+      flow === "plant"
+        ? "Mock retrain DAG for " + place + ". No live PLC."
+        : flow === "infer"
+          ? "Mock judge: circle human. Live LLM only on /cortex."
+          : "";
     return {
       ok: true,
+      flow: flow,
+      lab: lab,
+      insight: insight,
       pattern: pattern,
       assumed_object: assumed,
       objects: objects,
       action: action,
       nodes: nodes,
       edges: edges,
-      summary:
-        "Compiled " +
-        nodes.length +
-        " Cortex nodes (" +
-        pattern +
-        "). " +
-        (assumed ? "Assumed inventory. " : "Objects " + objects.join(", ") + ". ") +
-        "Action " +
-        action +
-        ". Source " +
-        sourceKind +
-        ". Click a node: doing / action / app / code / response.",
+      summary: naturalSummary({
+        flow: flow,
+        assumed: assumed,
+        objects: objects,
+        place: place,
+        sensors: sensors,
+      }),
     };
   }
 
