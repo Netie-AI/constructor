@@ -6,8 +6,8 @@
     <title>Constructor — Netie</title>
     <link rel="icon" href="favicon.ico" sizes="any" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=22" />
-    <link rel="stylesheet" href="ontology.css?v=22" />
+    <link rel="stylesheet" href="styles.css?v=23" />
+    <link rel="stylesheet" href="ontology.css?v=23" />
   </head>
   <body class="chat-open chat-snap-right">
     <header class="top">
@@ -26,6 +26,7 @@
         </div>
       </div>
       <div class="actions">
+        <button type="button" id="check-path">Check</button>
         <button type="button" id="ghost-toggle" class="ghost">Ghost off</button>
         <button type="button" id="run-graph">Run</button>
         <button type="button" id="chat-toggle" class="ghost">Chat</button>
@@ -81,9 +82,24 @@
         </details>
         <div class="eyebrow rail-gap">MODEL</div>
         <button type="button" id="open-ontology" class="ghost" aria-label="Open Ontology Studio">Ontology studio</button>
-        <p class="hint">
-          Pick a lab, press Run (ghost). Webhook/stream compile on Cortex only. Pages never fetch. Chat: lab train | define block my.tool
-        </p>
+        <ol class="check-guide" id="check-guide">
+          <li>
+            Open
+            <a href="https://netie-ai.github.io/constructor/" id="pages-link">Pages sketch</a>
+            (this page).
+          </li>
+          <li>Click Check. Loads infer lab, ghost-runs, reports gaps. No fetch.</li>
+          <li>Click a block, press +. App = skin. Ingest = place.</li>
+          <li>Type below or click a code.</li>
+          <li>Live write needs <code>http://127.0.0.1:8010/cortex</code> + ov_ key.</li>
+        </ol>
+        <div class="seed-row" id="chat-codes">
+          <button type="button" data-chat="check">check</button>
+          <button type="button" data-chat="lab infer">lab infer</button>
+          <button type="button" data-chat="run">run</button>
+          <button type="button" data-chat="gaps">gaps</button>
+          <button type="button" data-chat="define block particle.mark">define block</button>
+        </div>
       </aside>
 
       <main class="stage" id="stage">
@@ -122,7 +138,7 @@
         <textarea
           id="chat-input"
           rows="3"
-          placeholder="lab train. lab infer. lab retrain. define block particle.mark. Or warehouse / suspect desk."
+          placeholder="check. lab infer. run. gaps. define block particle.mark."
         ></textarea>
         <button type="submit">Send</button>
       </form>
@@ -160,10 +176,10 @@
       </form>
     </div>
 
-    <script src="core/constructor.js?v=22"></script>
-    <script src="ontology.js?v=22"></script>
-    <script src="app.js?v=22"></script>
-    <script src="ontology-studio.js?v=22"></script>
-    <script src="engine.js?v=22"></script>
+    <script src="core/constructor.js?v=23"></script>
+    <script src="ontology.js?v=23"></script>
+    <script src="app.js?v=23"></script>
+    <script src="ontology-studio.js?v=23"></script>
+    <script src="engine.js?v=23"></script>
   </body>
 </html>
