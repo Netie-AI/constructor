@@ -2,6 +2,8 @@
 
 | Date | Topic | Keywords | Main idea | Path |
 |------|-------|----------|-----------|------|
+| 2026-09-05 | constructor-brain-notify | constructor, cortex-brain, notify, draft_email, pr-7, rsf-05 | Cortex brain on 8-node labs. Email/WhatsApp drafts. PR7 superseded. RSF-05 parked. | `2026-09-05_constructor-brain-notify.md` |
+| 2026-09-05 | constructor-ontology-studio-pages | constructor, ontology, studio, pages, github.io | Live Pages serves studio overlay HTTP 200. Cloud session-limit dump is stale. | `2026-09-04_constructor-ontology-studio-overlay.md` |
 | 2026-09-04 | constructor-block-io | constructor, block-io, app, ingest, palantir, skin, data_in, data_out | Each kind has its own IN/OUT edit contract. App is EMIT skin, not warehouse fetch. | `2026-09-04_constructor-block-io.md` |
 | 2026-09-04 | constructor-labs-play | constructor, labs, play, trigger, webhook, stream, train, infer, retrain, define-block | Three mock labs + trigger/stream + define block. Ghost ticks. Not Airflow/n8n. Pages zero fetch. | `2026-09-04_constructor-labs-play.md` |
 | 2026-09-04 | constructor-v0-scaffold | constructor, v0, ir, tests, pages, landing#9 | Extract NetieConstructorCore + node:test. No invented host. PR only. | `2026-09-04_constructor-v0-scaffold.md` |

@@ -267,6 +267,10 @@
       "scrap intenr",
       "public webcam",
       "scrape camera",
+      "baileys",
+      "pywhatkit",
+      "whatsapp-web",
+      "scrape phone",
     ];
     return hits.some(function (h) {
       return low.indexOf(h) >= 0;
@@ -280,6 +284,7 @@
   function flowFromPrompt(low) {
     const s = String(low || "");
     if (isSuspectDesk(s)) return "suspect";
+    if (/whatsapp|gmail|\bemail\b|e-mail|outlook/.test(s)) return "notify";
     if (/retrain|anomal|sensor|snesor|pressure|factory|facotry|\bplc\b/.test(s)) return "plant";
     if (/detect|infer|cctv|camera|particle|region/.test(s)) return "infer";
     return "desk";
@@ -313,6 +318,12 @@
     }
     if (opts.flow === "suspect") {
       return "Ghost sketch of a police suspect desk on owned images + owned.watchlist. Not live CCTV. Click a node, then Run.";
+    }
+    if (opts.flow === "notify") {
+      return (
+        "Ghost notify, not a live sender. Email is a draft until you grant Gmail and click send. " +
+        "WhatsApp is draft-only (no Twilio/Baileys). Live DuckDB is /cortex + ov_ key. Pages never fetch."
+      );
     }
     return (
       "Ghost sketch. " +
@@ -355,6 +366,8 @@
       objects = ["images"];
     } else if (flow === "suspect") {
       objects = ["images", "suspects", "matches"];
+    } else if (flow === "notify") {
+      objects = ["contacts"];
     } else if (!objects.length) {
       objects = ["inventory"];
       assumed = true;
@@ -381,9 +394,11 @@
     if (/local model|comfy|onnx|ollama/.test(low)) sourceKind = "local_model";
     if (/online api|http api|replicate/.test(low)) sourceKind = "online_api";
     if (flow === "plant") sourceKind = "stream";
+    if (flow === "notify") sourceKind = "cloud";
     const suspectish = flow === "suspect";
     let action = "export_pptx";
     if (flow === "plant" || flow === "infer") action = "agent.checked";
+    else if (flow === "notify") action = /whatsapp/.test(low) ? "draft_whatsapp" : "draft_email";
     else if (low.indexOf("intake") >= 0) action = "item.intake";
     else if (low.indexOf("agent.checked") >= 0 || (low.indexOf("check") >= 0 && low.indexOf("agent") >= 0)) {
       action = "agent.checked";
@@ -402,6 +417,8 @@
     if (flow === "infer") {
       kinds = ["trigger", "ingest", "enhance", "ontology", "insight", "foundry", "app", "audit"];
     } else if (flow === "plant") {
+      kinds = ["ingest", "connector", "ontology", "insight", "foundry", "app", "audit", "tool_call"];
+    } else if (flow === "notify") {
       kinds = ["ingest", "connector", "ontology", "insight", "foundry", "app", "audit", "tool_call"];
     } else if (suspectish) {
       kinds = ["ingest", "enhance", "ontology", "insight", "foundry", "app", "tool_call"];
@@ -423,7 +440,9 @@
         ? place
         : flow === "infer"
           ? "owned.images"
-          : sourceKind === "cloud"
+          : flow === "notify"
+            ? "cloud.signed_in"
+            : sourceKind === "cloud"
             ? "cloud.signed_in"
             : sourceKind === "local_model"
               ? "local.model"
@@ -436,7 +455,9 @@
           ? "Ghost. " + sensors + " pressure sensors from " + place + ". Not a live PLC."
           : flow === "infer"
             ? "Ghost. Owned frames, not a live camera."
-            : suspectish
+            : flow === "notify"
+              ? "DMS rows the note is about. Ghost on Pages. Live fetch is warehouse inventory on /cortex."
+              : suspectish
               ? "Hop 0. Load owned images from owned.images (station archive or operator upload). Ghost on Pages. No write. No internet scrape."
               : "Hop 0. Load " +
                 objects.join("/") +
@@ -448,7 +469,9 @@
       connector:
         flow === "plant"
           ? "Stream bind for those " + sensors + " feeds. Pages cannot open the factory bus."
-          : sourceKind === "cloud"
+          : flow === "notify"
+            ? "Gmail grant is your Google click / OpenVault. Constructor never takes the password. WhatsApp number is a field. No send."
+            : sourceKind === "cloud"
             ? "Ghost cloud sign-in. Bind the signed-in catalog to an object. No OAuth. No fetch on Pages."
             : sourceKind === "database"
               ? "Bind a database link the operator pasted. Ghost on Pages. No live driver."
@@ -479,12 +502,16 @@
           ? "Retrain as Cortex DAG. Last week's anomaly weights stay in Cortex. Not Apache Airflow."
           : flow === "infer"
             ? "Infer compile. Weights stay in Cortex."
-            : "Compile insights into a governed Cortex app. Not an n8n clone.",
+            : flow === "notify"
+              ? "Compile notify onto Cortex DMS brain. Not n8n. Not a live mailer."
+              : "Compile insights into a governed Cortex app. Not an n8n clone.",
       app: "Skin only. Engine is Cortex. Ghost on Pages.",
       tool_call:
         flow === "plant"
           ? "Handoff to Cortex retrain. requires_confirm. Not export_pptx."
-          : suspectish
+          : flow === "notify"
+            ? "DMS draft_email / draft_whatsapp. requires_confirm. You click send. P16 parks unofficial WhatsApp."
+            : suspectish
             ? "F8 governed write. requires_confirm. Action suspect.match against owned.watchlist."
             : "F8 governed write. requires_confirm. Real tool is export_pptx.",
       hypothesize: "Surface a testable claim.",
@@ -574,13 +601,24 @@
     });
     const edges = [];
     for (let i = 0; i < nodes.length - 1; i++) edges.push({ from: nodes[i].id, to: nodes[i + 1].id });
-    const lab = flow === "plant" ? "retrain" : flow === "infer" || flow === "suspect" ? "infer" : assumed ? "sample" : "warehouse";
+    const lab =
+      flow === "plant"
+        ? "retrain"
+        : flow === "infer" || flow === "suspect"
+          ? "infer"
+          : flow === "notify"
+            ? "warehouse"
+            : assumed
+              ? "sample"
+              : "warehouse";
     const insight =
       flow === "plant"
         ? "Mock retrain DAG for " + place + ". No live PLC."
         : flow === "infer"
           ? "Mock judge: circle human. Live LLM only on /cortex."
-          : "";
+          : flow === "notify"
+            ? "Ghost notify. Draft email/WhatsApp. You click send."
+            : "";
     return {
       ok: true,
       flow: flow,

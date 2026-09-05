@@ -31,7 +31,7 @@ module.exports = defineConfig({
   webServer: {
     command: "npx http-server -p " + PORT + " -s -c-1 .",
     url: BASE_URL + "/index.html",
-    reuseExistingServer: true,
+    reuseExistingServer: !!process.env.CI,
     timeout: 30000,
   },
 });

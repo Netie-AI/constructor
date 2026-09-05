@@ -199,3 +199,27 @@ test("cctv human detection is infer mark, not watchlist", () => {
   assert.equal(graph.nodes.some((n) => n.action_type === "suspect.match"), false);
   assert.equal(graph.summary.indexOf("Assumed inventory") >= 0, false);
 });
+
+test("email connector is a Gmail draft, not pptx", () => {
+  const graph = Core.generateGraph("generate email connector with grant access send to my email");
+  assert.equal(graph.ok, true);
+  assert.equal(graph.flow, "notify");
+  assert.equal(graph.action, "draft_email");
+  assert.equal(graph.assumed_object, false);
+  assert.equal(graph.summary.indexOf("export_pptx") >= 0, false);
+  const tool = graph.nodes.find((n) => n.kind === "tool_call");
+  assert.equal(tool.action_type, "draft_email");
+});
+
+test("whatsapp telephone compile is draft, not a sender", () => {
+  const graph = Core.generateGraph("auto send to whatsapp via telephone number");
+  assert.equal(graph.ok, true);
+  assert.equal(graph.flow, "notify");
+  assert.equal(graph.action, "draft_whatsapp");
+  assert.equal(graph.summary.indexOf("draft") >= 0, true);
+});
+
+test("refusePrompt blocks baileys / whatsapp-web senders", () => {
+  assert.equal(Core.refusePrompt("send via baileys whatsapp-web"), true);
+  assert.equal(Core.refusePrompt("generate email connector"), false);
+});

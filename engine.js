@@ -35,6 +35,88 @@ function ontologyDigest() {
   };
 }
 
+function brainPayload(ir, extra) {
+  extra = extra || {};
+  const remote = extra.remote;
+  const live = cortexOrigin();
+  const nodes = (ir && ir.nodes) || [];
+  const out = {
+    origin: live ? "cortex" : "pages-sketch",
+    engine: live ? "Cortex compile_constructor_graph + run_dag" : "local generateGraph / ghostWalk (no fetch)",
+    lab: extra.lab || null,
+    prompt: extra.prompt || null,
+    entry_node_id: ir && ir.entry_node_id,
+    output_node_id: ir && ir.output_node_id,
+    compile: nodes.map(function (n) {
+      return n.id + " " + (n.constructor_kind || n.kind) + " -> " + n.kind;
+    }),
+  };
+  if (remote) {
+    out.cortex = {
+      ok: remote.ok,
+      status: remote.status || null,
+      error: remote.error || remote.detail || null,
+      ghost: remote.ghost || false,
+      actor: remote.actor || null,
+      entry_node_id: remote.entry_node_id || null,
+      output_node_id: remote.output_node_id || null,
+      dropped_cycle_edges: remote.dropped_cycle_edges || [],
+      dag: remote.ghost ? remote.nodes : null,
+      fetches: remote.fetches || null,
+      run_nodes: remote.ghost ? null : remote.nodes || null,
+    };
+  }
+  return out;
+}
+
+function paintCortexBrain(ir, extra) {
+  extra = extra || {};
+  const pre = document.getElementById("cortex-brain");
+  const status = document.getElementById("cortex-brain-status");
+  const payload = brainPayload(ir, extra);
+  if (pre) pre.textContent = JSON.stringify(payload, null, 2);
+  if (status) {
+    if (!cortexOrigin()) {
+      status.textContent = "Pages sketch. Local compile. Mount at /cortex to show Cortex DAG + run_dag.";
+    } else if (extra.remote && extra.remote.ok && extra.remote.ghost) {
+      status.textContent = "Cortex ghost compile (no writes). Cycle wires drop on the DAG.";
+    } else if (extra.remote && extra.remote.ok) {
+      status.textContent = "Cortex run_dag. Fetches and node outputs are engine truth.";
+    } else if (extra.remote) {
+      status.textContent =
+        "Cortex missed (" +
+        (extra.remote.status || extra.remote.error || extra.remote.detail || "offline") +
+        "). Showing local compile.";
+    } else {
+      status.textContent = "Cortex origin. Ghost or Run fills the engine DAG.";
+    }
+  }
+  return payload;
+}
+
+async function syncCortexBrain(extra) {
+  extra = extra || {};
+  const C = window.Constructor;
+  if (!C || typeof C.getState !== "function") return;
+  const ir = compileIR(C.getState());
+  if (!cortexOrigin()) {
+    paintCortexBrain(ir, extra);
+    return ir;
+  }
+  const remote = await cortexPost("/cortex/constructor/ghost", {
+    nodes: C.getState().nodes,
+    edges: C.getState().edges,
+  });
+  extra.remote = remote;
+  paintCortexBrain(ir, extra);
+  return ir;
+}
+
+async function afterSeed(g) {
+  g = g || {};
+  await syncCortexBrain({ lab: g.lab, prompt: g.prompt, source: "labCompile" });
+}
+
 function downloadText(name, text, mime) {
   const blob = new Blob([text], { type: mime || "text/plain" });
   const url = URL.createObjectURL(blob);
@@ -172,13 +254,16 @@ async function ghostRun() {
       edges: state.edges,
     });
     C.showAudit({ mode: "cortex-ghost", remote: remote });
+    paintCortexBrain(compileIR(state), { remote: remote, source: "ghost" });
     if (remote && remote.ok) {
       C.markGhostWalk((remote.nodes || []).map((n) => n.id));
-      return "Cortex ghost compile ok. EMIT=" + remote.output_node_id + ". No writes.";
+      return "Cortex ghost compile ok. EMIT=" + remote.output_node_id + ". No writes. Brain shows the DAG.";
     }
     return "Cortex ghost blocked (" + (remote && (remote.status || remote.error) || "offline") + "). Local walk instead. " + localGhostWalk();
   }
-  return localGhostWalk();
+  const local = localGhostWalk();
+  paintCortexBrain(compileIR(state), { source: "local-ghost" });
+  return local;
 }
 
 let automateTimer = null;
@@ -453,6 +538,7 @@ async function liveOrGhost(forceLive) {
       edges: C.getState().edges,
     });
     C.showAudit({ mode: "cortex-run", ir: ir, remote: remote });
+    paintCortexBrain(ir, { remote: remote, source: "run" });
     if (!remote || remote.ok === false) {
       return (
         "Cortex run_dag failed (" +
@@ -485,7 +571,7 @@ async function handleChat(raw) {
   const C = window.Constructor;
   if (!t) return "Say the object, point, action, or run all.";
   if (t === "help") {
-    return "Click Check, or type a real line: Factory C 8 pressure sensors, last week's anomaly, retrain. Ghost drawing. Live only on /cortex.";
+    return "Click Check, or type a real line. Live engine: http://127.0.0.1:8010/cortex/login + ov_ key. Email/WhatsApp are drafts you send. Pages never fetch.";
   }
   if (/^check$/.test(t)) {
     await handleChat("lab infer");
@@ -739,7 +825,7 @@ async function generateFromChat(text) {
       const localObjs = objectsInPrompt(text);
       const keepLocal =
         remote.assumed_object &&
-        (localObjs.length || local.flow === "plant" || local.flow === "infer" || local.flow === "suspect");
+        (localObjs.length || local.flow === "plant" || local.flow === "infer" || local.flow === "suspect" || local.flow === "notify");
       if (!keepLocal) graph = remote;
     }
   }
@@ -748,6 +834,7 @@ async function generateFromChat(text) {
   C.replaceGraph(graph.nodes, graph.edges);
   if (C.setPlayLab) C.setPlayLab(graph.lab || "sample", graph.insight || "");
   await rankApproaches();
+  await syncCortexBrain({ prompt: text, lab: graph.lab, source: "generateGraph" });
   const first = C.getState().nodes[0];
   if (first) C.showDecision({ node: first, response: graph.summary });
   return graph.summary || "Ghost sketch. Click a node, then Run.";
@@ -798,6 +885,7 @@ async function pressNode() {
     openDialog: true,
     raw: layer,
   });
+  paintCortexBrain(ir, { remote: remote, source: "decision" });
   const rec = remote && remote.recommendation && remote.recommendation.pattern;
   return (
     "DOING " +
@@ -923,8 +1011,12 @@ function bindChat() {
     "Chat warehouse, labs, or a real desk. Ghost drawing -- nothing live starts. Factory sensors, infer, or police suspect desk. Type help."
   );
   window.Constructor.pressNode = pressNode;
+  window.Constructor.afterSeed = afterSeed;
+  window.Constructor.paintCortexBrain = paintCortexBrain;
+  window.Constructor.syncCortexBrain = syncCortexBrain;
   loadOntology();
   rankApproaches();
+  syncCortexBrain({ source: "boot" });
 }
 
 if (document.readyState === "loading") {
