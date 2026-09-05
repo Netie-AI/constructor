@@ -19,7 +19,7 @@ const APP_LINKS = [
   "match_of_image",
   "match_of_suspect",
 ];
-const APP_ACTIONS = ["export_pptx", "item.intake", "agent.checked", "image.enhance", "suspect.match"];
+const APP_ACTIONS = ["export_pptx", "item.intake", "agent.checked", "image.enhance", "suspect.match", "draft_email", "draft_whatsapp"];
 
 function fresh() {
   const r = O.reset();

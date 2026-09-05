@@ -798,3 +798,37 @@ details.quiet summary {
 .node .sub {
   max-width: 11rem;
 }
+
+.cortex-brain {
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.55rem;
+}
+
+.cortex-brain summary {
+  cursor: pointer;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+#cortex-brain-status {
+  margin: 0.35rem 0;
+}
+
+#cortex-brain {
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+}

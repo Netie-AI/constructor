@@ -133,4 +133,20 @@ test.describe("labs", () => {
     await expect(page.getByTestId("region-mark")).toBeVisible();
     await expect(page.getByTestId("region-mark")).toContainText("human");
   });
+
+  test("cortex brain shows pages-sketch compile", async ({ page }) => {
+    await expect(page.getByTestId("cortex-brain")).toContainText("pages-sketch");
+    await page.locator("[data-seed=train]").click();
+    await expect(page.getByTestId("cortex-brain")).toContainText("train");
+    await page.screenshot({ path: shot("cortex-brain.png") });
+  });
+
+  test("email chat is a Gmail draft, not pptx", async ({ page }) => {
+    const reply = await chat(page, "generate email connector with grant access send to my email");
+    await expect(reply).toContainText("Ghost notify");
+    await expect(reply).not.toContainText("export_pptx");
+    await expect(page.locator("#play-lab")).toHaveText("warehouse");
+    await page.locator(".node[data-kind=tool_call]").click();
+    await expect(page.locator("#inspect-card")).toContainText("draft_email");
+  });
 });

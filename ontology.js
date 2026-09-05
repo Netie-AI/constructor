@@ -243,11 +243,13 @@
 
     const actionTypes = {};
     [
-      action("export_pptx", "Export PPTX", ["*"], [{ id: "title", type: "string", required: false }], true, "export_pptx", "F8 governed export. The only real tool on this pack."),
+      action("export_pptx", "Export PPTX", ["*"], [{ id: "title", type: "string", required: false }], true, "export_pptx", "F8 governed export. The only live write tool on this pack."),
       action("item.intake", "Item intake", ["inventory"], [{ id: "quantity_kg", type: "number", required: true }, { id: "storage_bin", type: "string", required: false }], true, "item.intake", "Book inbound stock."),
       action("agent.checked", "Agent checked", ["*"], [], false, null, "Ledger note. Read only."),
       action("image.enhance", "Image enhance", ["images", "matches"], [{ id: "model", type: "string", required: false }], true, "image.enhance", "Comfy-style enhance on owned images."),
       action("suspect.match", "Suspect match", ["suspects", "matches", "images"], [{ id: "threshold", type: "number", required: false }], true, "suspect.match", "Match against owned.watchlist. Steward reviews."),
+      action("draft_email", "Draft email", ["contacts"], [{ id: "to", type: "string", required: true }, { id: "subject", type: "string", required: false }], true, null, "Gmail draft. You grant Google and click send. Constructor never takes the password."),
+      action("draft_whatsapp", "Draft WhatsApp", ["contacts"], [{ id: "to", type: "string", required: true }], true, null, "Draft only. P16 parks unofficial senders (Baileys/Twilio)."),
     ].forEach(function (a) {
       actionTypes[a.id] = a;
     });

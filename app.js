@@ -117,6 +117,8 @@ const ACTION_META = [
   { id: "agent.checked", objects: ["*"], label: "agent.checked (ledger)" },
   { id: "image.enhance", objects: ["images", "matches"], label: "image.enhance (images)" },
   { id: "suspect.match", objects: ["suspects", "matches", "images"], label: "suspect.match (watchlist)" },
+  { id: "draft_email", objects: ["contacts"], label: "draft_email (contacts)" },
+  { id: "draft_whatsapp", objects: ["contacts"], label: "draft_whatsapp (contacts)" },
 ];
 
 
@@ -248,7 +250,7 @@ const LINKS = [
   { id: "match_of_image", from: "matches", to: "images", via: "image_id" },
   { id: "match_of_suspect", from: "matches", to: "suspects", via: "suspect_id" },
 ];
-const ACTIONS = ["export_pptx", "item.intake", "agent.checked", "image.enhance", "suspect.match"];
+const ACTIONS = ["export_pptx", "item.intake", "agent.checked", "image.enhance", "suspect.match", "draft_email", "draft_whatsapp"];
 const FETCH_PLACES = [
   "warehouse.inventory",
   "warehouse.suppliers",
@@ -654,6 +656,9 @@ function applySeed(lab) {
   const g = labGraph(lab);
   setPlayLab(g.lab, g.insight);
   replaceGraph(g.nodes, g.edges);
+  if (window.Constructor && typeof window.Constructor.afterSeed === "function") {
+    window.Constructor.afterSeed(g);
+  }
   return g.lab;
 }
 
