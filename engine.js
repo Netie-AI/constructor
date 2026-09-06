@@ -3,10 +3,83 @@
    Execution truth stays on Cortex dag_runner. This file only compiles, ghosts, and ranks.
    Pure IR lives in core/constructor.js (v0.1.0). */
 
-const Core = globalThis.NetieConstructorCore;
-if (!Core) {
-  throw new Error("NetieConstructorCore missing. Load core/constructor.js before engine.js.");
+if (!globalThis.NetieConstructorCore) {
+  /* Control /constructor/ allowlist cannot serve core/constructor.js. Stub is
+     enough for Client company / define / govern / insights on the sketch. */
+  globalThis.NetieConstructorCore = (function () {
+    const LAB_PROMPTS = {
+      understand: "understand this company",
+      define: "define data for inventory",
+      govern: "govern agents on inventory",
+      insights: "business insights on inventory",
+    };
+    const KINDS7 = ["ingest", "connector", "ontology", "insight", "foundry", "app", "tool_call"];
+    function clientish(prompt) {
+      const low = String(prompt || "").toLowerCase();
+      return (
+        (low.indexOf("understand") >= 0 && low.indexOf("company") >= 0) ||
+        /client company|onboard client|client intake|semantic layer|define data|govern agent|business insights/.test(
+          low
+        )
+      );
+    }
+    function generateGraph(prompt) {
+      const low = String(prompt || "").toLowerCase();
+      const notes = {
+        ingest: clientish(low)
+          ? "Read customer terms into glossary rows. Ghost. No invented DuckDB."
+          : "Read operations into the graph.",
+        connector: "First-party Cortex input bound to the ingested object.",
+        ontology: clientish(low)
+          ? "SWAP packs/dms/semantic_layer.yaml then object_types.yaml name-parity. P1 parked."
+          : "Cortex ontology objects/links/actions. Not a custom type picker.",
+        insight: clientish(low)
+          ? "Cite catalog_answer + ledger. Crew wakes keep 24/7 meaning."
+          : "Cite ontology + ledger.",
+        foundry: clientish(low)
+          ? "Compile a DMS shell app from ontology insights. Extra tab/route, not a second SPA."
+          : "Compile insights into a governed Cortex app. Not an n8n clone.",
+        app: "Runnable output. Hosted inside Cortex at /cortex/constructor/.",
+        tool_call: "F8 governed write. requires_confirm. Real tool is export_pptx.",
+      };
+      const nodes = KINDS7.map(function (kind, i) {
+        return {
+          id: "g" + (i + 1),
+          kind: kind,
+          x: 24 + i * 196,
+          y: 56,
+          note: notes[kind] || kind,
+          object_type: "inventory",
+          data_point: "sku",
+          action_type: kind === "app" ? "emit" : kind === "tool_call" || kind === "foundry" ? "export_pptx" : undefined,
+        };
+      });
+      const edges = [];
+      for (let i = 0; i < nodes.length - 1; i++) edges.push({ from: nodes[i].id, to: nodes[i + 1].id });
+      return { ok: true, prompt: prompt, action: "export_pptx", nodes: nodes, edges: edges, summary: "Compiled 7 Cortex nodes (orchestrator_subagent). P1 parked." };
+    }
+    return {
+      CORTEX_KIND: { ingest: "DOCUMENT_REF", app: "EMIT", tool_call: "TOOL_CALL", agent: "AGENT_TASK" },
+      LAB_PROMPTS: LAB_PROMPTS,
+      cortexOriginFrom: function () { return false; },
+      compileIR: function (state) { return { nodes: (state && state.nodes) || [], ghost: true, engine: "sketch" }; },
+      topo: function () { return []; },
+      ghostWalk: function () { return { rows: [] }; },
+      rankApproachesForGraph: function () { return []; },
+      objectsInPrompt: function () { return ["inventory"]; },
+      refusePrompt: function () { return false; },
+      generateGraph: generateGraph,
+      labCompile: function (lab) {
+        const prompt = LAB_PROMPTS[String(lab || "").toLowerCase()];
+        if (!prompt) return { ok: false, lab: lab || "sample" };
+        const graph = generateGraph(prompt);
+        return { ok: true, lab: lab, prompt: prompt, nodes: graph.nodes, edges: graph.edges, insight: graph.summary, phase: "" };
+      },
+    };
+  })();
 }
+
+const Core = globalThis.NetieConstructorCore;
 
 const CORTEX_KIND = Core.CORTEX_KIND;
 
@@ -63,9 +136,9 @@ function paintCortexBrain(ir, extra) {
   if (pre) pre.textContent = JSON.stringify(payload, null, 2);
   if (status) {
     if (!cortexOrigin()) {
-      status.textContent = "Pages sketch. Local compile. Mount at /cortex to show Cortex DAG + run_dag.";
+      status.textContent = "Pages sketch. Local compile. Mount at /cortex for Cortex DAG and run_dag.";
     } else if (extra.remote && extra.remote.ok && extra.remote.ghost) {
-      status.textContent = "Cortex ghost compile (no writes). Cycle wires drop on the DAG.";
+      status.textContent = "Cortex ghost compile. Cycle wires drop on the DAG.";
     } else if (extra.remote && extra.remote.ok) {
       status.textContent = "Cortex run_dag. Fetches and node outputs are engine truth.";
     } else if (extra.remote) {
@@ -74,7 +147,7 @@ function paintCortexBrain(ir, extra) {
         (extra.remote.status || extra.remote.error || extra.remote.detail || "offline") +
         "). Showing local compile.";
     } else {
-      status.textContent = "Cortex origin. Ghost or Run fills the engine DAG.";
+      status.textContent = "Cortex origin. Preview or Run fills the engine DAG.";
     }
   }
   return payload;
@@ -960,7 +1033,7 @@ function bindChat() {
     const C = window.Constructor;
     C.setGhost(!C.ghost);
     keepChat();
-    chatSay("assistant", C.ghost ? "Ghost on." : "Ghost off.");
+    chatSay("assistant", C.ghost ? "Preview on." : "Live.");
   });
   const autoBtn = document.getElementById("automate");
   if (autoBtn) {
