@@ -19,6 +19,8 @@ test("engine.js fetch is gated on cortexOrigin", () => {
   assert.equal(/async function cortexPost/.test(src), true);
   assert.equal(/if \(!cortexOrigin\(\)\) return null;/.test(src), true);
   assert.equal(/POST \/cortex\/constructor\/run/.test(src), true);
+  assert.equal(/function constructorRunBody/.test(src), true);
+  assert.equal(/body\.rsf = C\.lastRsf\.wire/.test(src), true);
 });
 
 test("no invented constructor.netie.ai host", () => {

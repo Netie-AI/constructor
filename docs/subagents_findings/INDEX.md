@@ -2,6 +2,7 @@
 
 | Date | Topic | Keywords | Main idea | Path |
 |------|-------|----------|-----------|------|
+| 2026-09-06 | constructor-rsf-05-consume | constructor, rsf-05, certified, consume, constructor-run, n8n, hyperlift, ghost | CERTIFIED RSF into ghost/run. POST /cortex/constructor/run from engine.js. n8n/LC/LF BAN. Cortex mount is a patch note. | `2026-09-06_constructor-rsf-05-consume.md` |
 | 2026-09-05 | constructor-brain-notify | constructor, cortex-brain, notify, draft_email, pr-7, rsf-05 | Cortex brain on 8-node labs. Email/WhatsApp drafts. PR7 superseded. RSF-05 parked. | `2026-09-05_constructor-brain-notify.md` |
 | 2026-09-05 | constructor-ontology-studio-pages | constructor, ontology, studio, pages, github.io | Live Pages serves studio overlay HTTP 200. Cloud session-limit dump is stale. | `2026-09-04_constructor-ontology-studio-overlay.md` |
 | 2026-09-04 | constructor-block-io | constructor, block-io, app, ingest, palantir, skin, data_in, data_out | Each kind has its own IN/OUT edit contract. App is EMIT skin, not warehouse fetch. | `2026-09-04_constructor-block-io.md` |
