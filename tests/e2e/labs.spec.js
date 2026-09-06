@@ -73,7 +73,7 @@ test.describe("labs", () => {
   });
 
   test("voice and image labs compile from generateGraph", async ({ page }) => {
-    await page.locator("details.quiet summary").first().click();
+    await page.locator("details.quiet").filter({ has: page.locator("[data-seed=voice]") }).locator("summary").click();
     await page.locator("[data-seed=voice]").click();
     await expect(page.locator("#nodes .node")).toHaveCount(7);
     await expect(page.locator("#play-lab")).toHaveText("voice");
@@ -126,7 +126,7 @@ test.describe("labs", () => {
     await page.screenshot({ path: shot("lab-loop.png") });
   });
 
-  test("help mark explains Run press and type", async ({ page }) => {
+  test("help explains Run press and type", async ({ page }) => {
     await page.locator('[data-help=run]').click();
     await expect(page.locator("#help-pop")).toBeVisible();
     await expect(page.locator("#help-title")).toHaveText("Run");

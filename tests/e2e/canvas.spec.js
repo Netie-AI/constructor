@@ -25,6 +25,14 @@ async function openMoreBlocks(page) {
   await expect(page.locator("[data-add=agent]")).toBeVisible();
 }
 
+async function openMore(page) {
+  const menu = page.locator("details.more-menu");
+  if (!(await menu.getAttribute("open"))) {
+    await menu.locator("summary").click();
+  }
+  await expect(page.locator("#propose")).toBeVisible();
+}
+
 test.describe("canvas", () => {
   let errors;
 
@@ -101,21 +109,22 @@ test.describe("canvas", () => {
     await page.screenshot({ path: shot("canvas-propose.png") });
 
     // The header button routes through the same command.
+    await openMore(page);
     await page.locator("#propose").click();
     await expect(page.locator("#chat-log .bubble.assistant").last()).toContainText("Ranked 3");
     await expect(page.locator("#approaches .approach.winner")).toHaveCount(1);
   });
 
-  test("ghost toggle text flips", async ({ page }) => {
+  test("preview toggle text flips", async ({ page }) => {
     const btn = page.locator("#ghost-toggle");
-    await expect(btn).toHaveText("Ghost on");
+    await expect(btn).toHaveText("Preview");
     await expect(page.locator("body")).toHaveClass(/ghost-mode/);
     await btn.click();
-    await expect(btn).toHaveText("Ghost off");
+    await expect(btn).toHaveText("Live");
     await expect(page.locator("body")).not.toHaveClass(/ghost-mode/);
-    await expect(page.locator("#chat-log .bubble.assistant").last()).toHaveText("Ghost off.");
+    await expect(page.locator("#chat-log .bubble.assistant").last()).toHaveText("Live.");
     await btn.click();
-    await expect(btn).toHaveText("Ghost on");
+    await expect(btn).toHaveText("Preview");
     await expect(page.locator("body")).toHaveClass(/ghost-mode/);
   });
 
@@ -123,6 +132,7 @@ test.describe("canvas", () => {
     await openMoreBlocks(page);
     await page.locator("[data-add=agent]").click();
     await expect(page.locator(".node")).toHaveCount(9);
+    await openMore(page);
     await page.locator("#reset-graph").click();
     await expect(page.locator(".node")).toHaveCount(8);
     await expect(page.locator(".node[data-kind=agent]")).toHaveCount(0);
@@ -131,7 +141,10 @@ test.describe("canvas", () => {
   });
 
   test("export JSON downloads the graph", async ({ page }) => {
-    const [download] = await Promise.all([page.waitForEvent("download"), page.locator("#export-json").click()]);
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      openMore(page).then(() => page.locator("#export-json").click()),
+    ]);
     expect(download.suggestedFilename()).toBe("constructor-graph.json");
     const parsed = JSON.parse(fs.readFileSync(await download.path(), "utf8"));
     expect(Array.isArray(parsed.nodes)).toBe(true);

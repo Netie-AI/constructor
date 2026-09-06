@@ -46,15 +46,16 @@ button {
   color: var(--text);
   background: var(--panel);
   border: 1px solid var(--border);
-  padding: 0.5rem 0.75rem;
+  padding: 0.38rem 0.7rem;
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: 2px;
 }
 
 button.primary {
-  background: linear-gradient(180deg, #1c2433, #151b26);
-  border-color: rgba(126, 224, 195, 0.45);
-  color: #d9fff2;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #111;
+  font-weight: 600;
 }
 
 button:hover,
@@ -70,8 +71,8 @@ button.ghost {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  align-items: flex-end;
-  padding: 1rem 1.35rem;
+  align-items: center;
+  padding: 0.55rem 1rem;
   border-bottom: 1px solid var(--border);
   background: var(--dark);
   grid-column: 1 / -1;
@@ -96,9 +97,9 @@ button.ghost {
 }
 
 h1 {
-  margin: 0.15rem 0 0;
+  margin: 0;
   font-weight: 500;
-  font-size: 1.45rem;
+  font-size: 1.05rem;
 }
 
 .lede,
@@ -823,11 +824,14 @@ details.quiet summary {
 .play-hud {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
+  gap: 0.4rem;
   align-items: center;
-  margin: 0.35rem 0 0;
-  font-size: 0.78rem;
+  margin: 0 0 0.55rem;
+  padding: 0.55rem 0.6rem;
+  font-size: 0.75rem;
   color: var(--muted);
+  border: 1px solid var(--border);
+  background: var(--panel);
 }
 
 .play-hud #play-ticks {
@@ -859,9 +863,9 @@ details.quiet summary {
 }
 
 .phase-strip button.on {
-  border-color: rgba(126, 224, 195, 0.55);
-  color: #d9fff2;
-  background: rgba(126, 224, 195, 0.1);
+  border-color: var(--accent);
+  color: #111;
+  background: var(--accent);
 }
 
 .chat-chips,
@@ -925,19 +929,42 @@ details.quiet summary {
   max-width: 11rem;
 }
 
+.prop-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.4rem 0;
+  font-size: 11px;
+  font-family: ui-monospace, Consolas, monospace;
+}
+.prop-table caption {
+  text-align: left;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
+}
+.prop-table th,
+.prop-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 0.22rem 0.3rem;
+  text-align: left;
+}
+.prop-table tr.on td {
+  color: var(--accent);
+}
 .cortex-brain {
   margin: 0.6rem 0 0.8rem;
-  border: 1px solid rgba(126, 184, 255, 0.22);
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
   padding: 0.35rem 0.5rem 0.5rem;
-  background: rgba(10, 18, 32, 0.55);
+  background: var(--panel);
 }
-
 .cortex-brain summary {
   cursor: pointer;
-  color: #9fd0e8;
+  color: var(--muted);
   font-size: 0.72rem;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 

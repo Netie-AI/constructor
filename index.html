@@ -6,8 +6,8 @@
     <title>Constructor — Netie</title>
     <link rel="icon" href="favicon.ico" sizes="any" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=25" />
-    <link rel="stylesheet" href="ontology.css?v=25" />
+    <link rel="stylesheet" href="styles.css?v=29" />
+    <link rel="stylesheet" href="ontology.css?v=29" />
   </head>
   <body class="chat-open chat-snap-right">
     <header class="top">
@@ -15,57 +15,28 @@
         <img class="brand-mark" src="favicon.svg" width="28" height="28" alt="" />
         <div>
           <div class="eyebrow">NETIE / CONSTRUCTOR</div>
-          <h1>Constructor</h1>
+          <h1>Inventory pipeline</h1>
           <p class="hint" id="power">Checking origin.</p>
-          <p class="hint" id="ov-status">OpenVault: not bound.</p>
-          <div class="play-hud" id="play-hud" data-testid="play-hud">
-            <span id="play-ticks">0 ticks</span>
-            <span id="play-lab">sample</span>
-            <nav id="phase-strip" class="phase-strip" aria-label="Training loop phases">
-              <button type="button" data-phase="ingest">1 Ingest</button>
-              <button type="button" data-phase="train">2 Train</button>
-              <button type="button" data-phase="infer">3 Infer</button>
-              <button type="button" data-phase="retrain">4 Retrain</button>
-            </nav>
-            <span id="play-insight"></span>
-            <span id="play-next" class="play-next">Press Loop, then Run. Or type: lab loop</span>
-          </div>
+          <p class="hint" id="ov-status" hidden></p>
         </div>
       </div>
       <div class="actions">
-        <span class="btn-wrap">
-          <button type="button" id="ghost-toggle" class="ghost">Ghost off</button>
-          <button type="button" class="help-q" data-help="ghost" aria-label="Help: Ghost">?</button>
-        </span>
-        <span class="btn-wrap">
-          <button type="button" id="run-graph" class="primary">Run</button>
-          <button type="button" class="help-q" data-help="run" aria-label="Help: Run">?</button>
-        </span>
-        <span class="btn-wrap">
-          <button type="button" id="chat-toggle" class="ghost">Chat</button>
-          <button type="button" class="help-q" data-help="chat" aria-label="Help: Chat">?</button>
-        </span>
-        <span class="btn-wrap">
-          <button type="button" id="propose">Propose 3</button>
-          <button type="button" class="help-q" data-help="propose" aria-label="Help: Propose 3">?</button>
-        </span>
-        <button type="button" id="ontology-btn" class="ghost">Ontology</button>
-        <span class="btn-wrap">
-          <button type="button" id="export-json">Export JSON</button>
-          <button type="button" class="help-q" data-help="export" aria-label="Help: Export JSON">?</button>
-        </span>
-        <span class="btn-wrap">
-          <button type="button" id="reset-graph" class="ghost">Reset sample</button>
-          <button type="button" class="help-q" data-help="reset" aria-label="Help: Reset sample">?</button>
-        </span>
+        <button type="button" id="ghost-toggle" class="ghost">Preview</button>
+        <button type="button" id="run-graph" class="primary">Run</button>
+        <button type="button" id="chat-toggle" class="ghost">Chat</button>
+        <button type="button" class="ghost" data-help="run" aria-label="Help: Run">Help</button>
         <details class="more-menu">
           <summary>More</summary>
           <div class="more-menu-list">
             <input id="cortex-key" type="password" autocomplete="off" placeholder="ov_ key" />
-            <button type="button" id="issue-key" class="ghost">Issue ov_ key</button>
+            <button type="button" id="issue-key" class="ghost">Issue key</button>
             <button type="button" id="automate" class="ghost">Automate off</button>
+            <button type="button" id="propose" class="ghost">Propose 3</button>
+            <button type="button" id="ontology-btn" class="ghost">Ontology</button>
             <button type="button" id="maximize" class="ghost">Maximize</button>
             <button type="button" id="fit-view" class="ghost" title="Fit the graph into view">Fit</button>
+            <button type="button" id="export-json" class="ghost">Export JSON</button>
+            <button type="button" id="reset-graph" class="ghost">Reset sample</button>
           </div>
         </details>
       </div>
@@ -73,58 +44,54 @@
 
     <div class="shell">
       <aside class="rail">
-        <div class="eyebrow">LOOP</div>
+        <div class="eyebrow">OBJECT SET</div>
         <div class="seed-row">
-          <span class="btn-wrap">
-            <button type="button" data-seed="loop" class="primary">Loop</button>
-            <button type="button" class="help-q" data-help="loop" aria-label="Help: Loop">?</button>
-          </span>
-          <span class="btn-wrap">
-            <button type="button" data-seed="train">1 Train</button>
-            <button type="button" class="help-q" data-help="train" aria-label="Help: Train lab">?</button>
-          </span>
-          <span class="btn-wrap">
-            <button type="button" data-seed="infer">2 Infer+judge</button>
-            <button type="button" class="help-q" data-help="infer" aria-label="Help: Infer lab">?</button>
-          </span>
-          <span class="btn-wrap">
-            <button type="button" data-seed="retrain">3 Retrain</button>
-            <button type="button" class="help-q" data-help="retrain" aria-label="Help: Retrain lab">?</button>
-          </span>
+          <button type="button" data-seed="warehouse">Inventory</button>
+          <button type="button" data-seed="venue">Venues</button>
+          <button type="button" data-seed="suspect">Watchlist</button>
+        </div>
+        <div class="eyebrow rail-gap">CLIENT LOOP</div>
+        <div class="seed-row">
+          <button type="button" data-seed="understand" class="primary">Client company</button>
+          <button type="button" data-seed="define">Define data</button>
+          <button type="button" data-seed="govern">Govern agents</button>
+          <button type="button" data-seed="insights">Insights</button>
+        </div>
+        <div class="eyebrow rail-gap">PIPELINE</div>
+        <button type="button" data-add="ingest"></button>
+        <button type="button" data-add="train"></button>
+        <button type="button" data-add="infer"></button>
+        <button type="button" data-add="retrain"></button>
+        <button type="button" data-add="connector"></button>
+        <button type="button" data-add="ontology"></button>
+        <button type="button" data-add="insight"></button>
+        <button type="button" data-add="foundry"></button>
+        <button type="button" data-add="app"></button>
+        <button type="button" data-add="tool_call"></button>
+        <details class="quiet">
+          <summary>More blocks</summary>
+          <button type="button" data-add="trigger"></button>
+          <button type="button" data-add="enhance"></button>
+          <button type="button" data-add="agent"></button>
+          <button type="button" data-add="hypothesize"></button>
+          <button type="button" data-add="improve"></button>
+          <button type="button" data-add="audit"></button>
+        </details>
+        <div class="eyebrow rail-gap">LABS</div>
+        <div class="seed-row">
+          <button type="button" data-seed="loop" class="primary">Loop</button>
+          <button type="button" data-seed="train">Train</button>
+          <button type="button" data-seed="infer">Infer</button>
+          <button type="button" data-seed="retrain">Retrain</button>
         </div>
         <details class="quiet">
           <summary>More labs</summary>
           <div class="seed-row">
             <button type="button" data-seed="voice">Voice</button>
-            <button type="button" data-seed="image">Image gen</button>
-            <button type="button" data-seed="warehouse">Warehouse</button>
+            <button type="button" data-seed="image">Image</button>
           </div>
         </details>
-        <div class="eyebrow rail-gap">PIPELINE</div>
-        <div class="rail-row"><button type="button" data-add="ingest"></button><button type="button" class="help-q" data-help="ingest" aria-label="Help: Ingest">?</button></div>
-        <div class="rail-row"><button type="button" data-add="train"></button><button type="button" class="help-q" data-help="train" aria-label="Help: Train block">?</button></div>
-        <div class="rail-row"><button type="button" data-add="infer"></button><button type="button" class="help-q" data-help="infer" aria-label="Help: Infer block">?</button></div>
-        <div class="rail-row"><button type="button" data-add="retrain"></button><button type="button" class="help-q" data-help="retrain" aria-label="Help: Retrain block">?</button></div>
-        <div class="rail-row"><button type="button" data-add="connector"></button><button type="button" class="help-q" data-help="connector" aria-label="Help: Connector">?</button></div>
-        <div class="rail-row"><button type="button" data-add="trigger"></button><button type="button" class="help-q" data-help="trigger" aria-label="Help: Trigger">?</button></div>
-        <div class="rail-row"><button type="button" data-add="ontology"></button><button type="button" class="help-q" data-help="ontology" aria-label="Help: Ontology">?</button></div>
-        <div class="rail-row"><button type="button" data-add="insight"></button><button type="button" class="help-q" data-help="insight" aria-label="Help: Insight">?</button></div>
-        <div class="rail-row"><button type="button" data-add="foundry"></button><button type="button" class="help-q" data-help="foundry" aria-label="Help: Foundry">?</button></div>
-        <div class="rail-row"><button type="button" data-add="app"></button><button type="button" class="help-q" data-help="app" aria-label="Help: App">?</button></div>
-        <div class="rail-row"><button type="button" data-add="tool_call"></button><button type="button" class="help-q" data-help="tool_call" aria-label="Help: Tool call">?</button></div>
-        <details class="quiet">
-          <summary>More blocks</summary>
-          <div class="rail-row"><button type="button" data-add="enhance"></button><button type="button" class="help-q" data-help="enhance" aria-label="Help: Enhance">?</button></div>
-          <div class="rail-row"><button type="button" data-add="agent"></button><button type="button" class="help-q" data-help="agent" aria-label="Help: Agent">?</button></div>
-          <div class="rail-row"><button type="button" data-add="hypothesize"></button><button type="button" class="help-q" data-help="hypothesize" aria-label="Help: Hypothesize">?</button></div>
-          <div class="rail-row"><button type="button" data-add="improve"></button><button type="button" class="help-q" data-help="improve" aria-label="Help: Improve">?</button></div>
-          <div class="rail-row"><button type="button" data-add="audit"></button><button type="button" class="help-q" data-help="audit" aria-label="Help: Audit">?</button></div>
-        </details>
-        <div class="eyebrow rail-gap">MODEL</div>
         <button type="button" id="open-ontology" class="ghost" aria-label="Open Ontology Studio">Ontology studio</button>
-        <p class="hint">
-          Press Loop, then Run. Each Run walks one phase. ? marks say what to press or type. Pages never fetch.
-        </p>
       </aside>
 
       <main class="stage" id="stage">
@@ -135,19 +102,34 @@
       </main>
 
       <aside class="inspect" id="inspect">
-        <div class="eyebrow">BLOCK</div>
-        <div class="hint" id="inspect-empty">Select a block. Press Loop, then Run to walk ingest -> train -> infer -> retrain.</div>
+        <div class="eyebrow">OBJECT</div>
+        <div class="hint" id="inspect-empty">Select a block. Loop then Run walks ingest, train, infer, retrain.</div>
         <div id="inspect-card" class="inspect-card" hidden></div>
         <pre id="inspect-decision" hidden></pre>
         <form id="inspect-form" class="inspect-form" hidden></form>
         <pre id="inspect-json" hidden></pre>
+        <div class="eyebrow rail-gap">RUN</div>
+        <div class="play-hud" id="play-hud" data-testid="play-hud">
+          <span id="play-ticks">0 ticks</span>
+          <span id="play-lab">sample</span>
+          <nav id="phase-strip" class="phase-strip" aria-label="Pipeline phases">
+            <button type="button" data-phase="ingest">Ingest</button>
+            <button type="button" data-phase="train">Train</button>
+            <button type="button" data-phase="infer">Infer</button>
+            <button type="button" data-phase="retrain">Retrain</button>
+          </nav>
+          <span id="play-insight"></span>
+          <span id="play-next" class="play-next">Run walks one phase.</span>
+        </div>
         <details id="cortex-brain-box" class="cortex-brain" data-testid="cortex-brain-box" open>
-          <summary>Cortex brain</summary>
+          <summary>Engine</summary>
           <p class="hint" id="cortex-brain-status">Checking origin.</p>
           <pre id="cortex-brain" data-testid="cortex-brain"></pre>
         </details>
-        <div class="eyebrow">APPROACHES</div>
-        <div id="approaches" class="approaches"></div>
+        <details class="quiet" id="approaches-wrap">
+          <summary>Approaches</summary>
+          <div id="approaches" class="approaches"></div>
+        </details>
       </aside>
     </div>
 
@@ -155,7 +137,7 @@
       <header class="chat-dock-head">
         <div>
           <div class="eyebrow">CHAT</div>
-          <p class="hint chat-dock-kicker">Type a chip, or lab loop then run. Snap bottom or right.</p>
+          <p class="hint chat-dock-kicker">Compile a pipeline. Cortex is the engine.</p>
         </div>
         <div class="chat-dock-tools">
           <button type="button" id="chat-snap-bottom" class="ghost" data-snap="bottom">Bottom</button>
@@ -170,17 +152,16 @@
         <button type="button" data-chip="add train">add train</button>
         <button type="button" data-chip="add infer">add infer</button>
         <button type="button" data-chip="add retrain">add retrain</button>
-        <button type="button" class="help-q" data-help="chips" aria-label="Help: type suggestions">?</button>
       </div>
       <form id="chat-form" class="chat-form">
         <textarea
           id="chat-input"
           rows="3"
-          placeholder="lab loop. Then run. Or add train / add infer / add retrain. define block particle.mark."
+          placeholder="ingest warehouse inventory, then train, infer, retrain"
         ></textarea>
         <button type="submit">Send</button>
       </form>
-      <p class="hint chat-dock-hint">Ctrl+/ toggles. Ghost on Pages. Cortex is the only engine. No stalk.</p>
+      <p class="hint chat-dock-hint">Ctrl+/ chat. Preview on Pages. Live run needs /cortex + ov_ key.</p>
     </section>
 
     <button type="button" id="chat-fab" class="chat-fab" hidden aria-label="Open chat (Ctrl+/)">Chat</button>
@@ -196,13 +177,13 @@
           <button type="button" id="event-close" class="ghost">Close</button>
         </header>
         <p id="ingest-help" class="ingest-help" hidden>
-          Ingest is hop 0. Place, stream, cloud (ghost), database, local model, or online API. No write.
+          Source bind. Place, stream, cloud, database, local model, or API. This block does not write.
         </p>
         <p id="enhance-help" class="ingest-help" hidden>
-          Enhance is Comfy-style. Local model or online API. Ghost on Pages. Distill Comfy, do not clone.
+          Owned images only. Local model or online API. Preview on Pages.
         </p>
         <p id="trigger-help" class="ingest-help" hidden>
-          Trigger is webhook, schedule, or message. Pages ghost only. Live run is POST /cortex/constructor/run on a /cortex origin.
+          Webhook, schedule, or message. Live run is POST /cortex/constructor/run on a /cortex origin.
         </p>
         <p id="train-help" class="ingest-help" hidden>
           Train is a ghost fit. IN dataset rows. OUT mock weights. Live fit is Cortex. Type: add train
@@ -234,10 +215,10 @@
       <button type="button" id="help-try" data-chip="lab loop">Try it</button>
     </div>
 
-    <script src="core/constructor.js?v=25"></script>
-    <script src="ontology.js?v=25"></script>
-    <script src="app.js?v=25"></script>
-    <script src="ontology-studio.js?v=25"></script>
-    <script src="engine.js?v=25"></script>
+    <script src="core/constructor.js?v=29"></script>
+    <script src="ontology.js?v=29"></script>
+    <script src="app.js?v=29"></script>
+    <script src="ontology-studio.js?v=29"></script>
+    <script src="engine.js?v=29"></script>
   </body>
 </html>

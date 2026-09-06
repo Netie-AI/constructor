@@ -19,7 +19,7 @@ const KINDS = {
     label: "Ingest",
     persona: "loader",
     color: "#7eb8ff",
-    note: "Hop 0. Load rows from a place into an object. No write.",
+    note: "Load rows from a place into an object. No write.",
     icon: ico(
       '<path d="M12 3v11"/><path d="M8 10l4 4 4-4"/><path d="M4 17h16v3H4z"/>'
     ),
@@ -28,7 +28,7 @@ const KINDS = {
     label: "Connector",
     persona: "source",
     color: "#9ad7c2",
-    note: "First-party Cortex input bound to an object. No n8n.",
+    note: "First-party Cortex input bound to an object.",
     icon: ico('<path d="M8 7v10"/><path d="M16 7v10"/><path d="M8 12h8"/><circle cx="8" cy="7" r="2"/><circle cx="16" cy="17" r="2"/>'),
   },
   trigger: {
@@ -53,7 +53,7 @@ const KINDS = {
     icon: ico('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
   },
   foundry: {
-    label: "Foundry",
+    label: "Compile",
     persona: "compiler",
     color: "#e8a07a",
     note: "Compile insights into a governed Cortex app.",
@@ -134,7 +134,7 @@ const KINDS = {
 const PERSONAS = ["loader", "source", "modeler", "analyst", "compiler", "operator", "worker", "skeptic", "editor", "enhancer", "steward", "writer", "trainer", "scorer", "retrainer"];
 const HELP = {
   run: { title: "Run", press: "Run", type: "run", hint: "Ghost-walks every block. Live POST /cortex/constructor/run only on a /cortex origin. Pages never fetch." },
-  ghost: { title: "Ghost", press: "Ghost on", type: "ghost on", hint: "Dry-run. No writes. Keep Ghost on until you are on Cortex." },
+  ghost: { title: "Preview", press: "Preview", type: "preview", hint: "Dry-run. No writes. Keep Preview on until you are on Cortex." },
   chat: { title: "Chat", press: "Chat or Ctrl+/", type: "help", hint: "Compile a desk in words. Labs: lab loop | lab train | lab infer | lab retrain." },
   loop: { title: "Loop", press: "Loop", type: "lab loop", hint: "One cycle: ingest -> train -> infer -> retrain. Press Run to walk a phase. Cycle wire is the next fit." },
   train: { title: "Train lab", press: "1 Train", type: "lab train", hint: "Same generateGraph loop, phase train. Ghost fit. Live weights stay in Cortex." },
@@ -669,6 +669,17 @@ function labGraph(lab) {
 }
 
 function applySeed(lab) {
+  const palantir = {
+    understand: "understand this company",
+    define: "define data for inventory",
+    govern: "govern agents on inventory",
+    insights: "business insights on inventory",
+  };
+  const prompt = palantir[lab];
+  if (prompt) {
+    const box = document.getElementById("chat-input");
+    if (box) box.value = prompt;
+  }
   const g = labGraph(lab);
   currentLab = g.lab;
   const p = playState();
@@ -772,8 +783,8 @@ function paintPlayHud() {
   if (n) {
     const phase = currentPhase();
     n.textContent = currentLab === "loop"
-      ? "Next: press Run (or type run) to walk " + ((globalThis.NetieConstructorCore && globalThis.NetieConstructorCore.nextLoopPhase && globalThis.NetieConstructorCore.nextLoopPhase(phase)) || "train")
-      : "Press Loop, then Run. Or type: lab loop";
+      ? "Next phase: " + ((globalThis.NetieConstructorCore && globalThis.NetieConstructorCore.nextLoopPhase && globalThis.NetieConstructorCore.nextLoopPhase(phase)) || "train")
+      : "Open Loop, then Run.";
   }
   paintLoopPhase();
 }
@@ -823,7 +834,7 @@ function render() {
       "</div>" +
       '<button type="button" class="node-edit" data-edit="1" aria-label="edit node">+</button>' +
       "</div><h2>" +
-      meta.label +
+      escapeAttr(node.object_type || meta.label) +
       "</h2>" +
       (node.kind === "ontology"
         ? '<p class="sub">' + escapeAttr(ontologySummary(node)) + "</p>"
@@ -1291,7 +1302,7 @@ function showInspect() {
     if (inspectCard) inspectCard.hidden = true;
     inspectEmpty.hidden = false;
     inspectEmpty.innerHTML =
-      '<p class="hint">Select a block. Press Loop, then Run to walk ingest -> train -> infer -> retrain.</p>' +
+      '<p class="hint">Select a block. Loop then Run walks ingest, train, infer, retrain.</p>' +
       '<div class="suggest-row">' +
       '<button type="button" data-chip="lab loop">lab loop</button>' +
       '<button type="button" data-chip="run">run</button>' +
@@ -1303,7 +1314,6 @@ function showInspect() {
   inspectEmpty.hidden = true;
   inspectForm.hidden = true;
   const meta = KINDS[node.kind] || { label: node.kind, icon: "", persona: "", color: "#888", note: "" };
-  const persona = node.persona || meta.persona;
   if (inspectCard) {
     inspectCard.hidden = false;
     inspectCard.style.setProperty("--kind", meta.color);
@@ -1311,10 +1321,14 @@ function showInspect() {
       '<div class="inspect-card-head"><span class="ico">' +
       (meta.icon || "") +
       "</span><div><div class=\"eyebrow\">" +
-      escapeAttr(persona) +
+      escapeAttr((node.object_type || meta.label || node.kind).toUpperCase()) +
       "</div><h3>" +
       meta.label +
       "</h3></div></div>" +
+      objectPropsHtml(node) +
+      '<p class="hint">ACTION ' +
+      escapeAttr(node.action_type || "none") +
+      "</p>" +
       ioBannerHtml(node) +
       '<p class="doing">' +
       escapeAttr(node.doing || node.note || meta.note) +
@@ -1327,9 +1341,9 @@ function showInspect() {
       (node.kind === "ontology"
         ? '<p class="hint">' + escapeAttr(ontologySummary(node)) + "</p>" + objectChipsHtml(node)
         : "") +
-      '<button type="button" id="press-decision">Edit node</button>' +
+      '<button type="button" id="press-decision">Edit</button>' +
       (node.kind === "ontology"
-        ? ' <button type="button" id="inspect-open-studio">Open Ontology Studio</button>'
+        ? ' <button type="button" id="inspect-open-studio">Ontology studio</button>'
         : "");
     const press = document.getElementById("press-decision");
     if (press) {
@@ -1358,6 +1372,26 @@ function showInspect() {
     });
   }
   showDecision({ node: node, response: "local preview. Press to edit." });
+}
+
+function objectPropsHtml(node) {
+  const obj = node.object_type;
+  const pts = obj && OBJECTS[obj] && OBJECTS[obj].points;
+  if (!pts) return "";
+  const keys = Object.keys(pts).slice(0, 8);
+  const rows = keys
+    .map(function (k) {
+      const on = k === node.data_point ? " class=\"on\"" : "";
+      return "<tr" + on + "><td>" + escapeAttr(k) + "</td><td>" + escapeAttr(pts[k]) + "</td></tr>";
+    })
+    .join("");
+  return (
+    '<table class="prop-table" aria-label="object properties"><caption>' +
+    escapeAttr(obj) +
+    "</caption><thead><tr><th>Property</th><th>Type</th></tr></thead><tbody>" +
+    rows +
+    "</tbody></table>"
+  );
 }
 
 /* Compact object browser for the ontology node: one chip per object type with its
@@ -1791,7 +1825,7 @@ function setGhost(on) {
   window.Constructor.ghost = !!on;
   document.body.classList.toggle("ghost-mode", window.Constructor.ghost);
   const btn = document.getElementById("ghost-toggle");
-  if (btn) btn.textContent = window.Constructor.ghost ? "Ghost on" : "Ghost off";
+  if (btn) btn.textContent = window.Constructor.ghost ? "Preview" : "Live";
 }
 
 function showAudit(obj) {
@@ -2064,7 +2098,7 @@ function closeHelp() {
 
 (function bindHelpAndChips() {
   document.addEventListener("click", function (event) {
-    const q = event.target.closest && event.target.closest(".help-q");
+    const q = event.target.closest && event.target.closest("[data-help]");
     if (q) {
       event.preventDefault();
       event.stopPropagation();

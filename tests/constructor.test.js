@@ -128,6 +128,27 @@ test("foundry path ranks orchestrator-subagent first", () => {
   assert.equal(ranked[0].id, "orchestrator_subagent");
 });
 
+test("understand this company is client intake, not item.intake", () => {
+  const graph = Core.generateGraph("understand this company");
+  assert.equal(graph.ok, true);
+  assert.deepEqual(
+    graph.nodes.map((n) => n.kind),
+    ["ingest", "connector", "ontology", "insight", "foundry", "app", "tool_call"]
+  );
+  assert.equal(graph.action, "export_pptx");
+  const ontology = graph.nodes.find((n) => n.kind === "ontology");
+  assert.equal(ontology.note.indexOf("semantic_layer.yaml") >= 0, true);
+  assert.equal(ontology.note.indexOf("P1 parked") >= 0, true);
+  const lab = Core.labCompile("understand");
+  assert.equal(lab.ok, true);
+  assert.equal(lab.prompt, "understand this company");
+});
+
+test("client intake prompt is not item.intake", () => {
+  const graph = Core.generateGraph("client intake glossary");
+  assert.equal(graph.action, "export_pptx");
+});
+
 test("warehouse chat compiles ingest -> app Cortex graph", () => {
   const graph = Core.generateGraph("ingest warehouse inventory then foundry app");
   assert.equal(graph.ok, true);

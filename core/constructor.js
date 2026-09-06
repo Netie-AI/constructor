@@ -32,8 +32,8 @@
   };
 
   const KIND_NOTES = {
-    ingest: { persona: "loader", note: "Hop 0. Load rows from a place into an object. No write." },
-    connector: { persona: "source", note: "First-party Cortex input bound to an object. No n8n." },
+    ingest: { persona: "loader", note: "Load rows from a place into an object. No write." },
+    connector: { persona: "source", note: "First-party Cortex input bound to an object." },
     trigger: { persona: "source", note: "Webhook, schedule, or message. Ghost on Pages. Live only on /cortex." },
     ontology: { persona: "modeler", note: "Object, link, and action types on this graph." },
     insight: { persona: "analyst", note: "Cite ontology + ledger. What you may claim." },
@@ -493,9 +493,14 @@
       objects = ["images", "suspects", "matches"];
       assumed = false;
     }
+    const clientish =
+      (low.indexOf("understand") >= 0 && low.indexOf("company") >= 0) ||
+      /client company|onboard client|client intake|semantic layer/.test(low);
     let action = "export_pptx";
-    if (low.indexOf("intake") >= 0) action = "item.intake";
+    if (low.indexOf("intake") >= 0 && low.indexOf("client") < 0) action = "item.intake";
     else if (low.indexOf("agent.checked") >= 0 || (low.indexOf("check") >= 0 && low.indexOf("agent") >= 0)) {
+      action = "agent.checked";
+    } else if (/govern agent/.test(low)) {
       action = "agent.checked";
     } else if (suspectish || /suspect\.match/.test(low)) {
       action = "suspect.match";
@@ -540,14 +545,12 @@
             : fetchPlaceFor(firstObj);
     const doing = {
       ingest: suspectish
-        ? "Hop 0. Load owned images from owned.images (station archive or operator upload). Ghost on Pages. No write. No internet scrape."
-        : "Hop 0. Load " +
+        ? "Load owned images from owned.images. Preview on Pages. No write. No internet scrape."
+        : "Load " +
           objects.join("/") +
           " rows from " +
           sourcePlace +
-          " (" +
-          sourceKind +
-          "). Ghost on Pages. No write.",
+          ". Preview on Pages. No write.",
       connector:
         sourceKind === "cloud"
           ? "Ghost cloud sign-in. Bind the signed-in catalog to an object. No OAuth. No fetch on Pages."
@@ -588,6 +591,14 @@
             ? "Cite incident rows + location links. What you may claim from the owned ledger."
             : "Cite ontology + ledger. What you may claim from those objects.",
     };
+    if (clientish) {
+      doing.ingest = "Read customer terms into glossary rows. Ghost. No invented DuckDB.";
+      doing.ontology =
+        "SWAP packs/dms/semantic_layer.yaml then object_types.yaml name-parity. P1 parked.";
+      doing.insight = "Cite catalog_answer + ledger. Crew wakes keep 24/7 meaning.";
+      doing.foundry =
+        "Compile a DMS shell app from ontology insights. Extra tab/route, not a second SPA.";
+    }
     const nodes = kinds.map(function (kind, i) {
       let obj = objects[0];
       if (kind === "ontology" && objects[1]) obj = objects[1];
@@ -705,6 +716,12 @@
     infer: LOOP_PROMPT,
     retrain: LOOP_PROMPT,
     warehouse: "ingest warehouse inventory then foundry app",
+    venue: "maps nearby clubs contacts customers as pptx",
+    suspect: "police suspect desk, local model enhance, match watchlist",
+    understand: "understand this company",
+    define: "define data for inventory",
+    govern: "govern agents on inventory",
+    insights: "business insights on inventory",
     voice: "ingest warehouse inventory then foundry app",
     image: "ingest warehouse inventory then foundry app insight artifact",
   };
