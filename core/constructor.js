@@ -132,6 +132,7 @@
       version: "1.0",
       engine: ENGINE,
       ghost: ghost,
+      rsf: opts.rsf ? rsfDigest(opts.rsf) : null,
       entry_node_id: state.nodes[0].id,
       output_node_id: output.id,
       nodes: state.nodes.map((n) => {
@@ -640,12 +641,436 @@
     };
   }
 
+  /* RSF-05: consume DMS-shaped CERTIFIED artifacts toward compile/run.
+     Schema of record: Netie-AI/dms dms_core.rsf (HTTP JSON). Cortex consumer is
+     CortexOS.rsf.parse_rsf_artifact. Constructor never imports n8n/LC/LF. */
+
+  const RSF_STAGES = ["research", "segment", "classify", "filter"];
+  const RSF_STATUSES = { CERTIFIED: 1, ABSTAIN: 1, REFUSE: 1 };
+  const RSF_REQUIRED = [
+    "artifact_id",
+    "stage",
+    "question",
+    "options",
+    "chosen_option",
+    "route_trace",
+    "evidence",
+    "status",
+    "reasons",
+  ];
+  const RSF_DECISION_REQUIRED = ["step", "considered", "chosen", "rejected", "note"];
+  const BANNED_ENGINE_IDS = {
+    n8n: 1,
+    myn8n: 1,
+    langchain: 1,
+    langchain_core: 1,
+    langchain_community: 1,
+    langflow: 1,
+    langgraph: 1,
+    crew: 1,
+    crewai: 1,
+    activepieces: 1,
+  };
+
+  function rsfError(message, code) {
+    const err = new Error(message);
+    err.name = "RsfError";
+    err.code = code || "rsf";
+    return err;
+  }
+
+  function isBannedEngineId(id) {
+    const s = String(id || "")
+      .toLowerCase()
+      .replace(/-/g, "_")
+      .trim();
+    if (!s) return false;
+    const root = s.split(".")[0];
+    return !!BANNED_ENGINE_IDS[s] || !!BANNED_ENGINE_IDS[root];
+  }
+
+  function strList(value, label) {
+    if (!Array.isArray(value) || !value.every(function (x) { return typeof x === "string"; })) {
+      throw rsfError(label + " must be a list of strings", "schema");
+    }
+    return value.slice();
+  }
+
+  function rejectedMap(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw rsfError("rejected must be a mapping of option -> reason", "schema");
+    }
+    const out = {};
+    Object.keys(value).forEach(function (option) {
+      const reason = value[option];
+      if (typeof option !== "string" || typeof reason !== "string") {
+        throw rsfError("rejected must map string option to string reason", "schema");
+      }
+      if (!reason.trim()) {
+        throw rsfError("rejected option " + JSON.stringify(option) + " carries no reason", "schema");
+      }
+      out[option] = reason;
+    });
+    return out;
+  }
+
+  function parseRouteDecision(raw) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      throw rsfError("route decision must be an object", "schema");
+    }
+    const missing = RSF_DECISION_REQUIRED.filter(function (k) { return !(k in raw); });
+    if (missing.length) {
+      throw rsfError("route decision missing fields: " + missing.join(", "), "schema");
+    }
+    const step = String(raw.step || "").trim();
+    if (!step) throw rsfError("route decision step required", "schema");
+    const considered = strList(raw.considered, "considered");
+    const chosen = raw.chosen;
+    if (chosen != null && typeof chosen !== "string") {
+      throw rsfError("route decision chosen must be a string or null", "schema");
+    }
+    if (chosen != null && considered.indexOf(chosen) < 0) {
+      throw rsfError("route step " + JSON.stringify(step) + " chose " + JSON.stringify(chosen) + ", which it never considered", "schema");
+    }
+    if (typeof raw.note !== "string") throw rsfError("route decision note must be a string", "schema");
+    return {
+      step: step,
+      considered: considered,
+      chosen: chosen == null ? null : chosen,
+      rejected: rejectedMap(raw.rejected),
+      note: raw.note,
+    };
+  }
+
+  function requireChoiceMatchesStatus(status, chosenOption, options) {
+    if (status === "CERTIFIED") {
+      if (chosenOption == null) {
+        throw rsfError("CERTIFIED requires a chosen_option; nothing was chosen", "invent-green");
+      }
+    } else if (chosenOption != null) {
+      throw rsfError(status + " must not carry a chosen_option (" + JSON.stringify(chosenOption) + ")", "invent-green");
+    }
+    if (chosenOption != null && options.indexOf(chosenOption) < 0) {
+      throw rsfError("chosen_option " + JSON.stringify(chosenOption) + " is not one of the options considered", "schema");
+    }
+  }
+
+  function parseRsfArtifact(raw) {
+    if (raw == null) throw rsfError("schema missing", "schema");
+    if (typeof raw !== "object" || Array.isArray(raw)) {
+      throw rsfError("RSF artifact must be an object", "schema");
+    }
+    const missing = RSF_REQUIRED.filter(function (k) { return !(k in raw); });
+    if (missing.length) {
+      throw rsfError("schema missing fields: " + missing.join(", "), "schema");
+    }
+    const artifactId = String(raw.artifact_id || "").trim();
+    if (!artifactId) throw rsfError("artifact_id required", "schema");
+    const stage = String(raw.stage || "").trim();
+    if (RSF_STAGES.indexOf(stage) < 0) {
+      throw rsfError("unknown RSF stage " + JSON.stringify(stage), "schema");
+    }
+    const status = String(raw.status || "").trim();
+    if (!RSF_STATUSES[status]) {
+      throw rsfError("unknown status " + JSON.stringify(status), "schema");
+    }
+    const question = String(raw.question || "").trim();
+    if (!question) {
+      throw rsfError("question required; an artifact with no input is unauditable", "schema");
+    }
+    const options = strList(raw.options, "options");
+    const evidence = strList(raw.evidence, "evidence");
+    const reasons = strList(raw.reasons, "reasons");
+    const chosen = raw.chosen_option;
+    if (chosen != null && typeof chosen !== "string") {
+      throw rsfError("chosen_option must be a string or null", "schema");
+    }
+    requireChoiceMatchesStatus(status, chosen == null ? null : chosen, options);
+    if (status === "CERTIFIED" && !evidence.length) {
+      throw rsfError("CERTIFIED requires evidence; a bare claim is not a certification", "invent-green");
+    }
+    if (!Array.isArray(raw.route_trace)) throw rsfError("route_trace must be a list", "schema");
+    return {
+      artifact_id: artifactId,
+      stage: stage,
+      question: question,
+      options: options,
+      chosen_option: chosen == null ? null : chosen,
+      route_trace: raw.route_trace.map(parseRouteDecision),
+      evidence: evidence,
+      status: status,
+      reasons: reasons,
+    };
+  }
+
+  function requireCertifiedPriors(trace) {
+    const byStage = {};
+    trace.forEach(function (a) { byStage[a.stage] = a; });
+    let blocked = false;
+    RSF_STAGES.forEach(function (stage) {
+      const item = byStage[stage];
+      if (blocked) {
+        if (item && item.status === "CERTIFIED") {
+          throw rsfError(stage + " must not be CERTIFIED after a prior ABSTAIN/REFUSE/missing stage", "invent-green");
+        }
+        return;
+      }
+      if (!item || item.status !== "CERTIFIED") blocked = true;
+    });
+  }
+
+  function parseRsfTrace(raw) {
+    if (raw == null) throw rsfError("schema missing", "schema");
+    if (!Array.isArray(raw)) throw rsfError("RSF trace must be a list", "schema");
+    const out = raw.map(parseRsfArtifact);
+    const seen = {};
+    out.forEach(function (item) {
+      if (seen[item.stage]) throw rsfError("duplicate stage " + item.stage, "schema");
+      seen[item.stage] = true;
+    });
+    requireCertifiedPriors(out);
+    return out;
+  }
+
+  function isRsfPayload(raw) {
+    if (raw == null) return false;
+    if (Array.isArray(raw)) {
+      return raw.length > 0 && raw.every(function (item) {
+        return item && typeof item === "object" && typeof item.status === "string" && typeof item.stage === "string";
+      });
+    }
+    if (typeof raw !== "object") return false;
+    if (Array.isArray(raw.artifacts)) return isRsfPayload(raw.artifacts);
+    if (Array.isArray(raw.trace)) return isRsfPayload(raw.trace);
+    if (raw.rsf && typeof raw.rsf === "object") return isRsfPayload(raw.rsf);
+    return typeof raw.status === "string" && typeof raw.stage === "string" && "chosen_option" in raw;
+  }
+
+  function unwrapRsfPayload(raw) {
+    if (typeof raw === "string") {
+      try {
+        raw = JSON.parse(raw);
+      } catch (err) {
+        throw rsfError("RSF JSON did not parse", "schema");
+      }
+    }
+    if (Array.isArray(raw)) return { kind: "trace", items: raw };
+    if (raw && Array.isArray(raw.artifacts)) return { kind: "trace", items: raw.artifacts };
+    if (raw && Array.isArray(raw.trace)) return { kind: "trace", items: raw.trace };
+    if (raw && raw.rsf && typeof raw.rsf === "object" && !("status" in raw)) {
+      return unwrapRsfPayload(raw.rsf);
+    }
+    if (raw && typeof raw === "object" && "status" in raw) return { kind: "one", items: [raw] };
+    throw rsfError("RSF payload must be an artifact, a trace list, or {artifacts: [...]}", "schema");
+  }
+
+  function bannedEngineHit(artifact) {
+    const hits = [];
+    function consider(value, where) {
+      if (value == null) return;
+      if (isBannedEngineId(value)) hits.push(where + "=" + value);
+    }
+    consider(artifact.chosen_option, "chosen_option");
+    consider(artifact.engine, "engine");
+    consider(artifact.engine_id, "engine_id");
+    consider(artifact.runtime, "runtime");
+    (artifact.route_trace || []).forEach(function (step) {
+      consider(step.chosen, "route:" + step.step);
+    });
+    return hits;
+  }
+
+  function formatRsfRoute(artifact) {
+    if (!artifact) return "";
+    const steps = (artifact.route_trace || []).map(function (d) {
+      return d.step + " -> " + (d.chosen || "none");
+    });
+    const chosen = artifact.chosen_option || "none";
+    return chosen + (steps.length ? " (" + steps.join("; ") + ")" : "");
+  }
+
+  function rsfDigest(artifactOrConsume) {
+    const a = artifactOrConsume && artifactOrConsume.wire ? artifactOrConsume.wire : artifactOrConsume;
+    if (!a || typeof a !== "object") return null;
+    return {
+      artifact_id: a.artifact_id || null,
+      stage: a.stage || null,
+      status: a.status || null,
+      chosen_option: a.chosen_option || null,
+      route: formatRsfRoute(a),
+      engine: ENGINE,
+    };
+  }
+
+  function sampleCertifiedRsf(overrides) {
+    overrides = overrides || {};
+    const options = overrides.options || ["cortex", "myn8n", "langchain", "langflow"];
+    const chosen = Object.prototype.hasOwnProperty.call(overrides, "chosen_option")
+      ? overrides.chosen_option
+      : "cortex";
+    const rejected = {};
+    options.forEach(function (opt) {
+      if (opt === chosen) return;
+      rejected[opt] = isBannedEngineId(opt)
+        ? "distill_only, never product_engine"
+        : "not the Netie-native route";
+    });
+    const base = {
+      artifact_id: "rsf_filter_constructor",
+      stage: "filter",
+      question: "ingest warehouse inventory then foundry app",
+      options: options,
+      chosen_option: chosen,
+      route_trace: [
+        {
+          step: "pick_engine",
+          considered: options.slice(),
+          chosen: chosen,
+          rejected: rejected,
+          note: "Constructor engine is Cortex dag_runner. Distill options stay listed.",
+        },
+      ],
+      evidence: ["engine=cortex", "POST /cortex/constructor/run"],
+      status: "CERTIFIED",
+      reasons: ["RSF-05 Constructor consume"],
+    };
+    return Object.assign(base, overrides);
+  }
+
+  function consumeRsf(raw, opts) {
+    opts = opts || {};
+    const liveOrigin = !!opts.cortexOrigin;
+    const ghostWanted = opts.ghost == null ? !liveOrigin : !!opts.ghost;
+    try {
+      const wrapped = unwrapRsfPayload(raw);
+      const parsed =
+        wrapped.kind === "trace" && wrapped.items.length > 1
+          ? parseRsfTrace(wrapped.items)
+          : wrapped.items.map(parseRsfArtifact);
+      const primary = parsed[parsed.length - 1];
+      if (primary.status !== "CERTIFIED") {
+        return {
+          ok: false,
+          accepted: false,
+          refused: primary.status === "REFUSE",
+          status: primary.status,
+          engine: ENGINE,
+          chosen_option: primary.chosen_option,
+          route: formatRsfRoute(primary),
+          ghost: true,
+          live: false,
+          liveEligible: false,
+          invented_live: false,
+          wire: primary,
+          trace: parsed,
+          summary:
+            "RSF " +
+            primary.status +
+            " is not accepted into Constructor run. Ghost only. Engine stays cortex. Not live.",
+        };
+      }
+      const bans = [];
+      parsed.forEach(function (a) {
+        bannedEngineHit(a).forEach(function (h) { bans.push(h); });
+      });
+      if (bans.length) {
+        return {
+          ok: false,
+          accepted: false,
+          refused: true,
+          ban: true,
+          status: primary.status,
+          engine: ENGINE,
+          chosen_option: primary.chosen_option,
+          route: formatRsfRoute(primary),
+          ghost: true,
+          live: false,
+          liveEligible: false,
+          invented_live: false,
+          wire: primary,
+          trace: parsed,
+          summary:
+            "BAN: n8n/langchain/langflow cannot be the Constructor engine (" +
+            bans.join(", ") +
+            "). Distill-only. Engine stays cortex. Not live.",
+        };
+      }
+      const graph = generateGraph(primary.question);
+      if (!graph.ok) {
+        return {
+          ok: false,
+          accepted: false,
+          refused: !!graph.refused,
+          status: primary.status,
+          engine: ENGINE,
+          chosen_option: primary.chosen_option,
+          route: formatRsfRoute(primary),
+          ghost: true,
+          live: false,
+          liveEligible: false,
+          invented_live: false,
+          wire: primary,
+          trace: parsed,
+          summary: graph.summary || "RSF question refused by Constructor compile.",
+        };
+      }
+      const ghost = ghostWanted || !liveOrigin;
+      const route = formatRsfRoute(primary);
+      return {
+        ok: true,
+        accepted: true,
+        status: "CERTIFIED",
+        engine: ENGINE,
+        chosen_option: primary.chosen_option,
+        stage: primary.stage,
+        route: route,
+        ghost: ghost,
+        live: false,
+        liveEligible: liveOrigin && !ghost,
+        invented_live: false,
+        graph: graph,
+        wire: primary,
+        trace: parsed,
+        summary: ghost
+          ? "RSF CERTIFIED accepted. Ghost dry-run. Option " +
+            primary.chosen_option +
+            " via " +
+            route +
+            ". Engine cortex. Not live (Hyperlift absent)."
+          : "RSF CERTIFIED accepted. Option " +
+            primary.chosen_option +
+            " via " +
+            route +
+            ". Engine cortex. POST /cortex/constructor/run is liveEligible; core does not invent live success.",
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        accepted: false,
+        refused: true,
+        status: null,
+        engine: ENGINE,
+        chosen_option: null,
+        route: "",
+        ghost: true,
+        live: false,
+        liveEligible: false,
+        invented_live: false,
+        error: String((err && err.message) || err),
+        summary: "RSF refused: " + String((err && err.message) || err) + ". Not live.",
+      };
+    }
+  }
+
   return {
     VERSION: VERSION,
     ENGINE: ENGINE,
     CORTEX_KIND: CORTEX_KIND,
     KIND_NOTES: KIND_NOTES,
     APPROACHES: APPROACHES,
+    RSF_STAGES: RSF_STAGES,
+    RSF_STATUSES: ["CERTIFIED", "ABSTAIN", "REFUSE"],
+    BANNED_ENGINE_IDS: Object.keys(BANNED_ENGINE_IDS),
     cortexOriginFrom: cortexOriginFrom,
     compileIR: compileIR,
     topo: topo,
@@ -658,5 +1083,13 @@
     fetchPlaceFor: fetchPlaceFor,
     nodeIo: nodeIo,
     generateGraph: generateGraph,
+    isBannedEngineId: isBannedEngineId,
+    parseRsfArtifact: parseRsfArtifact,
+    parseRsfTrace: parseRsfTrace,
+    isRsfPayload: isRsfPayload,
+    consumeRsf: consumeRsf,
+    sampleCertifiedRsf: sampleCertifiedRsf,
+    formatRsfRoute: formatRsfRoute,
+    rsfDigest: rsfDigest,
   };
 });

@@ -10,6 +10,7 @@ Cortex is the only engine. This repo is a consumer skin: a stranger-usable canva
 - A small IR core (`core/constructor.js`) that maps Constructor kinds onto Cortex node kinds (`DOCUMENT_REF`, `AGENT_TASK`, `TOOL_CALL`, `EMIT`).
 - Ghost dry-run on GitHub Pages (no login, no `fetch` from `app.js`).
 - Live `POST /cortex/constructor/run` only when the page origin is `/cortex`.
+- RSF-05: CERTIFIED RSF artifacts (dms_core.rsf wire) compile into the ghost/run path. Chat `rsf sample` or paste JSON. n8n/langchain/langflow as engine is BAN. Hyperlift absent = ghost, never invent live success. Chosen option/route shows in Cortex brain.
 
 ## What this is not
 
@@ -35,7 +36,8 @@ Until this branch is merged, the Pages sketch still reflects the default branch 
 core/constructor.js   Netie IR: compile, topo, ghost walk, refuse, chat graph
 ontology.js           Ontology Studio model (objects/links/actions). Distill Foundry, do not clone.
 app.js                Canvas / inspect / chat dock (Pages-safe, no fetch)
-engine.js             Cortex consumer: ghost, rank, live run when origin is /cortex
+engine.js             Cortex consumer: ghost, RSF consume, live run when origin is /cortex
+docs/patches/         Cortex mount notes (no live Cortex writer from this repo)
 index.html            Shell
 tests/                node:test core + unit; Playwright e2e on Ontology Studio
 .github/workflows/    pages.yml, ci.yml (laws/unit/e2e), test.yml (core IR)

@@ -16,9 +16,40 @@ function cortexOrigin() {
 }
 
 function compileIR(state) {
-  const ir = Core.compileIR(state, { ghost: !!(window.Constructor && window.Constructor.ghost) });
+  const C = window.Constructor;
+  const ir = Core.compileIR(state, {
+    ghost: !!(C && C.ghost),
+    rsf: C && C.lastRsf && C.lastRsf.wire,
+  });
   ir.ontology = ontologyDigest();
   return ir;
+}
+
+function constructorRunBody() {
+  const C = window.Constructor;
+  const body = {
+    nodes: C.getState().nodes,
+    edges: C.getState().edges,
+  };
+  if (C.lastRsf && C.lastRsf.wire) body.rsf = C.lastRsf.wire;
+  if (C.lastRsf && Array.isArray(C.lastRsf.trace) && C.lastRsf.trace.length) {
+    body.rsf_trace = C.lastRsf.trace;
+  }
+  return body;
+}
+
+function rsfBrainSlice(result) {
+  if (!result) return null;
+  return {
+    status: result.status || null,
+    stage: result.stage || (result.wire && result.wire.stage) || null,
+    chosen_option: result.chosen_option || null,
+    route: result.route || "",
+    engine: result.engine || "cortex",
+    ghost: result.ghost !== false,
+    live: result.live === true,
+    liveEligible: !!result.liveEligible,
+  };
 }
 
 function ontologyDigest() {
@@ -40,6 +71,8 @@ function brainPayload(ir, extra) {
   const remote = extra.remote;
   const live = cortexOrigin();
   const nodes = (ir && ir.nodes) || [];
+  const C = window.Constructor;
+  const rsf = extra.rsf || (C && C.lastRsf);
   const out = {
     origin: live ? "cortex" : "pages-sketch",
     engine: live ? "Cortex compile_constructor_graph + run_dag" : "local generateGraph / ghostWalk (no fetch)",
@@ -51,6 +84,11 @@ function brainPayload(ir, extra) {
       return n.id + " " + (n.constructor_kind || n.kind) + " -> " + n.kind;
     }),
   };
+  const slice = rsfBrainSlice(rsf);
+  if (slice) {
+    slice.live = !!(remote && remote.ok && !remote.ghost && live);
+    out.rsf = slice;
+  }
   if (remote) {
     out.cortex = {
       ok: remote.ok,
@@ -76,19 +114,25 @@ function paintCortexBrain(ir, extra) {
   const payload = brainPayload(ir, extra);
   if (pre) pre.textContent = JSON.stringify(payload, null, 2);
   if (status) {
+    const slice = rsfBrainSlice(extra.rsf || (window.Constructor && window.Constructor.lastRsf));
+    const rsfLine = slice && slice.chosen_option
+      ? " RSF option " + slice.chosen_option + " via " + (slice.route || slice.chosen_option) + "."
+      : "";
     if (!cortexOrigin()) {
-      status.textContent = "Pages sketch. Local compile. Mount at /cortex to show Cortex DAG + run_dag.";
+      status.textContent =
+        "Pages sketch. Local compile. Mount at /cortex to show Cortex DAG + run_dag." + rsfLine;
     } else if (extra.remote && extra.remote.ok && extra.remote.ghost) {
-      status.textContent = "Cortex ghost compile (no writes). Cycle wires drop on the DAG.";
+      status.textContent = "Cortex ghost compile (no writes). Cycle wires drop on the DAG." + rsfLine;
     } else if (extra.remote && extra.remote.ok) {
-      status.textContent = "Cortex run_dag. Fetches and node outputs are engine truth.";
+      status.textContent = "Cortex run_dag. Fetches and node outputs are engine truth." + rsfLine;
     } else if (extra.remote) {
       status.textContent =
         "Cortex missed (" +
         (extra.remote.status || extra.remote.error || extra.remote.detail || "offline") +
-        "). Showing local compile.";
+        "). Showing local compile." +
+        rsfLine;
     } else {
-      status.textContent = "Cortex origin. Ghost or Run fills the engine DAG.";
+      status.textContent = "Cortex origin. Ghost or Run fills the engine DAG." + rsfLine;
     }
   }
   return payload;
@@ -103,10 +147,7 @@ async function syncCortexBrain(extra) {
     paintCortexBrain(ir, extra);
     return ir;
   }
-  const remote = await cortexPost("/cortex/constructor/ghost", {
-    nodes: C.getState().nodes,
-    edges: C.getState().edges,
-  });
+  const remote = await cortexPost("/cortex/constructor/ghost", constructorRunBody());
   extra.remote = remote;
   paintCortexBrain(ir, extra);
   return ir;
@@ -249,10 +290,7 @@ async function ghostRun() {
   const C = window.Constructor;
   const state = C.getState();
   if (cortexOrigin()) {
-    const remote = await cortexPost("/cortex/constructor/ghost", {
-      nodes: state.nodes,
-      edges: state.edges,
-    });
+    const remote = await cortexPost("/cortex/constructor/ghost", constructorRunBody());
     C.showAudit({ mode: "cortex-ghost", remote: remote });
     paintCortexBrain(compileIR(state), { remote: remote, source: "ghost" });
     if (remote && remote.ok) {
@@ -533,10 +571,7 @@ async function liveOrGhost(forceLive) {
       return "Live run is Cortex only (POST /cortex/constructor/run). Pages never fetch. Open http://127.0.0.1:8010/cortex .";
     }
     C.setGhost(false);
-    const remote = await cortexPost("/cortex/constructor/run", {
-      nodes: C.getState().nodes,
-      edges: C.getState().edges,
-    });
+    const remote = await cortexPost("/cortex/constructor/run", constructorRunBody());
     C.showAudit({ mode: "cortex-run", ir: ir, remote: remote });
     paintCortexBrain(ir, { remote: remote, source: "run" });
     if (!remote || remote.ok === false) {
@@ -547,12 +582,60 @@ async function liveOrGhost(forceLive) {
       );
     }
     const nfetch = remote.fetches ? Object.keys(remote.fetches).length : 0;
-    return "Cortex run_dag accepted. Actor " + (remote.actor || "?") + ". Fetches " + nfetch + ". Audit has node outputs.";
+    const rsfBit =
+      C.lastRsf && C.lastRsf.chosen_option
+        ? " RSF option " + C.lastRsf.chosen_option + " via " + (C.lastRsf.route || C.lastRsf.chosen_option) + "."
+        : "";
+    return (
+      "Cortex run_dag accepted. Actor " +
+      (remote.actor || "?") +
+      ". Fetches " +
+      nfetch +
+      "." +
+      rsfBit +
+      " Audit has node outputs."
+    );
   }
   if (C.ghost || !cortexOrigin()) {
     return ghostRun();
   }
   return liveOrGhost(true);
+}
+
+async function consumeRsfChat(raw) {
+  const C = window.Constructor;
+  const result = Core.consumeRsf(raw, {
+    cortexOrigin: cortexOrigin(),
+    ghost: !cortexOrigin() || !!(C && C.ghost),
+  });
+  C.showAudit({
+    mode: result.ok ? "rsf-consume" : "rsf-refuse",
+    chosen_option: result.chosen_option,
+    route: result.route,
+    engine: result.engine,
+    ghost: true,
+    live: false,
+    liveEligible: !!result.liveEligible,
+    ban: !!result.ban,
+    wire: result.wire || null,
+    error: result.error || null,
+  });
+  if (!result.ok) {
+    paintCortexBrain(compileIR(C.getState()), { rsf: result, source: "rsf-refuse" });
+    return result.summary;
+  }
+  C.lastRsf = result;
+  if (result.graph && C.replaceGraph) {
+    C.replaceGraph(result.graph.nodes, result.graph.edges);
+    if (C.setPlayLab) C.setPlayLab(result.graph.lab || "warehouse", "RSF " + result.chosen_option);
+  }
+  C.setGhost(result.ghost);
+  if (result.liveEligible) {
+    return await liveOrGhost(true);
+  }
+  const walk = await ghostRun();
+  paintCortexBrain(compileIR(C.getState()), { rsf: result, source: "rsf-consume" });
+  return result.summary + " " + walk;
 }
 
 function chatSay(role, text) {
@@ -571,7 +654,23 @@ async function handleChat(raw) {
   const C = window.Constructor;
   if (!t) return "Say the object, point, action, or run all.";
   if (t === "help") {
-    return "Click Check, or type a real line. Live engine: http://127.0.0.1:8010/cortex/login + ov_ key. Email/WhatsApp are drafts you send. Pages never fetch.";
+    return "Click Check, or type a real line. Paste CERTIFIED RSF JSON, or rsf sample. n8n/langchain/langflow BAN. Live engine: http://127.0.0.1:8010/cortex/login + ov_ key. Email/WhatsApp are drafts you send. Pages never fetch.";
+  }
+  if (/^rsf sample$/.test(t) || /^consume rsf$/.test(t)) {
+    return await consumeRsfChat(Core.sampleCertifiedRsf());
+  }
+  if (/^rsf ban$/.test(t)) {
+    return await consumeRsfChat(Core.sampleCertifiedRsf({ chosen_option: "myn8n" }));
+  }
+  if (text.charAt(0) === "{" || text.charAt(0) === "[") {
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch (err) {
+      return "JSON did not parse. CERTIFIED RSF needs artifact_id, stage, status, options, chosen_option, route_trace, evidence, reasons.";
+    }
+    if (Core.isRsfPayload(parsed)) return await consumeRsfChat(parsed);
+    return "JSON is not an RSF artifact. Need status CERTIFIED|ABSTAIN|REFUSE and a stage.";
   }
   if (/^check$/.test(t)) {
     await handleChat("lab infer");

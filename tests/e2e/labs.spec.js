@@ -149,4 +149,26 @@ test.describe("labs", () => {
     await page.locator(".node[data-kind=tool_call]").click();
     await expect(page.locator("#inspect-card")).toContainText("draft_email");
   });
+
+  test("rsf sample ghosts CERTIFIED consume and shows the chosen route", async ({ page }) => {
+    const reply = await chat(page, "rsf sample");
+    await expect(reply).toContainText("RSF CERTIFIED accepted");
+    await expect(reply).toContainText("Ghost dry-run");
+    await expect(reply).toContainText("Option cortex");
+    await expect(reply).not.toContainText("run_dag accepted");
+    await expect(page.getByTestId("cortex-brain")).toContainText("chosen_option");
+    await expect(page.getByTestId("cortex-brain")).toContainText("cortex");
+    await expect(page.getByTestId("cortex-brain-box")).toContainText("RSF option cortex");
+    await expect(page.locator("#nodes .node[data-kind=app]")).toHaveCount(1);
+    await page.screenshot({ path: shot("rsf-sample.png") });
+  });
+
+  test("rsf ban refuses n8n as engine and stays not live", async ({ page }) => {
+    const reply = await chat(page, "rsf ban");
+    await expect(reply).toContainText("BAN");
+    await expect(reply).toContainText("n8n");
+    await expect(reply).toContainText("Not live");
+    await expect(reply).not.toContainText("run_dag accepted");
+    await page.screenshot({ path: shot("rsf-ban.png") });
+  });
 });
