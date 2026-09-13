@@ -172,4 +172,30 @@ test.describe("ontology studio", () => {
     await page.getByTestId("os-close").click();
     await expect(studio).toBeHidden();
   });
+
+  test("changelog shows source studio after a property add", async ({ page }) => {
+    await openStudio(page);
+    const obj = await selectObject(page, PREFERRED_OBJECT);
+    await addProperty(page, obj, "batch_no", "string");
+    const log = page.getByTestId("os-changelog");
+    await expect(log).toContainText("source studio");
+    await expect(log).toContainText("actor local");
+    await expect(log).not.toContainText("actor cortex");
+  });
+
+  test("import Turtle is export-only; native JSON import round-trips", async ({ page }) => {
+    await openStudio(page);
+    const ttl = path.join(SCREENS, "refuse.ttl");
+    fs.mkdirSync(SCREENS, { recursive: true });
+    fs.writeFileSync(ttl, "@prefix owl: <http://www.w3.org/2002/07/owl#> .\nnetie:dms a owl:Ontology .\n");
+    await page.getByTestId("os-import-file").setInputFiles(ttl);
+    await expect(page.getByTestId("os-flash")).toContainText("export-only");
+
+    const text = await page.evaluate(() => window.Ontology.exportJSON());
+    const native = path.join(SCREENS, "ontology-roundtrip.json");
+    fs.writeFileSync(native, text);
+    await page.getByTestId("os-import-file").setInputFiles(native);
+    await expect(page.getByTestId("os-changelog")).toContainText("native-import");
+    await expect.poll(() => page.evaluate(() => window.Ontology.validate().ok)).toBe(true);
+  });
 });

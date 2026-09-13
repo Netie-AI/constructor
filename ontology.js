@@ -109,8 +109,8 @@
         ["sku", "string", true, false, "Stock keeping unit."],
         ["sku_name", "string", false, false, "Human name."],
         ["category", "string"],
-        ["supplier_id", "string", false, false, "Supplier primary key."],
-        ["location_id", "string", false, false, "Location primary key."],
+        ["supplier_id", "ref", false, false, "Supplier primary key.", null, "suppliers"],
+        ["location_id", "ref", false, false, "Location primary key.", null, "locations"],
         ["storage_bin", "string"],
         ["quantity_kg", "number", false, false, "On hand.", "kg"],
         ["reorder_level_kg", "number", false, false, "Reorder threshold.", "kg"],
@@ -146,33 +146,33 @@
         ["venue_id", "string", true],
         ["name", "string"],
         ["category", "string"],
-        ["place_id", "string"],
+        ["place_id", "ref", false, false, "Place primary key.", null, "places"],
         ["website", "string"],
       ]),
       obj("contacts", "Contacts", "People at venues. Owned CRM rows only.", "#b7e08a", "contact_id", "name", [], [
         ["contact_id", "string", true],
         ["name", "string", false, true],
         ["role", "string"],
-        ["venue_id", "string"],
+        ["venue_id", "ref", false, false, "Venue primary key.", null, "venues"],
         ["email", "string", false, true],
       ]),
       obj("leads", "Leads", "Sales leads from contacts.", "#c9c27a", "lead_id", "account", [], [
         ["lead_id", "string", true],
         ["account", "string"],
         ["status", "string"],
-        ["contact_id", "string"],
+        ["contact_id", "ref", false, false, "Contact primary key.", null, "contacts"],
       ]),
       obj("incidents", "Incidents", "Owned case rows. Not a scrape.", "#c4a0e8", "incident_id", "summary", [], [
         ["incident_id", "string", true],
         ["opened_at", "date"],
         ["status", "string"],
-        ["location_id", "string"],
+        ["location_id", "ref", false, false, "Location primary key.", null, "locations"],
         ["summary", "string"],
       ]),
       obj("images", "Images", "Owned images (station archive or operator upload).", "#9fd0e8", "image_id", "asset_uri", [], [
         ["image_id", "string", true],
         ["captured_at", "date"],
-        ["location_id", "string"],
+        ["location_id", "ref", false, false, "Location primary key.", null, "locations"],
         ["asset_uri", "string"],
         ["quality", "number"],
       ]),
@@ -180,36 +180,36 @@
         ["suspect_id", "string", true],
         ["name", "string", false, true],
         ["watchlist", "string"],
-        ["image_id", "string"],
+        ["image_id", "ref", false, false, "Owned image.", null, "images"],
         ["notes", "string", false, true],
       ]),
       obj("matches", "Matches", "Image to watchlist matches. A score is a claim.", "#f2a3a3", "match_id", "match_id", ["Reviewable"], [
         ["match_id", "string", true],
-        ["image_id", "string"],
-        ["suspect_id", "string"],
+        ["image_id", "ref", false, false, "Matched image.", null, "images"],
+        ["suspect_id", "ref", false, false, "Matched suspect.", null, "suspects"],
         ["score", "number"],
         ["reviewed", "boolean"],
       ]),
       obj("shipments", "Shipments", "Inbound consignments.", "#d4b4ff", "shipment_id", "carrier", [], [
         ["shipment_id", "string", true],
-        ["supplier_id", "string"],
-        ["location_id", "string"],
+        ["supplier_id", "ref", false, false, "Supplier primary key.", null, "suppliers"],
+        ["location_id", "ref", false, false, "Location primary key.", null, "locations"],
         ["carrier", "string"],
         ["eta", "date"],
         ["status", "string"],
       ]),
       obj("transactions", "Transactions", "Stock movements.", "#ffb3d9", "txn_id", "txn_id", [], [
         ["txn_id", "string", true],
-        ["sku", "string"],
-        ["location_id", "string"],
+        ["sku", "ref", false, false, "Inventory SKU.", null, "inventory"],
+        ["location_id", "ref", false, false, "Location primary key.", null, "locations"],
         ["quantity_kg", "number", false, false, "", "kg"],
         ["kind", "string"],
         ["at", "datetime"],
       ]),
       obj("alerts", "Alerts", "Threshold alerts on stock.", "#a3f2e6", "alert_id", "message", [], [
         ["alert_id", "string", true],
-        ["sku", "string"],
-        ["location_id", "string"],
+        ["sku", "ref", false, false, "Inventory SKU.", null, "inventory"],
+        ["location_id", "ref", false, false, "Location primary key.", null, "locations"],
         ["level", "string"],
         ["message", "string"],
         ["raised_at", "datetime"],
@@ -296,6 +296,7 @@
     return {
       schema: SCHEMA,
       name: "dms",
+      pack: "dms",
       revision: 0,
       objectTypes: objectTypes,
       linkTypes: linkTypes,
@@ -314,6 +315,7 @@
     const o = {
       schema: SCHEMA,
       name: typeof raw.name === "string" && raw.name ? raw.name : "dms",
+      pack: typeof raw.pack === "string" && raw.pack ? raw.pack : "dms",
       revision: Number.isFinite(raw.revision) ? raw.revision : 0,
       objectTypes: {},
       linkTypes: {},
@@ -455,11 +457,31 @@
     return objectIds[0] || "";
   }
 
-  function fromCatalog(catalog) {
-    const base = current ? clone(current) : seed();
+  function emptyOntologyBase(name) {
+    return {
+      schema: SCHEMA,
+      name: name || "dms",
+      pack: "dms",
+      revision: 0,
+      objectTypes: {},
+      linkTypes: {},
+      actionTypes: {},
+      interfaces: {},
+      fetchPlaces: {},
+      changelog: [],
+    };
+  }
+
+  function fromCatalog(catalog, opts) {
+    opts = opts || {};
+    const rawBase =
+      opts.base !== undefined ? opts.base : current ? clone(current) : seed();
+    const base =
+      rawBase && rawBase.objectTypes ? rawBase : emptyOntologyBase((catalog && catalog.name) || "dms");
     const out = {
       schema: SCHEMA,
       name: (catalog && catalog.name) || base.name || "dms",
+      pack: base.pack || "dms",
       revision: base.revision || 0,
       objectTypes: {},
       linkTypes: {},
@@ -750,9 +772,17 @@
     redoStack.length = 0;
   }
 
-  function commit(op, path, before, after) {
+  function commit(op, path, before, after, meta) {
+    meta = meta || {};
     current.revision = (current.revision || 0) + 1;
-    const entry = { rev: current.revision, at: nowIso(), op: op, path: path };
+    const entry = {
+      rev: current.revision,
+      at: nowIso(),
+      op: op,
+      path: path,
+      source: meta.source || "studio",
+      actor: meta.actor || "local",
+    };
     if (before !== undefined) entry.before = clone(before);
     if (after !== undefined) entry.after = clone(after);
     current.changelog.push(entry);
@@ -825,21 +855,27 @@
 
   /* ---------- load / import ---------- */
 
-  function load(raw) {
+  function load(raw, meta) {
     const n = normalize(raw);
     if (!n.ok) return result(n.errors);
     snapshot();
     const prevRev = current ? current.revision : 0;
     current = n.value;
     current.revision = Math.max(prevRev, current.revision || 0);
-    return commit("load", "", undefined, { name: current.name, objects: Object.keys(current.objectTypes).length });
+    return commit(
+      "load",
+      "",
+      undefined,
+      { name: current.name, objects: Object.keys(current.objectTypes).length },
+      Object.assign({ source: "native-import", actor: "local" }, meta || {})
+    );
   }
 
   function reset() {
-    return load(seed());
+    return load(seed(), { source: "reset", actor: "local" });
   }
 
-  function importJSON(text) {
+  function importJSON(text, meta) {
     let parsed;
     try {
       parsed = typeof text === "string" ? JSON.parse(text) : text;
@@ -847,9 +883,65 @@
       return result(["not JSON: " + String(err && err.message ? err.message : err)]);
     }
     if (!parsed || typeof parsed !== "object") return result(["import must be a JSON object"]);
-    if (parsed.schema === SCHEMA || parsed.objectTypes) return load(parsed);
-    if (parsed.objects && typeof parsed.objects === "object") return load(fromCatalog(parsed));
+    if (parsed.schema === SCHEMA || parsed.objectTypes) {
+      return load(parsed, Object.assign({ source: "native-import", actor: "local" }, meta || {}));
+    }
+    if (parsed.objects && typeof parsed.objects === "object") {
+      return load(
+        fromCatalog(parsed),
+        Object.assign({ source: "catalog-import", actor: "local" }, meta || {})
+      );
+    }
     return result(["unknown shape: expected schema " + SCHEMA + " or a Cortex catalog with objects"]);
+  }
+
+  const CATALOG_DROPPED = [
+    "interfaces",
+    "property.pii",
+    "property.unit",
+    "property.description",
+    "property.required",
+    "property.ref (flattened to string)",
+    "datetime -> date",
+    "geo/json -> string",
+    "link cardinality/inverse/description",
+    "action params/requiresConfirm/cortexTool/description",
+    "changelog",
+    "revision",
+  ];
+
+  function stripVolatile(o) {
+    const x = clone(o) || {};
+    delete x.changelog;
+    delete x.revision;
+    Object.keys(x.objectTypes || {}).forEach(function (id) {
+      if (x.objectTypes[id]) delete x.objectTypes[id].layout;
+    });
+    return x;
+  }
+
+  function roundTrip(format) {
+    format = format || "native";
+    if (format === "native" || format === "json") {
+      const n = normalize(JSON.parse(exportJSON()));
+      if (!n.ok) return { ok: false, format: "native", lossless: false, dropped: [], errors: n.errors };
+      const dropped = diff(stripVolatile(current), stripVolatile(n.value));
+      return { ok: !dropped.length, format: "native", lossless: !dropped.length, dropped: dropped, errors: [] };
+    }
+    if (format === "cortex") {
+      const cat = toCatalog();
+      const back = fromCatalog(cat, { base: emptyOntologyBase((current && current.name) || "dms") });
+      const dropped = diff(current, back);
+      return {
+        ok: true,
+        format: "cortex",
+        lossless: false,
+        dropped: dropped,
+        notes: CATALOG_DROPPED.slice(),
+        note: "Cortex catalog is a points/links/actions view, not the Studio model.",
+      };
+    }
+    return { ok: false, format: format, lossless: false, dropped: [], errors: ["unknown format " + format] };
   }
 
   /* ---------- mutations: object types ---------- */
@@ -1497,6 +1589,8 @@
     TYPES: TYPES.slice(),
     CARDINALITIES: CARDINALITIES.slice(),
     PLACE_KINDS: PLACE_KINDS.slice(),
+    DMS_CORE: ["inventory", "suppliers", "locations", "shipments"],
+    CATALOG_DROPPED: CATALOG_DROPPED.slice(),
     get: function () {
       return current;
     },
@@ -1510,6 +1604,7 @@
     exportCortex: exportCortex,
     exportJSONLD: exportJSONLD,
     exportTurtle: exportTurtle,
+    roundTrip: roundTrip,
     addObjectType: addObjectType,
     updateObjectType: updateObjectType,
     removeObjectType: removeObjectType,

@@ -322,9 +322,26 @@
     var file = ev.target.files && ev.target.files[0];
     ev.target.value = "";
     if (!file || !O()) return;
+    var name = String(file.name || "").toLowerCase();
+    var type = String(file.type || "");
+    if (/\.(ttl|owl|nt)$/.test(name) || type === "text/turtle") {
+      flash("Turtle/OWL is export-only. Import native JSON (schema netie.ontology/1) or a Cortex catalog.");
+      return;
+    }
+    if (/\.(jsonld)$/.test(name) || type === "application/ld+json") {
+      flash("JSON-LD is export-only. Import native JSON or a Cortex catalog.");
+      return;
+    }
     var reader = new FileReader();
     reader.onload = function () {
-      ok(O().importJSON(String(reader.result || "")));
+      var res = O().importJSON(String(reader.result || ""));
+      if (!ok(res)) return;
+      var src = (res.change && res.change.source) || "";
+      if (src === "catalog-import" || src === "cortex-catalog") {
+        flash("Imported Cortex catalog (lossy view). Native JSON round-trips; catalog drops interfaces, PII, units, changelog.");
+      } else {
+        flash("Imported native ontology. source " + (src || "native-import") + " · actor local.");
+      }
     };
     reader.readAsText(file);
   }
@@ -1118,8 +1135,17 @@
     var ul = el("ul");
     log.slice(0, 40).forEach(function (row) {
       var li = el("li");
+      var src = row.source || "unknown";
+      var actor = row.actor || "local";
       li.appendChild(el("div", { className: "os-when", text: "rev " + row.rev + "  " + (row.at || "") }));
       li.appendChild(el("div", { text: (row.op || "") + "  " + (row.path || "") }));
+      li.appendChild(
+        el("div", {
+          className: "os-src",
+          "data-source": src,
+          text: "source " + src + " · actor " + actor + (src === "unknown" ? " (pre-provenance, not Cortex)" : ""),
+        })
+      );
       ul.appendChild(li);
     });
     box.appendChild(ul);

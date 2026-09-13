@@ -2,7 +2,7 @@
 
 Netie-native flow constructor. Ticket: [landing#9](https://github.com/Netie-AI/landing/issues/9) / CONSTRUCTOR-01.
 
-Cortex is the only engine. This repo is a consumer skin: a stranger-usable canvas that compiles ingest -> ontology -> insight -> foundry -> app graphs, ghosts them locally, and live-runs only when mounted at a Cortex origin.
+Cortex is the only engine. This repo is a consumer skin: a stranger-usable canvas that compiles ingest -> connector -> ontology -> insight -> foundry -> app graphs, ghosts them locally, and live-runs only when mounted at a Cortex origin.
 
 ## What this is
 
@@ -26,7 +26,10 @@ No invented public host. This PR does not mint one.
 
 - Sketch (GitHub Pages, HTTP 200, no login): https://netie-ai.github.io/constructor/
 - Repo: https://github.com/Netie-AI/constructor
-- Engine target (keys required): https://app.netie.ai/cortex -- HTTP 404 until Hyperlift; do not claim live. Local: http://127.0.0.1:8010/cortex
+- Engine target (keys required): https://app.netie.ai/cortex -- HTTP 404 until Hyperlift; do not claim live.
+- Local constructor-mount: http://127.0.0.1:8012/cortex (`CONSTRUCTOR_SKIN_DIR`). Any localhost `/cortex` path is an engine origin. `:8010` may be an older pack without constructor routes.
+- Live keys: OpenVault on http://127.0.0.1:5000 issues `ov_` keys. No keys in this repo.
+- FDE runbook: `docs/FDE_RUNBOOK.md`
 
 Until this branch is merged, the Pages sketch still reflects the default branch (`landing-9-first-path`). This feature branch is PR-browsable on GitHub.
 
@@ -49,8 +52,8 @@ Sketch locally: `npm start` then open http://127.0.0.1:4173/
 
 Tests: `npm test` (laws + node:test unit including `core/constructor.js` + Playwright e2e). Sketch-only: `npm run test:unit`.
 
-ChatGPT-style box compiles the canvas. Ghost mode dry-runs (no writes). Propose 3 ranks Cortex coordination patterns. Maximize applies the winner. Default graph is connector -> ontology -> insight -> foundry -> app.
+Default graph is connector -> ontology -> insight -> foundry -> app (ingest is hop 0). Ghost dry-run refuses a broken spine with `GRAPH_*` codes.
 
-Ontology Studio (rail `Ontology studio`, header `Ontology`, chat `ontology`) edits object types, properties, link types, action types, interfaces and fetch places in place, with an SVG graph, validation issues, changelog, undo/redo, and export as native JSON, Cortex catalog, JSON-LD, or Turtle. Contract: `docs/ONTOLOGY_STUDIO.md`. Tests: `npm test` (laws, unit, Playwright e2e with screenshots).
+Ontology Studio (rail `Ontology studio`, header `Ontology`, chat `ontology`) edits object types, properties, link types, action types, interfaces and fetch places in place, with an SVG graph, validation issues, changelog (`source` / `actor`), undo/redo, and export as native JSON, Cortex catalog, JSON-LD, or Turtle. Native JSON round-trips; Cortex catalog is a lossy view. Turtle/JSON-LD are export-only. Contract: `docs/ONTOLOGY_STUDIO.md`. Tests: `npm test` (laws, unit, Playwright e2e with screenshots).
 
 Do not merge landing. Do not clone n8n/Activepieces.

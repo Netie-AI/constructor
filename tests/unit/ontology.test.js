@@ -307,3 +307,60 @@ test("action with a tool but no confirm warns; setLayout does not bump revision"
   assert.equal(O.get().revision, rev);
   assert.equal(O.get().changelog.length, n);
 });
+
+test("DMS seed uses ref FKs for inventory/suppliers/locations/shipments", () => {
+  fresh();
+  const o = O.get();
+  assert.equal(o.pack, "dms");
+  for (const id of O.DMS_CORE) assert.ok(o.objectTypes[id], id);
+  assert.equal(o.objectTypes.inventory.properties.supplier_id.type, "ref");
+  assert.equal(o.objectTypes.inventory.properties.supplier_id.ref, "suppliers");
+  assert.equal(o.objectTypes.inventory.properties.location_id.ref, "locations");
+  assert.equal(o.objectTypes.shipments.properties.supplier_id.ref, "suppliers");
+  assert.equal(o.objectTypes.shipments.properties.location_id.ref, "locations");
+  assert.deepEqual(O.validate().errors, []);
+  assert.deepEqual(O.validate().warnings, []);
+});
+
+test("changelog records source and actor; reset is not Cortex", () => {
+  fresh();
+  const r = O.addProperty("inventory", "batch_no", { type: "string" });
+  assert.equal(r.change.source, "studio");
+  assert.equal(r.change.actor, "local");
+  const last = O.get().changelog[O.get().changelog.length - 1];
+  assert.equal(last.source, "studio");
+  assert.equal(last.actor, "local");
+  const reset = O.reset();
+  assert.equal(reset.change.source, "reset");
+  assert.equal(reset.change.actor, "local");
+});
+
+test("roundTrip native is lossless; Cortex catalog is lossy and honest", () => {
+  fresh();
+  O.addProperty("inventory", "batch_no", { type: "string", pii: true, unit: "lot" });
+  const native = O.roundTrip("native");
+  assert.equal(native.ok, true);
+  assert.equal(native.lossless, true);
+  const cortex = O.roundTrip("cortex");
+  assert.equal(cortex.lossless, false);
+  assert.ok(cortex.notes.indexOf("interfaces") >= 0);
+  assert.ok(cortex.dropped.length > 0);
+  assert.match(cortex.note, /lossy|view/i);
+});
+
+test("importJSON native keeps source native-import; catalog import is catalog-import", () => {
+  fresh();
+  const text = O.exportJSON();
+  const native = O.importJSON(text);
+  assert.equal(native.ok, true);
+  assert.equal(native.change.source, "native-import");
+  assert.equal(native.change.actor, "local");
+  const cat = O.importJSON(JSON.stringify(O.toCatalog()));
+  assert.equal(cat.ok, true);
+  assert.equal(cat.change.source, "catalog-import");
+  assert.equal(cat.change.actor, "local");
+  const cortex = O.importJSON(JSON.stringify(O.toCatalog()), { source: "cortex-catalog", actor: "cortex" });
+  assert.equal(cortex.change.source, "cortex-catalog");
+  assert.equal(cortex.change.actor, "cortex");
+});
+

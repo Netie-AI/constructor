@@ -1,10 +1,12 @@
 #Requires -Version 5.1
 <#
-  Start OpenVault (:5000) + Cortex (:8010) with this Constructor skin mounted.
-  Usage: powershell -File E:\Constructor\scripts\start-local.ps1
+  Start OpenVault (:5000) + Cortex constructor-mount (default :8012) with this Constructor skin.
+  :8010 may be an older pack without constructor routes. Override -CortexPort if you must.
+  Usage: powershell -File scripts/start-local.ps1
+  See docs/FDE_RUNBOOK.md. Prod app.netie.ai/cortex is 404 until Hyperlift.
 #>
 param(
-  [int]$CortexPort = 8010,
+  [int]$CortexPort = 8012,
   [int]$OpenVaultPort = 5000
 )
 

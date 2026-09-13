@@ -1,5 +1,6 @@
 # Local Constructor: OpenVault :5000 + Cortex constructor-mount :8012
 # Cortex is the engine. This skin is served from CONSTRUCTOR_SKIN_DIR.
+# See docs/FDE_RUNBOOK.md. Prod app.netie.ai/cortex is 404 until Hyperlift.
 
 $ErrorActionPreference = "Stop"
 $cortex = "E:\Cortex-constructor-mount"
