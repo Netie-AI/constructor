@@ -107,14 +107,16 @@ test("topo walks a linear DAG then leftover nodes", () => {
 });
 
 test("ghostWalk never writes when ghost is on", () => {
-  const state = {
-    nodes: [
-      { id: "n1", kind: "ingest", note: "load" },
-      { id: "n2", kind: "app", note: "emit", action_type: "emit" },
-    ],
-    edges: [{ from: "n1", to: "n2" }],
-  };
+  const state = Core.fdeSample({ ingest: true });
+  state.nodes.push({
+    id: "t1",
+    kind: "tool_call",
+    note: "write",
+    action_type: "export_pptx",
+  });
+  state.edges.push({ from: "fde6", to: "t1" });
   const ghost = Core.ghostWalk(state, true);
+  assert.equal(ghost.ok, true);
   assert.equal(ghost.steps.every((s) => s.write === false), true);
   const live = Core.ghostWalk(state, false);
   const appStep = live.steps.find((s) => s.kind === "app");
@@ -141,6 +143,9 @@ test("warehouse chat compiles ingest -> app Cortex graph", () => {
   const app = graph.nodes.find((n) => n.kind === "app");
   assert.equal(app.action_type, "emit");
   assert.equal(app.skin, "warehouse");
+  const v = Core.validateGraph(graph);
+  assert.equal(v.ok, true, JSON.stringify(v.errors));
+  assert.deepEqual(Core.FDE_PATH.every((k) => kinds.indexOf(k) >= 0), true);
 });
 
 test("refusePrompt blocks stalk / sex-work / public scrape", () => {
@@ -223,3 +228,60 @@ test("refusePrompt blocks baileys / whatsapp-web senders", () => {
   assert.equal(Core.refusePrompt("send via baileys whatsapp-web"), true);
   assert.equal(Core.refusePrompt("generate email connector"), false);
 });
+
+test("fdeSample encodes connector -> ontology -> insight -> foundry -> app", () => {
+  const sample = Core.fdeSample();
+  assert.deepEqual(
+    sample.nodes.map((n) => n.kind),
+    ["connector", "ontology", "insight", "foundry", "app"]
+  );
+  const ir = Core.compileIR(sample, { ghost: true });
+  assert.equal(ir.fde.ok, true);
+  assert.deepEqual(ir.fde.wanted, Core.FDE_PATH);
+  assert.equal(ir.nodes.find((n) => n.constructor_kind === "connector").hop, 1);
+  assert.equal(ir.nodes.find((n) => n.constructor_kind === "app").hop, 5);
+  const walk = Core.ghostWalk(sample, true);
+  assert.equal(walk.ok, true);
+  assert.equal(walk.steps.length, 5);
+});
+
+test("validateGraph refuses a missing ontology hop with GRAPH_FDE_MISSING", () => {
+  const sample = Core.fdeSample();
+  sample.nodes = sample.nodes.filter((n) => n.kind !== "ontology");
+  sample.edges = sample.edges.filter((e) => e.from !== "fde2" && e.to !== "fde2");
+  const v = Core.validateGraph(sample);
+  assert.equal(v.ok, false);
+  assert.equal(v.errors.some((e) => e.code === "GRAPH_FDE_MISSING"), true);
+  const walk = Core.ghostWalk(sample, true);
+  assert.equal(walk.ok, false);
+  assert.equal(walk.refused, true);
+  assert.equal(walk.steps.length, 0);
+  assert.match(walk.reasons.map((r) => r.code).join(","), /GRAPH_FDE/);
+});
+
+test("validateGraph refuses dangling edges, cycles, and banned kinds", () => {
+  const dangling = Core.fdeSample();
+  dangling.edges.push({ from: "fde1", to: "ghost" });
+  assert.equal(Core.validateGraph(dangling).errors.some((e) => e.code === "GRAPH_DANGLING_EDGE"), true);
+
+  const cycle = Core.fdeSample();
+  cycle.edges.push({ from: "fde5", to: "fde1" });
+  assert.equal(Core.validateGraph(cycle).errors.some((e) => e.code === "GRAPH_CYCLE"), true);
+
+  const banned = Core.fdeSample();
+  banned.nodes[0].kind = "n8n";
+  assert.equal(Core.validateGraph(banned).errors.some((e) => e.code === "GRAPH_BANNED_KIND"), true);
+
+  const noApp = { nodes: [{ id: "c", kind: "connector" }], edges: [] };
+  const v = Core.validateGraph(noApp);
+  assert.equal(v.errors.some((e) => e.code === "GRAPH_NO_APP"), true);
+});
+
+test("infer-style graph without connector ghosts with GRAPH_NO_CONNECTOR warning", () => {
+  const graph = Core.generateGraph("create a full flow for cctv human detection");
+  const v = Core.validateGraph(graph);
+  assert.equal(v.ok, true, JSON.stringify(v.errors));
+  assert.equal(v.warnings.some((w) => w.code === "GRAPH_NO_CONNECTOR"), true);
+  assert.equal(Core.ghostWalk(graph, true).ok, true);
+});
+

@@ -1,5 +1,5 @@
 /* Cortex-shaped compiler for the Constructor skin.
-   Pages: no fetch. localhost:8010: optional same-origin Cortex calls.
+   Pages: no fetch. Local constructor-mount is :8012 /cortex. Any localhost /cortex path is origin.
    Execution truth stays on Cortex dag_runner. This file only compiles, ghosts, and ranks.
    Pure IR lives in core/constructor.js (v0.1.0). */
 
@@ -83,6 +83,7 @@ function brainPayload(ir, extra) {
     compile: nodes.map(function (n) {
       return n.id + " " + (n.constructor_kind || n.kind) + " -> " + n.kind;
     }),
+    fde: ir && ir.fde ? ir.fde : null,
   };
   const slice = rsfBrainSlice(rsf);
   if (slice) {
@@ -265,8 +266,12 @@ async function ontologyChat(t) {
     if (!remote || !remote.ok || !remote.objects) {
       return "Pull failed (" + ((remote && (remote.status || remote.error)) || "offline") + ").";
     }
-    const r = O.importJSON(JSON.stringify(remote));
-    return r.ok ? "Pulled Cortex catalog into the ontology. rev " + O.get().revision + "." : "Import refused: " + (r.errors || []).join("; ");
+    const r = O.importJSON(JSON.stringify(remote), { source: "cortex-catalog", actor: "cortex" });
+    return r.ok
+      ? "Pulled Cortex catalog (lossy view) into the ontology. rev " +
+          O.get().revision +
+          ". Catalog drops interfaces, PII, units, changelog."
+      : "Import refused: " + (r.errors || []).join("; ");
   }
   if (/^push ontology$/.test(t)) {
     if (!cortexOrigin()) return "Push is Cortex only (POST /cortex/constructor/ontology). Pages never fetch.";
@@ -289,6 +294,11 @@ function topo(state) {
 async function ghostRun() {
   const C = window.Constructor;
   const state = C.getState();
+  const v = Core.validateGraph(state);
+  if (!v.ok) {
+    paintCortexBrain(compileIR(state), { source: "ghost-refuse" });
+    return localGhostWalk();
+  }
   if (cortexOrigin()) {
     const remote = await cortexPost("/cortex/constructor/ghost", constructorRunBody());
     C.showAudit({ mode: "cortex-ghost", remote: remote });
@@ -350,20 +360,50 @@ function setAutomate(on) {
   automateTick();
 }
 
+function formatGraphIssues(v) {
+  v = v || { errors: [], warnings: [] };
+  const errs = (v.errors || []).map(function (i) {
+    return i.code + ": " + i.message;
+  });
+  const warns = (v.warnings || []).map(function (i) {
+    return i.code + ": " + i.message;
+  });
+  return { errors: errs, warnings: warns };
+}
+
 function localGhostWalk() {
   const C = window.Constructor;
   const state = C.getState();
   const walked = Core.ghostWalk(state, !!C.ghost);
+  if (!walked.ok) {
+    C.showAudit({
+      mode: "ghost-refuse",
+      engine: cortexOrigin() ? "cortex-origin" : "pages-sketch",
+      reasons: walked.reasons,
+      warnings: walked.warnings,
+    });
+    const lines = (walked.reasons || []).map(function (r) {
+      return r.code + ": " + r.message;
+    });
+    return "Ghost refused. " + (lines.join(" ") || "Invalid graph.");
+  }
   C.markGhostWalk(walked.order);
   C.showAudit({
     mode: C.ghost ? "ghost" : "live-local",
     engine: cortexOrigin() ? "cortex-origin" : "pages-sketch",
     steps: walked.steps,
+    warnings: walked.warnings,
   });
+  const warn = (walked.warnings || [])
+    .map(function (w) {
+      return w.message;
+    })
+    .join(" ");
   return (
     (C.ghost ? "Ghost run (no writes). " : "Local walk. Tool/app nodes would write. ") +
     walked.steps.length +
-    " steps. Audit panel has the ledger."
+    " steps. Audit panel has the ledger." +
+    (warn ? " " + warn : "")
   );
 }
 
@@ -508,7 +548,7 @@ async function bindSession(key) {
 
 async function issueOpenVaultKey() {
   if (!cortexOrigin()) {
-    return "Issue key is Cortex loopback only. Open http://127.0.0.1:8010/cortex/login .";
+    return "Issue key is Cortex loopback only. Open http://127.0.0.1:8012/cortex/login (constructor-mount).";
   }
   const remote = await cortexPost("/cortex/constructor/issue-key", {});
   if (!remote || !remote.token) {
@@ -565,10 +605,12 @@ async function loadOntology() {
 
 async function liveOrGhost(forceLive) {
   const C = window.Constructor;
+  const v = Core.validateGraph(C.getState());
+  if (!v.ok) return localGhostWalk();
   const ir = compileIR(C.getState());
   if (forceLive) {
     if (!cortexOrigin()) {
-      return "Live run is Cortex only (POST /cortex/constructor/run). Pages never fetch. Open http://127.0.0.1:8010/cortex .";
+      return "Live run is Cortex only (POST /cortex/constructor/run). Pages never fetch. Open http://127.0.0.1:8012/cortex (constructor-mount). Prod app.netie.ai/cortex is 404 until Hyperlift.";
     }
     C.setGhost(false);
     const remote = await cortexPost("/cortex/constructor/run", constructorRunBody());
@@ -654,7 +696,7 @@ async function handleChat(raw) {
   const C = window.Constructor;
   if (!t) return "Say the object, point, action, or run all.";
   if (t === "help") {
-    return "Click Check, or type a real line. Paste CERTIFIED RSF JSON, or rsf sample. n8n/langchain/langflow BAN. Live engine: http://127.0.0.1:8010/cortex/login + ov_ key. Email/WhatsApp are drafts you send. Pages never fetch.";
+    return "Click Check, or type a real line. Paste CERTIFIED RSF JSON, or rsf sample. n8n/langchain/langflow BAN. Live engine: local /cortex (constructor-mount http://127.0.0.1:8012/cortex/login) + ov_ key from OpenVault :5000. Prod app.netie.ai/cortex is 404 until Hyperlift. Email/WhatsApp are drafts you send. Pages never fetch.";
   }
   if (/^rsf sample$/.test(t) || /^consume rsf$/.test(t)) {
     return await consumeRsfChat(Core.sampleCertifiedRsf());
@@ -673,9 +715,18 @@ async function handleChat(raw) {
     return "JSON is not an RSF artifact. Need status CERTIFIED|ABSTAIN|REFUSE and a stage.";
   }
   if (/^check$/.test(t)) {
-    await handleChat("lab infer");
-    await handleChat("run");
-    return "Check done. Ghost infer, 8 steps, no writes. Missing connector. Drawing only -- nothing live moved.";
+    if (C.applySeed) C.applySeed("infer");
+    C.setGhost(true);
+    const walk = await ghostRun();
+    const v = Core.validateGraph(C.getState());
+    const extra = formatGraphIssues(v);
+    const warn = extra.warnings.join(" ");
+    return (
+      "Check done. " +
+      walk +
+      (warn ? " " + warn : "") +
+      " Drawing only -- nothing live moved."
+    );
   }
   const lab = t.match(/^(?:lab|seed) (train|infer|retrain|voice|image|warehouse|sample)$/);
   if (lab && C.applySeed) {
@@ -830,7 +881,7 @@ async function handleChat(raw) {
   }
   if (/^fetch$/.test(t) || /^fetch now$/.test(t)) {
     if (!cortexOrigin()) {
-      return "Fetch is Cortex only (POST /cortex/constructor/fetch). Pages never fetch. Open http://127.0.0.1:8010/cortex .";
+      return "Fetch is Cortex only (POST /cortex/constructor/fetch). Pages never fetch. Open http://127.0.0.1:8012/cortex (constructor-mount).";
     }
     const node = C.selected && C.selected();
     if (!node) return "Select a node first.";

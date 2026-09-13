@@ -59,3 +59,33 @@ test("skin copy is Netie Constructor, not an n8n clone", () => {
   assert.match(html, /Constructor — Netie/);
   assert.equal(/\bn8n\b/i.test(html) && /workflow automation platform/i.test(html), false);
 });
+
+test("README is honest about Pages vs :8012 vs blocked prod cortex", () => {
+  const src = read("README.md");
+  assert.match(src, /404 until Hyperlift/);
+  assert.match(src, /127\.0\.0\.1:8012\/cortex/);
+  assert.match(src, /OpenVault/);
+  assert.match(src, /ov_/);
+  assert.match(src, /docs\/FDE_RUNBOOK\.md/);
+  assert.equal(/constructor\.netie\.ai/.test(src) && /https:\/\/constructor\.netie\.ai/.test(src), false);
+});
+
+test("FDE runbook names sketch, 8012 mount, ov_ keys, and Hyperlift 404", () => {
+  const src = read("docs/FDE_RUNBOOK.md");
+  assert.match(src, /npm start/);
+  assert.match(src, /127\.0\.0\.1:8012\/cortex/);
+  assert.match(src, /CONSTRUCTOR_SKIN_DIR/);
+  assert.match(src, /OpenVault/);
+  assert.match(src, /ov_/);
+  assert.match(src, /app\.netie\.ai\/cortex/);
+  assert.match(src, /404/);
+  assert.match(src, /Hyperlift/);
+  assert.match(src, /connector -> ontology -> insight -> foundry -> app/);
+});
+
+test("Pages-safe files still have zero fetch", () => {
+  for (const rel of ["app.js", "ontology.js", "ontology-studio.js"]) {
+    assert.equal(/\bfetch\s*\(/.test(read(rel)), false, rel);
+  }
+});
+

@@ -405,6 +405,12 @@
   font-family: ui-monospace, Consolas, monospace;
 }
 
+.os-changelog .os-src {
+  color: var(--muted);
+  font-size: 10px;
+  font-family: ui-monospace, Consolas, monospace;
+}
+
 .os-empty {
   color: var(--muted);
   font-size: 12px;

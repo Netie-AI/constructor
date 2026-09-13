@@ -476,6 +476,7 @@ function foundrySample() {
         persona: "loader",
         tier: "T0",
         stream: false,
+        hop: 0,
         doing: "Hop 0. Load inventory rows from warehouse.inventory. No write.",
         note: "Hop 0. Load inventory rows from warehouse.inventory. No write.",
       },
@@ -493,7 +494,9 @@ function foundrySample() {
         persona: "source",
         tier: "T0",
         stream: false,
-        note: "First-party Cortex input. No n8n. WhatsApp stays a draft, not a send.",
+        hop: 1,
+        doing: "Hop 1. FDE source. First-party Cortex input. No n8n. WhatsApp stays a draft, not a send.",
+        note: "Hop 1. FDE source. First-party Cortex input. No n8n. WhatsApp stays a draft, not a send.",
       },
       {
         id: "o1",
@@ -504,7 +507,9 @@ function foundrySample() {
         data_point: "supplier_id",
         data_type: "string",
         persona: "modeler",
-        note: "Cortex ontology objects/links/actions. Not a custom type picker.",
+        hop: 2,
+        doing: "Hop 2. DMS object/link/action types (inventory, suppliers, locations, shipments). Studio is the editor.",
+        note: "Hop 2. DMS object/link/action types (inventory, suppliers, locations, shipments). Studio is the editor.",
       },
       {
         id: "i1",
@@ -513,7 +518,9 @@ function foundrySample() {
         y: 64,
         object_type: "inventory",
         persona: "analyst",
-        note: "Cite ontology + ledger. What you may claim from those objects.",
+        hop: 3,
+        doing: "Hop 3. Cite ontology + ledger. What you may claim from those objects.",
+        note: "Hop 3. Cite ontology + ledger. What you may claim from those objects.",
       },
       {
         id: "f1",
@@ -524,7 +531,9 @@ function foundrySample() {
         skin: "warehouse",
         compute: "cortex",
         persona: "compiler",
-        note: "Compile insights into a governed Cortex app. Not an Activepieces clone.",
+        hop: 4,
+        doing: "Hop 4. Compile insights into a governed Cortex app. Not an Activepieces clone.",
+        note: "Hop 4. Compile insights into a governed Cortex app. Not an Activepieces clone.",
       },
       {
         id: "a1",
@@ -535,7 +544,9 @@ function foundrySample() {
         skin: "warehouse",
         object_type: "inventory",
         persona: "operator",
-        note: "Runnable output. Hosted inside Cortex at /cortex/constructor/.",
+        hop: 5,
+        doing: "Hop 5. EMIT skin. Engine is Cortex at /cortex/constructor/.",
+        note: "Hop 5. EMIT skin. Engine is Cortex at /cortex/constructor/.",
       },
       {
         id: "g1",
@@ -609,10 +620,10 @@ function labGraph(lab) {
       { from: "tr", to: "n0" },
       { from: "n0", to: "e1" },
       { from: "e1", to: "o1" },
-      { from: "n0", to: "i1" },
+      { from: "o1", to: "i1" },
       { from: "i1", to: "f1" },
       { from: "f1", to: "a1" },
-      { from: "a1", to: "g1" },
+      { from: "f1", to: "g1" },
     ];
     return { lab: "infer", insight: "Mock judge: circle bent particle. Live LLM only on /cortex.", nodes: nodes, edges: edges };
   }
@@ -647,7 +658,7 @@ function labGraph(lab) {
     n("c1").note = "DMS usage compile. OpenVault key only on /cortex.";
     n("i1").note = "Near-expiry, missing PK. Real insight from distill.";
     n("a1").note = "Pick a skin. Prebuilt = these 8 kinds, not a plugin store.";
-    return { lab: "warehouse", insight: "Warehouse path: ingest -> ontology -> insight -> app.", nodes: base.nodes, edges: base.edges };
+    return { lab: "warehouse", insight: "FDE path: connector -> ontology -> insight -> foundry -> app. Ingest is hop 0.", nodes: base.nodes, edges: base.edges };
   }
   return { lab: "sample", insight: "", nodes: base.nodes, edges: base.edges };
 }
@@ -725,6 +736,13 @@ function render() {
     el.className = "node" + (node.id === selectedId ? " selected" : "");
     el.dataset.id = node.id;
     el.dataset.kind = node.kind;
+    const hop =
+      node.hop != null
+        ? node.hop
+        : globalThis.NetieConstructorCore && typeof globalThis.NetieConstructorCore.hopForKind === "function"
+          ? globalThis.NetieConstructorCore.hopForKind(node.kind)
+          : null;
+    if (hop != null) el.dataset.hop = String(hop);
     el.style.left = node.x + "px";
     el.style.top = node.y + "px";
     el.style.setProperty("--kind", meta.color);
@@ -1902,7 +1920,7 @@ const power = document.getElementById("power");
 if (power) {
   power.textContent = cortexOrigin()
     ? "Powered by Cortex. Paste or issue an OpenVault ov_ key, then fetch / run all. Ghost is dry-run."
-    : "Sketch (no fetch). Live run needs http://127.0.0.1:8010/cortex with OpenVault on :5000.";
+    : "Sketch (no fetch). Live run needs a /cortex origin (constructor-mount http://127.0.0.1:8012/cortex) + OpenVault ov_ on :5000. Prod app.netie.ai/cortex is 404 until Hyperlift.";
 }
 const keyBox = document.getElementById("cortex-key");
 if (keyBox && !cortexOrigin()) keyBox.hidden = true;

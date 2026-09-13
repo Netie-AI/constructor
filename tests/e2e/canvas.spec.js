@@ -45,8 +45,16 @@ test.describe("canvas", () => {
   test("renders 8 sample nodes with zero console errors", async ({ page }) => {
     await expect(page.locator("#nodes .node")).toHaveCount(8);
     await expect(page.locator(".node[data-kind=ingest]")).toHaveCount(1);
+    await expect(page.locator(".node[data-kind=connector]")).toHaveCount(1);
     await expect(page.locator(".node[data-kind=ontology]")).toHaveCount(1);
+    await expect(page.locator(".node[data-kind=insight]")).toHaveCount(1);
+    await expect(page.locator(".node[data-kind=foundry]")).toHaveCount(1);
     await expect(page.locator(".node[data-kind=app]")).toHaveCount(1);
+    await expect(page.locator(".node[data-kind=connector]")).toHaveAttribute("data-hop", "1");
+    await expect(page.locator(".node[data-kind=ontology]")).toHaveAttribute("data-hop", "2");
+    await expect(page.locator(".node[data-kind=insight]")).toHaveAttribute("data-hop", "3");
+    await expect(page.locator(".node[data-kind=foundry]")).toHaveAttribute("data-hop", "4");
+    await expect(page.locator(".node[data-kind=app]")).toHaveAttribute("data-hop", "5");
     await expect(page.locator("#wires path")).toHaveCount(7);
     await expect(page.locator("#chat-log .bubble.assistant").first()).toContainText("Chat warehouse");
     await expect(page.locator("#power")).toContainText("Sketch (no fetch)");
@@ -137,5 +145,26 @@ test.describe("canvas", () => {
     expect(Array.isArray(parsed.nodes)).toBe(true);
     expect(parsed.nodes).toHaveLength(8);
     expect(parsed.edges).toHaveLength(7);
+  });
+
+  test("ghost run refuses a graph with no ontology hop", async ({ page }) => {
+    await page.evaluate(() => {
+      const C = window.Constructor;
+      const s = C.getState();
+      const nodes = s.nodes.filter((n) => n.kind !== "ontology");
+      const ids = {};
+      nodes.forEach((n) => {
+        ids[n.id] = true;
+      });
+      const edges = s.edges.filter((e) => ids[e.from] && ids[e.to]);
+      C.replaceGraph(nodes, edges);
+    });
+    const replies = page.locator("#chat-log .bubble.assistant");
+    const before = await replies.count();
+    await page.locator("#run-graph").click();
+    await expect(replies).toHaveCount(before + 1);
+    await expect(replies.last()).toContainText("Ghost refused");
+    await expect(replies.last()).toContainText("GRAPH_FDE");
+    await expect(page.locator("#play-ticks")).toHaveText("0 ticks");
   });
 });

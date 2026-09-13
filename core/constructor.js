@@ -30,12 +30,12 @@
 
   const KIND_NOTES = {
     ingest: { persona: "loader", note: "Hop 0. Load rows from a place into an object. No write." },
-    connector: { persona: "source", note: "First-party Cortex input bound to an object. No n8n." },
+    connector: { persona: "source", note: "Hop 1. First-party Cortex input bound to an object. No n8n." },
     trigger: { persona: "source", note: "Webhook, schedule, or message. Ghost on Pages. Live only on /cortex." },
-    ontology: { persona: "modeler", note: "Object, link, and action types on this graph." },
-    insight: { persona: "analyst", note: "Cite ontology + ledger. What you may claim." },
-    foundry: { persona: "compiler", note: "Compile insights into a governed Cortex app." },
-    app: { persona: "operator", note: "Emit the app a stranger can run inside Cortex." },
+    ontology: { persona: "modeler", note: "Hop 2. Object, link, and action types on this graph." },
+    insight: { persona: "analyst", note: "Hop 3. Cite ontology + ledger. What you may claim." },
+    foundry: { persona: "compiler", note: "Hop 4. Compile insights into a governed Cortex app." },
+    app: { persona: "operator", note: "Hop 5. Emit the app a stranger can run inside Cortex." },
     agent: { persona: "worker", note: "AGENT_TASK loop. One bounded worker." },
     hypothesize: { persona: "skeptic", note: "Surface a testable claim." },
     enhance: { persona: "enhancer", note: "Comfy-style. Local model or online API. Ghost on Pages." },
@@ -43,6 +43,293 @@
     audit: { persona: "steward", note: "Why this node exists. DETERMINISTIC_RULE, not a second EMIT." },
     tool_call: { persona: "writer", note: "Governed write. requires_confirm." },
   };
+
+  /* FDE demo spine. Ingest is hop 0. Connector starts the saleable path. */
+  const FDE_PATH = ["connector", "ontology", "insight", "foundry", "app"];
+  const FDE_SPINE = ["ontology", "insight", "foundry", "app"];
+  const FDE_HOPS = { ingest: 0, connector: 1, ontology: 2, insight: 3, foundry: 4, app: 5 };
+  const SOURCE_KINDS = ["connector", "ingest", "trigger"];
+  const BANNED_CANVAS_KINDS = {
+    n8n: 1,
+    myn8n: 1,
+    langchain: 1,
+    langflow: 1,
+    langgraph: 1,
+    activepieces: 1,
+    crew: 1,
+    crewai: 1,
+  };
+
+  function hopForKind(kind) {
+    return Object.prototype.hasOwnProperty.call(FDE_HOPS, kind) ? FDE_HOPS[kind] : null;
+  }
+
+  function withHop(kind, text) {
+    const hop = hopForKind(kind);
+    const s = String(text || "");
+    if (hop == null) return s;
+    if (s.indexOf("Hop ") === 0) return s;
+    return "Hop " + hop + ". " + s;
+  }
+
+  function graphIssue(level, code, path, message, fix) {
+    const row = { level: level, code: code, path: path, message: message };
+    if (fix) row.fix = fix;
+    return row;
+  }
+
+  function nodeIds(state) {
+    const ids = {};
+    ((state && state.nodes) || []).forEach(function (n) {
+      if (n && n.id) ids[n.id] = n;
+    });
+    return ids;
+  }
+
+  function firstOfKind(state, kind) {
+    return ((state && state.nodes) || []).find(function (n) {
+      return n && n.kind === kind;
+    });
+  }
+
+  function successorsOf(state) {
+    const out = {};
+    ((state && state.nodes) || []).forEach(function (n) {
+      out[n.id] = [];
+    });
+    ((state && state.edges) || []).forEach(function (e) {
+      if (e && out[e.from]) out[e.from].push(e.to);
+    });
+    return out;
+  }
+
+  function reachableFrom(state, startId) {
+    const seen = {};
+    if (!startId) return seen;
+    const succ = successorsOf(state);
+    const q = [startId];
+    seen[startId] = true;
+    while (q.length) {
+      const id = q.shift();
+      (succ[id] || []).forEach(function (to) {
+        if (!seen[to]) {
+          seen[to] = true;
+          q.push(to);
+        }
+      });
+    }
+    return seen;
+  }
+
+  function graphHasCycle(state) {
+    const nodes = (state && state.nodes) || [];
+    const ids = nodeIds(state);
+    const incoming = {};
+    nodes.forEach(function (n) {
+      incoming[n.id] = 0;
+    });
+    ((state && state.edges) || []).forEach(function (e) {
+      if (!e || !ids[e.from] || !ids[e.to]) return;
+      incoming[e.to] += 1;
+    });
+    const q = nodes.filter(function (n) {
+      return incoming[n.id] === 0;
+    }).map(function (n) {
+      return n.id;
+    });
+    let seen = 0;
+    while (q.length) {
+      const id = q.shift();
+      seen += 1;
+      ((state && state.edges) || []).forEach(function (e) {
+        if (!e || e.from !== id || incoming[e.to] === undefined) return;
+        incoming[e.to] -= 1;
+        if (incoming[e.to] === 0) q.push(e.to);
+      });
+    }
+    return seen < nodes.length;
+  }
+
+  function fdePresent(state) {
+    const kinds = {};
+    ((state && state.nodes) || []).forEach(function (n) {
+      if (n && n.kind) kinds[n.kind] = true;
+    });
+    return FDE_PATH.filter(function (k) {
+      return !!kinds[k];
+    });
+  }
+
+  function validateGraph(state) {
+    const errors = [];
+    const warnings = [];
+    function err(code, path, message, fix) {
+      errors.push(graphIssue("error", code, path, message, fix));
+    }
+    function warn(code, path, message, fix) {
+      warnings.push(graphIssue("warn", code, path, message, fix));
+    }
+    const nodes = (state && state.nodes) || [];
+    const edges = (state && state.edges) || [];
+    if (!nodes.length) {
+      err(
+        "GRAPH_EMPTY",
+        "nodes",
+        "Graph has no nodes.",
+        "Add connector -> ontology -> insight -> foundry -> app."
+      );
+      return {
+        ok: false,
+        errors: errors,
+        warnings: warnings,
+        issues: errors.concat(warnings),
+        fde: { wanted: FDE_PATH.slice(), present: [], ok: false },
+      };
+    }
+    const ids = nodeIds(state);
+    nodes.forEach(function (n) {
+      const kind = n && n.kind;
+      const path = n && n.id ? n.id : "nodes";
+      if (BANNED_CANVAS_KINDS[kind] || isBannedEngineId(kind)) {
+        err(
+          "GRAPH_BANNED_KIND",
+          path,
+          "Kind " + kind + " cannot be the Constructor engine. Cortex only. Distill-only names stay off the canvas.",
+          "Replace with connector / ontology / insight / foundry / app."
+        );
+      } else if (!CORTEX_KIND[kind]) {
+        err("GRAPH_UNKNOWN_KIND", path, "Unknown kind " + kind + ".", "Use a Constructor kind Cortex can compile.");
+      }
+    });
+    edges.forEach(function (e, i) {
+      const path = "edges." + i;
+      if (!e || !ids[e.from]) err("GRAPH_DANGLING_EDGE", path, "Edge from missing node " + ((e && e.from) || "(none)") + ".", "Drop the wire or restore the node.");
+      if (!e || !ids[e.to]) err("GRAPH_DANGLING_EDGE", path, "Edge to missing node " + ((e && e.to) || "(none)") + ".", "Drop the wire or restore the node.");
+    });
+    if (graphHasCycle(state)) {
+      err("GRAPH_CYCLE", "edges", "Graph has a cycle. Ghost needs a DAG.", "Drop a back-edge.");
+    }
+    if (!firstOfKind(state, "app")) {
+      err("GRAPH_NO_APP", "nodes", "FDE graph needs an app node (Cortex EMIT).", "Add an app block as the last hop.");
+    }
+    if (!nodes.some(function (n) { return SOURCE_KINDS.indexOf(n.kind) >= 0; })) {
+      err(
+        "GRAPH_NO_SOURCE",
+        "nodes",
+        "Need ingest, connector, or trigger as a source.",
+        "Add a connector (FDE hop 1) or ingest hop 0."
+      );
+    }
+    FDE_SPINE.forEach(function (kind) {
+      if (kind === "app") return;
+      if (!firstOfKind(state, kind)) {
+        err(
+          "GRAPH_FDE_MISSING",
+          kind,
+          "FDE path needs " + kind + " (connector -> ontology -> insight -> foundry -> app).",
+          "Add a " + kind + " block on the spine."
+        );
+      }
+    });
+    const spine = ["ontology", "insight", "foundry", "app"];
+    for (let i = 0; i < spine.length - 1; i++) {
+      const a = firstOfKind(state, spine[i]);
+      const b = firstOfKind(state, spine[i + 1]);
+      if (a && b && !reachableFrom(state, a.id)[b.id]) {
+        err(
+          "GRAPH_FDE_ORDER",
+          a.id + "->" + b.id,
+          spine[i] + " does not reach " + spine[i + 1] + ".",
+          "Wire " + spine[i] + " into " + spine[i + 1] + "."
+        );
+      }
+    }
+    const conn = firstOfKind(state, "connector");
+    const onto = firstOfKind(state, "ontology");
+    if (conn && onto && !reachableFrom(state, conn.id)[onto.id]) {
+      warn(
+        "GRAPH_FDE_ORDER",
+        conn.id,
+        "connector does not reach ontology.",
+        "Wire connector into ontology for the FDE demo."
+      );
+    }
+    if (!conn) {
+      warn(
+        "GRAPH_NO_CONNECTOR",
+        "nodes",
+        "No connector hop. Infer/trigger can source; FDE demos use connector -> ontology -> insight -> foundry -> app.",
+        "Add a connector block."
+      );
+    }
+    const present = fdePresent(state);
+    return {
+      ok: !errors.length,
+      errors: errors,
+      warnings: warnings,
+      issues: errors.concat(warnings),
+      fde: { wanted: FDE_PATH.slice(), present: present, ok: !errors.length && present.length === FDE_PATH.length },
+    };
+  }
+
+  function fdeDigest(state) {
+    const v = validateGraph(state);
+    return {
+      wanted: FDE_PATH.slice(),
+      present: (v.fde && v.fde.present) || fdePresent(state),
+      ok: !!(v.fde && v.fde.ok),
+      ghost_ok: v.ok,
+      errors: v.errors.map(function (e) { return e.code; }),
+      warnings: v.warnings.map(function (w) { return w.code; }),
+    };
+  }
+
+  function fdeSample(opts) {
+    opts = opts || {};
+    const kinds = opts.kinds
+      ? opts.kinds.slice()
+      : opts.ingest
+        ? ["ingest"].concat(FDE_PATH)
+        : FDE_PATH.slice();
+    const nodes = kinds.map(function (kind, i) {
+      const meta = KIND_NOTES[kind] || {};
+      const hop = hopForKind(kind);
+      const note = withHop(kind, meta.note || kind);
+      const node = {
+        id: "fde" + (i + 1),
+        kind: kind,
+        x: 24 + i * 196,
+        y: 64,
+        note: note,
+        doing: note,
+        persona: meta.persona || "",
+        hop: hop,
+        tier: "T0",
+        stream: false,
+      };
+      if (kind === "ingest" || kind === "connector" || kind === "ontology" || kind === "insight") {
+        node.object_type = "inventory";
+        node.data_point = "sku";
+        node.data_type = "string";
+        node.fetch_from = "warehouse.inventory";
+        node.source_kind = "place";
+      }
+      if (kind === "foundry") {
+        node.action_type = "export_pptx";
+        node.skin = "warehouse";
+        node.compute = "cortex";
+      }
+      if (kind === "app") {
+        node.action_type = "emit";
+        node.skin = "warehouse";
+        node.object_type = "inventory";
+      }
+      return node;
+    });
+    const edges = [];
+    for (let i = 0; i < nodes.length - 1; i++) edges.push({ from: nodes[i].id, to: nodes[i + 1].id });
+    return { nodes: nodes, edges: edges };
+  }
 
   const APPROACHES = [
     {
@@ -124,18 +411,34 @@
   function compileIR(state, opts) {
     opts = opts || {};
     const ghost = opts.ghost != null ? !!opts.ghost : true;
+    const nodes = (state && state.nodes) || [];
+    const edges = (state && state.edges) || [];
+    if (!nodes.length) {
+      return {
+        version: "1.0",
+        engine: ENGINE,
+        ghost: ghost,
+        rsf: opts.rsf ? rsfDigest(opts.rsf) : null,
+        entry_node_id: null,
+        output_node_id: null,
+        fde: fdeDigest({ nodes: [], edges: [] }),
+        nodes: [],
+        edges: [],
+      };
+    }
     const output =
-      [...state.nodes].reverse().find((n) => n.kind === "app") ||
-      [...state.nodes].reverse().find((n) => n.kind === "audit") ||
-      state.nodes[state.nodes.length - 1];
+      [...nodes].reverse().find((n) => n.kind === "app") ||
+      [...nodes].reverse().find((n) => n.kind === "audit") ||
+      nodes[nodes.length - 1];
     return {
       version: "1.0",
       engine: ENGINE,
       ghost: ghost,
       rsf: opts.rsf ? rsfDigest(opts.rsf) : null,
-      entry_node_id: state.nodes[0].id,
+      entry_node_id: nodes[0].id,
       output_node_id: output.id,
-      nodes: state.nodes.map((n) => {
+      fde: fdeDigest({ nodes: nodes, edges: edges }),
+      nodes: nodes.map((n) => {
         let kind = CORTEX_KIND[n.kind] || "DOCUMENT_REF";
         if (n.id === output.id) kind = "EMIT";
         else if (kind === "EMIT") kind = "DETERMINISTIC_RULE";
@@ -144,6 +447,7 @@
           id: n.id,
           kind: kind,
           constructor_kind: n.kind,
+          hop: hopForKind(n.kind),
           object_type: n.object_type || null,
           data_point: n.data_point || null,
           data_type: n.data_type || null,
@@ -163,7 +467,7 @@
           requires_confirm: n.kind === "tool_call",
         };
       }),
-      edges: state.edges.slice(),
+      edges: edges.slice(),
     };
   }
 
@@ -191,6 +495,17 @@
   }
 
   function ghostWalk(state, ghost) {
+    const v = validateGraph(state);
+    if (!v.ok) {
+      return {
+        ok: false,
+        refused: true,
+        reasons: v.errors,
+        warnings: v.warnings,
+        order: [],
+        steps: [],
+      };
+    }
     const order = topo(state);
     const log = [];
     for (const id of order) {
@@ -200,6 +515,7 @@
         id: node.id,
         kind: node.kind,
         cortex: CORTEX_KIND[node.kind],
+        hop: hopForKind(node.kind),
         ghost: ghost || !write,
         write: !!write,
         would: node.note,
@@ -209,7 +525,14 @@
         fetch_from: node.fetch_from || null,
       });
     }
-    return { order: order, steps: log };
+    return {
+      ok: true,
+      refused: false,
+      reasons: [],
+      warnings: v.warnings,
+      order: order,
+      steps: log,
+    };
   }
 
   function rankApproachesForGraph(state) {
@@ -542,13 +865,15 @@
       if (kind === "insight" && objects[2]) obj = objects[2];
       if (kind === "tool_call" && objects[objects.length - 1]) obj = objects[objects.length - 1];
       const meta = kindsMap[kind] || KIND_NOTES[kind] || {};
+      const note = withHop(kind, doing[kind] || meta.note || kind);
       const node = {
         id: "g" + (i + 1),
         kind: kind,
         y: 56,
-        note: doing[kind] || meta.note || kind,
-        doing: doing[kind] || meta.note || kind,
+        note: note,
+        doing: note,
         persona: meta.persona || "",
+        hop: hopForKind(kind),
         tier: "T0",
         stream: flow === "plant" && (kind === "ingest" || kind === "connector"),
       };
@@ -1067,6 +1392,9 @@
     ENGINE: ENGINE,
     CORTEX_KIND: CORTEX_KIND,
     KIND_NOTES: KIND_NOTES,
+    FDE_PATH: FDE_PATH.slice(),
+    FDE_SPINE: FDE_SPINE.slice(),
+    FDE_HOPS: Object.assign({}, FDE_HOPS),
     APPROACHES: APPROACHES,
     RSF_STAGES: RSF_STAGES,
     RSF_STATUSES: ["CERTIFIED", "ABSTAIN", "REFUSE"],
@@ -1074,6 +1402,10 @@
     cortexOriginFrom: cortexOriginFrom,
     compileIR: compileIR,
     topo: topo,
+    hopForKind: hopForKind,
+    validateGraph: validateGraph,
+    fdeDigest: fdeDigest,
+    fdeSample: fdeSample,
     ghostWalk: ghostWalk,
     scoreApproach: scoreApproach,
     rankApproachesForGraph: rankApproachesForGraph,

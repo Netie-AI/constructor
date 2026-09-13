@@ -75,7 +75,7 @@ Script order in `index.html`: `ontology.js` -> `app.js` -> `ontology-studio.js` 
     "warehouse.inventory": { id: "warehouse.inventory", object: "inventory", kind: "place" }
   },
   changelog: [
-    { rev: 12, at: "2026-09-03T08:00:00Z", op: "update", path: "objectTypes.inventory.properties.sku", before: {...}, after: {...} }
+    { rev: 12, at: "2026-09-03T08:00:00Z", op: "update", path: "objectTypes.inventory.properties.sku", source: "studio", actor: "local", before: {...}, after: {...} }
   ]
 }
 ```
@@ -96,6 +96,7 @@ Ontology.exportJSON()                           // native JSON string
 Ontology.exportCortex()                         // toCatalog() as JSON string
 Ontology.exportJSONLD()                         // JSON-LD with @context (schema.org-ish + netie vocab)
 Ontology.exportTurtle()                         // OWL-lite Turtle: owl:Class per object type, owl:DatatypeProperty per property, owl:ObjectProperty per link
+Ontology.roundTrip(format)                     // "native" lossless check, or "cortex" lossy catalog report { ok, lossless, dropped, notes }
 
 Ontology.addObjectType(id, patch)    Ontology.updateObjectType(id, patch)    Ontology.removeObjectType(id)    Ontology.renameObjectType(oldId, newId)
 Ontology.addProperty(objId, propId, patch)   Ontology.updateProperty(objId, propId, patch)   Ontology.removeProperty(objId, propId)
@@ -116,7 +117,7 @@ Ontology.linksFor(objId)                        // -> [linkType]
 Ontology.propertyType(objId, propId)            // -> type string or null
 ```
 
-Every mutation returns `{ ok, errors }`, validates ids (`^[a-z][a-z0-9_.]*$` for objects/properties/links/places, `^[a-z][a-z0-9_.]*$` for actions), commits, bumps `revision`, appends to `changelog`, pushes undo, notifies subscribers, and saves.
+Every mutation returns `{ ok, errors }`, validates ids (`^[a-z][a-z0-9_.]*$` for objects/properties/links/places, `^[a-z][a-z0-9_.]*$` for actions), commits, bumps `revision`, appends to `changelog` with `source` (`studio` | `native-import` | `catalog-import` | `reset` | `cortex-catalog`) and `actor` (`local` | `cortex`), pushes undo, notifies subscribers, and saves. Pages edits are never `actor: "cortex"`. Turtle and JSON-LD are export-only; import refuses them instead of pretending to parse OWL.
 
 ## Validation codes (Semantica-style shapes)
 
@@ -176,3 +177,4 @@ Direct editing writes through the API immediately (n8n-style, no Save button). U
 - Export Turtle contains `owl:Class`.
 - Reload keeps the change (localStorage).
 - Law check: `grep -c "fetch(" app.js ontology.js ontology-studio.js` is 0.
+- Changelog rows show `source` and `actor`. Import of `.ttl` flashes export-only. Native JSON import round-trips.
