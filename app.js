@@ -495,7 +495,6 @@ function foundrySample() {
         tier: "T0",
         stream: false,
         hop: 1,
-        doing: "Hop 1. FDE source. First-party Cortex input. No n8n. WhatsApp stays a draft, not a send.",
         note: "Hop 1. FDE source. First-party Cortex input. No n8n. WhatsApp stays a draft, not a send.",
       },
       {
@@ -508,7 +507,6 @@ function foundrySample() {
         data_type: "string",
         persona: "modeler",
         hop: 2,
-        doing: "Hop 2. DMS object/link/action types (inventory, suppliers, locations, shipments). Studio is the editor.",
         note: "Hop 2. DMS object/link/action types (inventory, suppliers, locations, shipments). Studio is the editor.",
       },
       {
@@ -519,7 +517,6 @@ function foundrySample() {
         object_type: "inventory",
         persona: "analyst",
         hop: 3,
-        doing: "Hop 3. Cite ontology + ledger. What you may claim from those objects.",
         note: "Hop 3. Cite ontology + ledger. What you may claim from those objects.",
       },
       {
@@ -532,7 +529,6 @@ function foundrySample() {
         compute: "cortex",
         persona: "compiler",
         hop: 4,
-        doing: "Hop 4. Compile insights into a governed Cortex app. Not an Activepieces clone.",
         note: "Hop 4. Compile insights into a governed Cortex app. Not an Activepieces clone.",
       },
       {
@@ -545,7 +541,6 @@ function foundrySample() {
         object_type: "inventory",
         persona: "operator",
         hop: 5,
-        doing: "Hop 5. EMIT skin. Engine is Cortex at /cortex/constructor/.",
         note: "Hop 5. EMIT skin. Engine is Cortex at /cortex/constructor/.",
       },
       {
