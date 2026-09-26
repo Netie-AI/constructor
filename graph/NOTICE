@@ -1,0 +1,21 @@
+Netie Graph
+Copyright (c) 2026 Netie AI (modifications)
+
+Netie Graph is a fork of Semantica (https://github.com/semantica-agi/semantica),
+taken at upstream commit 6f1c3b3, and is distributed under the MIT License.
+The upstream copyright notice and license text are kept unchanged in LICENSE,
+as the MIT License requires. Upstream contributors are listed in
+UPSTREAM_CONTRIBUTORS.md.
+
+Changes from upstream in this fork:
+- Package renamed semantica -> netiegraph, semantica_mcp -> netiegraph_mcp;
+  environment variables SEMANTICA_* -> NETIE_GRAPH_*; RDF namespace
+  https://semantica.dev/ -> https://netie.ai/graph/.
+- Branding and logo replaced with Netie's. "Semantica" is upstream's name and
+  is used here only to attribute the origin of the code.
+- tests/context/test_drift_search.py uses the entity name "Netie" instead of
+  "NetieGraph": its pruning test scores token/substring overlap with a query
+  containing "graph", so the anchor name must not contain that word.
+- Upstream project files that name upstream contacts or release history
+  (SECURITY, SUPPORT, CHANGELOG, RELEASE_NOTES, CITATION, CODE_OF_CONDUCT,
+  CONTRIBUTING, GROWTH) are not carried; see the upstream repository for them.

@@ -1,0 +1,17 @@
+{
+  "name": "netiegraph-windsurf",
+  "plugins": [
+    {
+      "name": "netiegraph",
+      "description": "NetieGraph plugin for Windsurf: knowledge graph skills, reasoning, extraction, and visualization.",
+      "source": "./",
+      "category": "Productivity",
+      "tags": [
+        "knowledge-graph",
+        "reasoning",
+        "netiegraph",
+        "windsurf"
+      ]
+    }
+  ]
+}

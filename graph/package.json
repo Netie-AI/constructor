@@ -1,0 +1,19 @@
+{
+  "name": "netiegraph",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Graph-Native Infrastructure for Context and Accountable AI Systems",
+  "keywords": [
+    "pi-package",
+    "netiegraph",
+    "knowledge graph",
+    "context graphs",
+    "decision intelligence",
+    "mcp"
+  ],
+  "license": "MIT",
+  "repository": "https://github.com/semantica-agi/semantica",
+  "pi": {
+    "skills": ["plugins/skills"]
+  }
+}

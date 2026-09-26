@@ -1,0 +1,56 @@
+name: 'Setup NetieGraph'
+description: 'Install Python, cache pip, and install the netiegraph package into a workflow'
+author: 'NetieGraph'
+
+inputs:
+  python-version:
+    description: 'Python version to set up'
+    required: false
+    default: '3.11'
+  version:
+    description: 'Version constraint to append to the pip spec, e.g. "==0.6.7" or ">=0.6,<0.7". Leave empty for the latest release.'
+    required: false
+    default: ''
+  extras:
+    description: 'Comma-separated extras to install, e.g. "explorer,all"'
+    required: false
+    default: ''
+  cache:
+    description: 'Pip cache mode passed straight to actions/setup-python ("pip" to enable). Left empty (disabled) by default because this action is meant to run standalone in any caller repo, and actions/setup-python errors out if it cannot find a requirements.txt/pyproject.toml/setup.py/poetry.lock to key the cache on. Opt in only when the caller repo has one of those files.'
+    required: false
+    default: ''
+
+outputs:
+  version:
+    description: 'The installed netiegraph version'
+    value: ${{ steps.verify.outputs.version }}
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache: ${{ inputs.cache }}
+
+    - name: Install netiegraph
+      shell: bash
+      env:
+        NETIE_GRAPH_EXTRAS: ${{ inputs.extras }}
+        NETIE_GRAPH_VERSION: ${{ inputs.version }}
+      run: |
+        python -m pip install --upgrade pip
+        if [ -n "$NETIE_GRAPH_EXTRAS" ]; then
+          spec="netiegraph[$NETIE_GRAPH_EXTRAS]$NETIE_GRAPH_VERSION"
+        else
+          spec="netiegraph$NETIE_GRAPH_VERSION"
+        fi
+        python -m pip install -- "$spec"
+
+    - name: Verify install
+      id: verify
+      shell: bash
+      run: |
+        VERSION=$(python -c "import netiegraph; print(netiegraph.__version__)")
+        echo "Installed netiegraph $VERSION"
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"

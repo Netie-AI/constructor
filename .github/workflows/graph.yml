@@ -1,0 +1,27 @@
+name: graph
+on:
+  pull_request:
+    paths: ["graph/**", ".github/workflows/graph.yml"]
+  push:
+    branches: [landing-9-first-path]
+    paths: ["graph/**", ".github/workflows/graph.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: graph-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: graph
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e . pytest pytest-asyncio beautifulsoup4 psutil
+      - run: python -m pytest tests -q -p no:cacheprovider -m "not integration"

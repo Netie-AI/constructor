@@ -1,0 +1,17 @@
+{
+  "name": "netiegraph-continue",
+  "plugins": [
+    {
+      "name": "netiegraph",
+      "description": "NetieGraph plugin for Continue.dev: knowledge graph context provider, reasoning, and extraction.",
+      "source": "./",
+      "category": "Productivity",
+      "tags": [
+        "knowledge-graph",
+        "reasoning",
+        "netiegraph",
+        "continue"
+      ]
+    }
+  ]
+}
