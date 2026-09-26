@@ -2,7 +2,9 @@
 
 Netie-native flow constructor. Ticket: [landing#9](https://github.com/Netie-AI/landing/issues/9) / CONSTRUCTOR-01.
 
-Cortex is the only engine. This repo is a consumer skin: a stranger-usable canvas that compiles ingest -> connector -> ontology -> insight -> foundry -> app graphs, ghosts them locally, and live-runs only when mounted at a Cortex origin.
+This repo holds two apps. The Constructor skin (repo root) is a consumer of Cortex, the answer and execution engine. Netie Graph (`graph/`) is the graph/ontology build service, a fork of Semantica (MIT); see `graph/README.md`.
+
+The skin is a stranger-usable canvas that compiles ingest -> connector -> ontology -> insight -> foundry -> app graphs, ghosts them locally, and live-runs only when mounted at a Cortex origin.
 
 ## What this is
 
@@ -38,6 +40,7 @@ Until this branch is merged, the Pages sketch still reflects the default branch 
 ```
 core/constructor.js   Netie IR: compile, topo, ghost walk, refuse, chat graph
 ontology.js           Ontology Studio model (objects/links/actions). Distill Foundry, do not clone.
+graph/                Netie Graph: Python graph/ontology/provenance service (Semantica fork, MIT)
 app.js                Canvas / inspect / chat dock (Pages-safe, no fetch)
 engine.js             Cortex consumer: ghost, RSF consume, live run when origin is /cortex
 docs/patches/         Cortex mount notes (no live Cortex writer from this repo)

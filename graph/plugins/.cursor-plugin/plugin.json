@@ -1,0 +1,32 @@
+{
+  "name": "netiegraph-cursor",
+  "displayName": "NetieGraph Cursor Plugin",
+  "description": "NetieGraph plugin for Cursor: knowledge graph skills, reasoning, extraction, and visualization.",
+  "version": "0.1.0",
+  "author": {
+    "name": "NetieGraph Contributors"
+  },
+  "homepage": "https://github.com/semantica-agi/semantica",
+  "repository": "https://github.com/semantica-agi/semantica",
+  "license": "MIT",
+  "keywords": [
+    "netiegraph",
+    "knowledge graph",
+    "cursor",
+    "context graphs",
+    "decision intelligence",
+    "explainability",
+    "causal analysis",
+    "provenance",
+    "ontology",
+    "graph analytics",
+    "semantic extraction",
+    "visualization",
+    "reasoning",
+    "extraction",
+    "mcp"
+  ],
+  "skills": "./skills",
+  "agents": "./agents",
+  "hooks": "./hooks/hooks.json"
+}

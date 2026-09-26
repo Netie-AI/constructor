@@ -1,0 +1,35 @@
+{
+  "name": "netiegraph-vscode",
+  "displayName": "NetieGraph VS Code Plugin",
+  "description": "NetieGraph plugin for VS Code: knowledge graph skills, decision intelligence, reasoning, extraction, and visualization via MCP server.",
+  "version": "0.1.0",
+  "author": {
+    "name": "NetieGraph Contributors"
+  },
+  "homepage": "https://github.com/semantica-agi/semantica",
+  "repository": "https://github.com/semantica-agi/semantica",
+  "license": "MIT",
+  "keywords": [
+    "netiegraph",
+    "knowledge graph",
+    "vscode",
+    "context graphs",
+    "decision intelligence",
+    "explainability",
+    "causal analysis",
+    "provenance",
+    "ontology",
+    "graph analytics",
+    "semantic extraction",
+    "visualization",
+    "reasoning",
+    "mcp"
+  ],
+  "skills": "../skills",
+  "agents": "../agents",
+  "hooks": "../hooks/hooks.json",
+  "mcp": {
+    "server": "python -m netiegraph.mcp_server",
+    "transport": "stdio"
+  }
+}
