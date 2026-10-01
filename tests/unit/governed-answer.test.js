@@ -39,10 +39,10 @@ test("example fixture is labelled and is not a measured result", () => {
   const loaded = GA.loadText(raw);
   assert.equal(loaded.ok, true, JSON.stringify(loaded.errors));
   assert.equal(loaded.exampleLabel, GA.EXAMPLE_LABEL);
-  assert.equal(loaded.records.length, 5);
-  assert.equal(loaded.views.length, 5);
+  assert.equal(loaded.records.length, 9);
+  assert.equal(loaded.views.length, 9);
   const states = loaded.views.map((v) => v.state);
-  assert.deepEqual(states, ["governed", "unlinked", "withheld", "refused", "governed"]);
+  assert.deepEqual(states, ["governed", "unlinked", "withheld", "refused", "governed", "refused", "refused", "refused", "refused"]);
 });
 
 test("governed view shows sql, rows, source, and the badge", () => {
@@ -95,6 +95,7 @@ test("predict is refused unless a fitted model envelope says forecast", () => {
   assert.equal(refused.state, "refused");
   assert.equal(refused.notice, "refused");
   assert.equal(refused.badge, null);
+  assert.equal(refused.refusalChip, "unlabelled");
   assert.deepEqual(refused.values, []);
   assert.equal(JSON.stringify(refused).includes("515151"), false);
 
@@ -193,6 +194,78 @@ test("aliases sql_used, row_match, and source.tables validate", () => {
   assert.equal(loaded.views[0].source, "example-source");
   assert.deepEqual(loaded.records[0].tables, ["example_table"]);
   assert.deepEqual(loaded.records[0].rows, [{ example_col: "example-token" }]);
+});
+
+test("refused chips use refusal_reason exactly, and a missing reason stays unlabelled", () => {
+  const raw = fs.readFileSync(FIXTURE, "utf8");
+  const views = GA.loadText(raw).views;
+  const chips = views.filter((v) => v.state === "refused").map((v) => v.refusalChip);
+  assert.deepEqual(chips, [
+    "unlabelled",
+    "pacing (rate limit / no healthy key)",
+    "not yet an approved query",
+    "wrong level of detail",
+    "truly missing data",
+  ]);
+  const missing = views[8];
+  assert.equal(missing.missing, "example measure");
+  assert.equal(missing.wouldAnswer, "example_file");
+  assert.equal(missing.sql, null);
+  assert.deepEqual(missing.rows, []);
+  assert.deepEqual(missing.values, []);
+  assert.equal(views[0].refusalChip, null);
+
+  function refused(reason, extra) {
+    return GA.loadText(line(Object.assign({ verdict: "refused", refusal_reason: reason }, extra || {}))).views[0];
+  }
+  assert.equal(refused("pacing").refusalChip, "pacing (rate limit / no healthy key)");
+  assert.equal(refused("pacing").missing, null);
+  assert.equal(refused("not yet an approved query").refusalChip, "not yet an approved query");
+  assert.equal(refused("wrong level of detail").refusalChip, "wrong level of detail");
+  const gap = refused("truly missing data", { missing: "example measure", would_answer: "example_file" });
+  assert.equal(gap.refusalChip, "truly missing data");
+  assert.equal(gap.missing, "example measure");
+  assert.equal(gap.wouldAnswer, "example_file");
+  assert.equal(refused("truly missing data").missing, null);
+  assert.equal(refused("truly missing data").wouldAnswer, null);
+
+  const guessed = refused("rate limit");
+  assert.equal(guessed.state, "refused");
+  assert.equal(guessed.refusalChip, "unlabelled");
+  assert.equal(guessed.refusalChip.includes("pacing"), false);
+
+  const absent = GA.loadText(line({ verdict: "refused", values: [{ value: 424242 }] })).views[0];
+  assert.equal(absent.refusalChip, "unlabelled");
+  assert.equal(absent.state, "refused");
+  assert.equal(JSON.stringify(absent).includes("424242"), false);
+
+  const bad = GA.loadText(line({ refusal_reason: 1 }));
+  assert.equal(bad.ok, false);
+  assert.ok(bad.errors.some((e) => e.message === "refusal_reason must be a string or null"));
+
+  const loaded = GA.loadText(raw);
+  assert.deepEqual(
+    GA.filterRefusals(loaded.views, "pacing (rate limit / no healthy key)").map((v) => v.question),
+    ["example pacing refusal"]
+  );
+  assert.deepEqual(
+    GA.filterRefusals(loaded.views, "not yet an approved query").map((v) => v.question),
+    ["example unapproved refusal"]
+  );
+  assert.deepEqual(
+    GA.filterRefusals(loaded.views, "wrong level of detail").map((v) => v.question),
+    ["example detail refusal"]
+  );
+  assert.deepEqual(
+    GA.filterRefusals(loaded.views, "truly missing data").map((v) => v.question),
+    ["example missing-data refusal"]
+  );
+  assert.deepEqual(
+    GA.filterRefusals(loaded.views, "unlabelled").map((v) => v.question),
+    ["example predict question"]
+  );
+  assert.equal(GA.filterRefusals(loaded.views, "refusals").length, 5);
+  assert.equal(GA.filterRefusals(loaded.views, "all").length, 5);
 });
 
 test("url loader refuses Cortex and model hosts", () => {

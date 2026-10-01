@@ -9,6 +9,7 @@ Main idea: Canvas panel classifies stored JSONL into governed / no-link / withhe
 - No link: model idea only. Values empty. Badge off.
 - Any figure with no executed query: state WITHHELD. The number is not copied into the view.
 - Predict: refused unless `model_envelope.fitted === true` and `task === "forecast"`. A forecast with no executed SQL is still WITHHELD.
+- Refused chip comes only from `refusal_reason`: pacing, not yet an approved query, wrong level of detail, truly missing data. Absent or unknown stays `unlabelled`. Filter lists refusals by that chip. Truly missing data also shows stored `missing` and `would_answer`.
 
 ## Loader
 

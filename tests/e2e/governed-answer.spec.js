@@ -32,7 +32,7 @@ test.describe("governed answer", () => {
   test("file picker renders governed, no-link, and withheld", async ({ page }) => {
     await page.setInputFiles("#ga-file", FIXTURE);
     await expect(page.locator("#ga-status")).toContainText("example data, not a measured result");
-    await expect(page.locator('[data-testid="ga-card"]')).toHaveCount(5);
+    await expect(page.locator('[data-testid="ga-card"]')).toHaveCount(9);
 
     const governed = page.locator('[data-testid="ga-card"][data-state="governed"]').first();
     await expect(governed.locator('[data-testid="ga-badge"]')).toHaveText("governed");
@@ -60,8 +60,9 @@ test.describe("governed answer", () => {
     await expect(withheld).not.toContainText("424242");
     await withheld.screenshot({ path: shot("governed-answer-withheld.png") });
 
-    const refused = page.locator('[data-testid="ga-card"][data-state="refused"]');
+    const refused = page.locator('[data-testid="ga-card"][data-state="refused"]').first();
     await expect(refused.locator('[data-testid="ga-refused"]')).toHaveText("refused");
+    await expect(refused.locator('[data-testid="ga-refusal-chip"]')).toHaveText("unlabelled");
     await expect(refused).not.toContainText("515151");
 
     const forecast = page.locator('[data-testid="ga-card"][data-state="governed"]').nth(1);
@@ -69,6 +70,36 @@ test.describe("governed answer", () => {
     await expect(forecast.locator('[data-testid="ga-badge"]')).toHaveText("governed");
 
     await page.locator("#governed-answer").screenshot({ path: shot("governed-answer-panel.png") });
+  });
+
+  test("refusal filter lists each reason and the unlabelled case", async ({ page }) => {
+    await page.setInputFiles("#ga-file", FIXTURE);
+    const filter = page.locator("#ga-refusal-filter");
+    const reasons = [
+      ["pacing (rate limit / no healthy key)", "governed-answer-refused-pacing.png"],
+      ["not yet an approved query", "governed-answer-refused-not-approved.png"],
+      ["wrong level of detail", "governed-answer-refused-wrong-detail.png"],
+      ["truly missing data", "governed-answer-refused-missing-data.png"],
+      ["unlabelled", "governed-answer-refused-unlabelled.png"],
+    ];
+    for (const pair of reasons) {
+      await filter.selectOption(pair[0]);
+      const cards = page.locator('[data-testid="ga-card"]');
+      await expect(cards).toHaveCount(1);
+      await expect(cards).toHaveAttribute("data-state", "refused");
+      await expect(cards.locator('[data-testid="ga-refusal-chip"]')).toHaveText(pair[0]);
+      await expect(cards.locator('[data-testid="ga-badge"]')).toHaveCount(0);
+      await cards.screenshot({ path: shot(pair[1]) });
+    }
+    await filter.selectOption("truly missing data");
+    await expect(page.locator('[data-testid="ga-missing"]')).toHaveText("missing: example measure");
+    await expect(page.locator('[data-testid="ga-would-answer"]')).toHaveText("would answer: example_file");
+    await filter.selectOption("unlabelled");
+    await expect(page.locator('[data-testid="ga-card"]')).not.toContainText("515151");
+    await filter.selectOption("refusals");
+    await expect(page.locator('[data-testid="ga-card"]')).toHaveCount(5);
+    await filter.selectOption("");
+    await expect(page.locator('[data-testid="ga-card"]')).toHaveCount(9);
   });
 
   test("URL load does not fetch on the Pages sketch", async ({ page }) => {

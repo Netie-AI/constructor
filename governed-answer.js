@@ -14,6 +14,12 @@
   const SCHEMA = "netie.governed-answer/1";
   const EXAMPLE_LABEL = "example data, not a measured result";
   const FIGURE_RE = /\d[\d,]*(?:\.\d+)?/;
+  const CHIP_PACING = "pacing (rate limit / no healthy key)";
+  const CHIP_NOT_APPROVED = "not yet an approved query";
+  const CHIP_WRONG_DETAIL = "wrong level of detail";
+  const CHIP_MISSING = "truly missing data";
+  const CHIP_UNLABELLED = "unlabelled";
+  const REFUSAL_CHIPS = [CHIP_PACING, CHIP_NOT_APPROVED, CHIP_WRONG_DETAIL, CHIP_MISSING, CHIP_UNLABELLED];
 
   function clone(x) {
     if (x === undefined) return undefined;
@@ -132,16 +138,53 @@
       link: null,
       exampleLabel: exampleLabel(rec),
       forecast: false,
+      refusalChip: null,
+      missing: null,
+      wouldAnswer: null,
     };
+  }
+
+  function refusalChip(rec) {
+    const raw = rec.refusal_reason == null ? "" : String(rec.refusal_reason).trim();
+    if (raw === "pacing" || raw === CHIP_PACING) return CHIP_PACING;
+    if (raw === CHIP_NOT_APPROVED) return CHIP_NOT_APPROVED;
+    if (raw === CHIP_WRONG_DETAIL) return CHIP_WRONG_DETAIL;
+    if (raw === CHIP_MISSING) return CHIP_MISSING;
+    return CHIP_UNLABELLED;
+  }
+
+  function isRefusal(rec) {
+    if (isPredict(rec) && !forecastAllowed(rec)) return true;
+    if (String(rec.verdict || "").toLowerCase() === "refused") return true;
+    return !!(rec.refusal_reason != null && String(rec.refusal_reason).trim());
+  }
+
+  function plainDetail(v) {
+    const text = clean(v);
+    if (!text || textHasFigure(text)) return null;
+    return text;
+  }
+
+  function refuseView(rec, view) {
+    view.state = "refused";
+    view.notice = "refused";
+    view.badge = null;
+    view.sql = null;
+    view.rows = [];
+    view.values = [];
+    view.idea = null;
+    view.answerKey = null;
+    view.refusalChip = refusalChip(rec);
+    if (view.refusalChip === CHIP_MISSING) {
+      view.missing = plainDetail(rec.missing);
+      view.wouldAnswer = plainDetail(rec.would_answer);
+    }
+    return view;
   }
 
   function classify(rec) {
     const view = baseView(rec);
-    if (isPredict(rec) && !forecastAllowed(rec)) {
-      view.state = "refused";
-      view.notice = "refused";
-      return view;
-    }
+    if (isRefusal(rec)) return refuseView(rec, view);
     const sql = executedSql(rec);
     if (recordHasFigure(rec) && !sql) {
       view.state = "withheld";
@@ -221,6 +264,15 @@
     if (obj.executed !== undefined && typeof obj.executed !== "boolean") errors.push("executed must be a boolean");
     if (obj.predict !== undefined && typeof obj.predict !== "boolean") errors.push("predict must be a boolean");
     if (obj.idea !== undefined && obj.idea !== null && typeof obj.idea !== "string") errors.push("idea must be a string");
+    if (obj.refusal_reason !== undefined && obj.refusal_reason !== null && typeof obj.refusal_reason !== "string") {
+      errors.push("refusal_reason must be a string or null");
+    }
+    if (obj.missing !== undefined && obj.missing !== null && typeof obj.missing !== "string") {
+      errors.push("missing must be a string or null");
+    }
+    if (obj.would_answer !== undefined && obj.would_answer !== null && typeof obj.would_answer !== "string") {
+      errors.push("would_answer must be a string or null");
+    }
     if (obj.values !== undefined && !Array.isArray(obj.values)) errors.push("values must be an array");
     if (obj.example === true && obj.label !== EXAMPLE_LABEL) {
       errors.push("example label must be exactly: " + EXAMPLE_LABEL);
@@ -273,8 +325,18 @@
         model_envelope: env,
         example: obj.example === true,
         label: typeof obj.label === "string" ? obj.label : "",
+        refusal_reason: typeof obj.refusal_reason === "string" ? obj.refusal_reason : null,
+        missing: typeof obj.missing === "string" ? obj.missing : "",
+        would_answer: typeof obj.would_answer === "string" ? obj.would_answer : "",
       },
     };
+  }
+
+  function filterRefusals(views, reason) {
+    const list = Array.isArray(views) ? views : [];
+    const refused = list.filter(function (v) { return v && v.state === "refused"; });
+    if (!reason || reason === "all" || reason === "refusals") return refused;
+    return refused.filter(function (v) { return v.refusalChip === reason; });
   }
 
   function loadText(text) {
@@ -350,8 +412,10 @@
     VERSION: VERSION,
     SCHEMA: SCHEMA,
     EXAMPLE_LABEL: EXAMPLE_LABEL,
+    REFUSAL_CHIPS: REFUSAL_CHIPS,
     loadText: loadText,
     classify: classify,
+    filterRefusals: filterRefusals,
     urlLoadError: urlLoadError,
   };
 });

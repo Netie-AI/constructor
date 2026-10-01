@@ -969,6 +969,7 @@ details.quiet summary {
 }
 
 .ga-file-label input,
+.ga-file-label select,
 .ga-url-row input {
   font: inherit;
   color: var(--text);
@@ -1028,6 +1029,20 @@ details.quiet summary {
   color: #e8a07a;
   font-weight: 700;
   letter-spacing: 0.08em;
+}
+
+.ga-chip {
+  display: inline-block;
+  margin: 0.2rem 0;
+  padding: 0.12rem 0.5rem;
+  border: 1px solid #e8a07a;
+  border-radius: 999px;
+  color: #e8a07a;
+  font-size: 0.72rem;
+}
+
+#ga-refusal-filter {
+  margin-top: 0.15rem;
 }
 
 .ga-card pre {

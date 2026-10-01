@@ -120,6 +120,18 @@
             <input id="ga-url" data-testid="ga-url" type="url" placeholder="Optional JSONL URL" autocomplete="off" />
             <button type="button" id="ga-load-url" class="ghost" data-testid="ga-load-url">Load URL</button>
           </div>
+          <label class="ga-file-label" for="ga-refusal-filter">
+            Refusals
+            <select id="ga-refusal-filter" data-testid="ga-refusal-filter">
+              <option value="">All answers</option>
+              <option value="refusals">All refusals</option>
+              <option value="pacing (rate limit / no healthy key)">pacing (rate limit / no healthy key)</option>
+              <option value="not yet an approved query">not yet an approved query</option>
+              <option value="wrong level of detail">wrong level of detail</option>
+              <option value="truly missing data">truly missing data</option>
+              <option value="unlabelled">unlabelled</option>
+            </select>
+          </label>
           <p class="hint" id="ga-status" data-testid="ga-status"></p>
           <div id="ga-list" data-testid="ga-list"></div>
         </section>

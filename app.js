@@ -1691,6 +1691,7 @@ function governedCard(view) {
   card.className = "ga-card";
   card.setAttribute("data-testid", "ga-card");
   card.setAttribute("data-state", view.state);
+  if (view.refusalChip) card.setAttribute("data-reason", view.refusalChip);
   const title = document.createElement("h3");
   title.textContent = view.question || "";
   card.appendChild(title);
@@ -1731,6 +1732,25 @@ function governedCard(view) {
     notice.textContent = view.notice;
     card.appendChild(notice);
   }
+  if (view.state === "refused") {
+    const chip = document.createElement("p");
+    chip.className = "ga-chip";
+    chip.setAttribute("data-testid", "ga-refusal-chip");
+    chip.textContent = view.refusalChip || "unlabelled";
+    card.appendChild(chip);
+    if (view.missing) {
+      const missing = document.createElement("p");
+      missing.setAttribute("data-testid", "ga-missing");
+      missing.textContent = "missing: " + view.missing;
+      card.appendChild(missing);
+    }
+    if (view.wouldAnswer) {
+      const answer = document.createElement("p");
+      answer.setAttribute("data-testid", "ga-would-answer");
+      answer.textContent = "would answer: " + view.wouldAnswer;
+      card.appendChild(answer);
+    }
+  }
   if (view.state === "governed") {
     const sql = document.createElement("pre");
     sql.setAttribute("data-testid", "ga-sql");
@@ -1765,10 +1785,18 @@ function governedCard(view) {
   return card;
 }
 
+let governedAnswerLoad = null;
+
+function refusalFilterValue() {
+  const filter = document.getElementById("ga-refusal-filter");
+  return filter ? filter.value : "";
+}
+
 function paintGovernedAnswer(result) {
   const list = document.getElementById("ga-list");
   const status = document.getElementById("ga-status");
   if (!list || !status) return;
+  governedAnswerLoad = result;
   while (list.firstChild) list.removeChild(list.firstChild);
   if (!result) {
     status.textContent = "No stored run. Pick a JSONL file. No live model call.";
@@ -1783,15 +1811,21 @@ function paintGovernedAnswer(result) {
       .join(" ");
     return;
   }
-  const n = result.views.length;
+  const GA = window.GovernedAnswer;
+  const filter = refusalFilterValue();
+  const views = filter && GA && typeof GA.filterRefusals === "function" ? GA.filterRefusals(result.views, filter) : result.views;
+  const n = views.length;
+  const noun = filter ? "refusal" : "stored record";
   status.textContent =
     n +
-    " stored record" +
+    " " +
+    noun +
     (n === 1 ? "" : "s") +
+    (filter && filter !== "refusals" ? ": " + filter : "") +
     "." +
     (result.exampleLabel ? " " + result.exampleLabel + "." : "") +
     " No live model call.";
-  result.views.forEach(function (view) {
+  views.forEach(function (view) {
     list.appendChild(governedCard(view));
   });
 }
@@ -1801,7 +1835,13 @@ function paintGovernedAnswer(result) {
   const file = document.getElementById("ga-file");
   const urlBtn = document.getElementById("ga-load-url");
   const urlInput = document.getElementById("ga-url");
+  const filter = document.getElementById("ga-refusal-filter");
   paintGovernedAnswer(null);
+  if (filter) {
+    filter.addEventListener("change", function () {
+      paintGovernedAnswer(governedAnswerLoad);
+    });
+  }
   if (file) {
     file.addEventListener("change", function () {
       const picked = file.files && file.files[0];
