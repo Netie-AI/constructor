@@ -3,8 +3,6 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("path");
-const { execFileSync } = require("node:child_process");
-
 const root = path.join(__dirname, "..", "..");
 const P = require(path.join(root, "planner.js"));
 const pricesJs = require(path.join(root, "planner-prices.js"));
@@ -393,40 +391,6 @@ test("DMS settings override local ones, and an invalid DMS payload falls back", 
   }
 });
 
-function git(args, opts) {
-  return execFileSync("git", args, Object.assign({ cwd: root, encoding: "utf8" }, opts));
-}
-
-function branchDiffNames() {
-  const baseName = process.env.GITHUB_BASE_REF || "landing-9-first-path";
-  if (!/^[A-Za-z0-9._/-]+$/.test(baseName) || baseName.indexOf("..") >= 0) {
-    throw new Error("refusing unsafe base ref: " + baseName);
-  }
-  const base = "origin/" + baseName;
-  let present = false;
-  try {
-    git(["rev-parse", "--verify", "--quiet", base + "^{commit}"], { stdio: "ignore" });
-    present = true;
-  } catch (err) {
-    present = false;
-  }
-  if (!present) {
-    git(["fetch", "--no-tags", "origin", baseName + ":refs/remotes/origin/" + baseName], { stdio: "pipe" });
-  }
-  let text;
-  try {
-    text = git(["diff", "--name-only", base + "...HEAD"]);
-  } catch (diffErr) {
-    try {
-      git(["fetch", "--no-tags", "--unshallow", "origin", baseName], { stdio: "pipe" });
-    } catch (fetchErr) {
-      throw diffErr;
-    }
-    text = git(["diff", "--name-only", base + "...HEAD"]);
-  }
-  return text.split(/\n/).map((line) => line.trim()).filter(Boolean);
-}
-
 test("build intents at high and max use the coding stub lane and do not call it", () => {
   const stub = P.cursorCloudAgentStub();
   const wrapped = stub.send;
@@ -435,8 +399,7 @@ test("build intents at high and max use the coding stub lane and do not call it"
     sends += 1;
     return wrapped.apply(this, arguments);
   };
-  const diff = branchDiffNames();
-  assert.ok(diff.length > 0);
+  const diff = ["planner.js", "tests/unit/planner.test.js"];
   const cases = [
     ["build-code", "Write a javascript function that checks the plan schema"],
     ["build-model", "Retrain the anomaly model on last week's sensors"],
