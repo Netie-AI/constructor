@@ -142,6 +142,40 @@
   margin-top: 0.2rem;
 }
 
+.planner-efforts {
+  margin: 0.2rem 0 0.7rem;
+}
+
+.planner-effort-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.planner-effort {
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.14));
+  border-radius: 10px;
+  padding: 0.45rem 0.5rem;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.planner-effort p {
+  margin: 0.18rem 0;
+  font-size: 0.75rem;
+  color: var(--muted, #8a8a8a);
+}
+
+.planner-effort strong {
+  display: block;
+  margin-bottom: 0.15rem;
+}
+
+@media (max-width: 900px) {
+  .planner-effort-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 @media (max-width: 720px) {
   .planner-panel,
   .planner-panel.is-full {
@@ -156,6 +190,10 @@
   }
 
   .planner-panel.is-full .planner-body {
+    grid-template-columns: 1fr;
+  }
+
+  .planner-effort-grid {
     grid-template-columns: 1fr;
   }
 }

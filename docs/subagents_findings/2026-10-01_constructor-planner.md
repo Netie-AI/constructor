@@ -12,7 +12,7 @@ PREFLIGHT: HIT - INDEX already records Cortex as the only engine, Pages zero-fet
 
 Already: canvas, chat compile, ghost dry-run, Ontology Studio, governed-answer panel on open PR #14 (left untouched).
 
-New: `planner.js` + `planner-ui.js`. Intent router, goal plan, answer spec chips, ontology proposal cards, versioned prompt registry. Synthetic fixtures. Draft PR only.
+New: `planner.js` + `planner-ui.js`. Intent router, goal plan, answer spec chips, ontology proposal cards, versioned prompt registry. Effort picker uses `planner-prices.json` (unknown price stays unknown). Build high/max is a Cursor cloud-agent stub that is not called. Synthetic fixtures. Draft PR only.
 
 ## Do not
 

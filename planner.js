@@ -24,6 +24,11 @@
   const INTENTS = ["knowledge", "database", "insight", "build-code", "build-model", "app-prompt", "unclear"];
   const LANES = ["Cortex", "DMS SQL", "OpenVault FreeRoute model hop", "KB"];
   const MODES = ["one-shot", "few-shot", "multi-step"];
+  const EFFORT_LEVELS = ["low", "medium", "high", "max"];
+  const BUILD_INTENTS = ["build-code", "build-model", "app-prompt"];
+  const CALIBRATION_SCHEMA = "netie.planner-cost-calibration/1";
+  const BRIEF_SCHEMA = "netie.build-brief/1";
+  const MAX_RUN_USD = 30;
   const DEMO_REQUEST = "list open orders where status is open, columns order_id status region, one row per order, sort by order_id";
 
   const SIGNALS = [
@@ -432,6 +437,7 @@
       governance: governance(),
       answerSpec: shaped.answerSpec,
       adapter: { id: adapter.id, kind: adapter.kind, called: false },
+      efforts: effortPreview(routed.intent, shaped.steps, ctx),
       synthetic: ctx.synthetic === true,
       label: ctx.synthetic === true ? SYNTHETIC_LABEL : null,
     };
@@ -487,6 +493,24 @@
     if (planObj.intent === "build-model" && (!g.predict || g.predict.indexOf("refused") < 0)) {
       err("PLAN_PREDICT", "build-model must keep predict refused");
     }
+    if (!planObj.efforts) err("PLAN_EFFORT", "effort preview is required");
+    EFFORT_LEVELS.forEach(function (level) {
+      const row = planObj.efforts && planObj.efforts[level];
+      if (!row) {
+        err("PLAN_EFFORT_LEVEL", "missing effort " + level);
+        return;
+      }
+      if (row.paidCallUsd !== BUDGET_PAID_CALL_USD) err("PLAN_EFFORT_CALL", level + " paid call cap drifted");
+      const runCap = level === "max" ? MAX_RUN_USD : BUDGET_RUN_USD;
+      if (row.runCapUsd !== runCap) err("PLAN_EFFORT_RUN", level + " run cap drifted");
+      if (row.needsConfirm !== (level === "high" || level === "max")) err("PLAN_EFFORT_CONFIRM", level + " confirm gate drifted");
+      if (row.costUsd !== "unknown" && !(row.costUsd && typeof row.costUsd.min === "number" && typeof row.costUsd.max === "number")) {
+        err("PLAN_EFFORT_COST", level + " cost must be unknown or a min/max pair");
+      }
+      if (row.tokens !== "unknown" && !(row.tokens && typeof row.tokens.inputMin === "number")) {
+        err("PLAN_EFFORT_TOKENS", level + " tokens must be unknown or a range");
+      }
+    });
     return { ok: errors.length === 0, errors: errors };
   }
 
@@ -613,6 +637,256 @@
     };
   }
 
+  function defaultPrices() {
+    if (defaultPrices.cache) return defaultPrices.cache;
+    let table = null;
+    if (typeof require === "function") {
+      try {
+        table = require("./planner-prices.json");
+      } catch (err) {
+        table = null;
+      }
+    }
+    if (!table && typeof window !== "undefined" && window.PlannerPrices) table = window.PlannerPrices;
+    defaultPrices.cache = table;
+    return table;
+  }
+
+  function priceTable(ctx) {
+    if (ctx && ctx.prices) return ctx.prices;
+    return defaultPrices();
+  }
+
+  function providerById(table, id) {
+    const list = (table && table.providers) || [];
+    for (let i = 0; i < list.length; i++) {
+      if (list[i] && list[i].id === id) return list[i];
+    }
+    return null;
+  }
+
+  function priced(provider) {
+    if (!provider) return false;
+    return typeof provider.inputUsdPerMillion === "number" && typeof provider.outputUsdPerMillion === "number";
+  }
+
+  function wireFor(intent, level) {
+    const build = BUILD_INTENTS.indexOf(intent) >= 0 && (level === "high" || level === "max");
+    if (build) return { client: "cursor-cloud-agents", lane: "outsourced-coding", called: false };
+    return { client: "cortex", lane: "governed", called: false };
+  }
+
+  function deliverable(intent, level) {
+    if (level === "low") return "A single cheap or free hop: an idea or a spec only. No code.";
+    if (level === "medium") return "A governed answer or a plan, plus code snippets or a diff for one module.";
+    if (level === "high") {
+      if (intent === "build-model") return "An ML plan: data, features, baseline, and eval. No training run.";
+      if (intent === "build-code" || intent === "app-prompt") return "A full code change on the build lane: one PR with tests.";
+      return "A governed answer on the Cortex lane.";
+    }
+    if (BUILD_INTENTS.indexOf(intent) >= 0) {
+      return "An end-to-end build of a whole app or ML pipeline, plus orchestration, tests, and an improve loop. The run stops at USD 30.";
+    }
+    return "A governed Cortex answer. The run stops at USD 30.";
+  }
+
+  function effortCaps(level, table) {
+    const caps = (table && table.caps) || {};
+    const paid = typeof caps.paidCallUsd === "number" ? caps.paidCallUsd : BUDGET_PAID_CALL_USD;
+    const runMap = caps.runUsd || {};
+    const run = typeof runMap[level] === "number" ? runMap[level] : (level === "max" ? MAX_RUN_USD : BUDGET_RUN_USD);
+    return { paidCallUsd: paid, runCapUsd: run };
+  }
+
+  function requestCount(steps, level, profile) {
+    const n = Math.max(0, steps | 0);
+    if (!profile) return "unknown";
+    if (level === "low") {
+      return typeof profile.lowRequests === "number" ? profile.lowRequests : "unknown";
+    }
+    const per = profile.requestsPerStep && profile.requestsPerStep[level];
+    if (typeof per !== "number") return "unknown";
+    return n * per;
+  }
+
+  function tokenRange(requests, level, profile) {
+    const tokens = profile && profile.tokensPerStep;
+    const row = tokens && tokens[level];
+    if (!row) return "unknown";
+    if (typeof requests !== "number") return "unknown";
+    const keys = ["inputMin", "inputMax", "outputMin", "outputMax"];
+    for (let i = 0; i < keys.length; i++) {
+      if (typeof row[keys[i]] !== "number") return "unknown";
+    }
+    return {
+      inputMin: requests * row.inputMin,
+      inputMax: requests * row.inputMax,
+      outputMin: requests * row.outputMin,
+      outputMax: requests * row.outputMax,
+    };
+  }
+
+  function costRange(tokens, provider, requests, caps) {
+    if (tokens === "unknown" || !priced(provider) || typeof requests !== "number") {
+      return { costUsd: "unknown", capped: false, stopUsd: caps.runCapUsd };
+    }
+    const min = (tokens.inputMin / 1000000) * provider.inputUsdPerMillion + (tokens.outputMin / 1000000) * provider.outputUsdPerMillion;
+    const max = (tokens.inputMax / 1000000) * provider.inputUsdPerMillion + (tokens.outputMax / 1000000) * provider.outputUsdPerMillion;
+    const stop = Math.min(caps.runCapUsd, caps.paidCallUsd * requests);
+    return {
+      costUsd: { min: Math.min(min, stop), max: Math.min(max, stop), capped: max > stop || min > stop },
+      capped: max > stop || min > stop,
+      stopUsd: stop,
+    };
+  }
+
+  function diffPaths(list) {
+    const out = [];
+    (list || []).forEach(function (p) {
+      if (typeof p !== "string") return;
+      const name = p.trim();
+      if (!name || name === "." || name === "*" || name.indexOf("..") === 0) return;
+      if (out.indexOf(name) < 0) out.push(name);
+    });
+    return out;
+  }
+
+  function buildBrief(intent, level, ctx, caps) {
+    const wire = wireFor(intent, level);
+    if (wire.lane !== "outsourced-coding") return null;
+    const paths = diffPaths(ctx && ctx.diffNames);
+    return {
+      schema: BRIEF_SCHEMA,
+      diffFirst: true,
+      wholeTree: false,
+      targetRepo: (ctx && ctx.repo) || "Netie-AI/constructor",
+      affectedPaths: paths,
+      acceptanceTests: ["npm run test:laws", "npm run test:unit"],
+      budget: { paidCallUsd: caps.paidCallUsd, runUsd: caps.runCapUsd },
+      note: paths.length
+        ? "Paths come from the diff list. The whole tree is not ingested."
+        : "No diff list was supplied. The whole tree is not ingested.",
+    };
+  }
+
+  function effortRow(intent, steps, level, ctx, table) {
+    const profile = table && table.profile;
+    const caps = effortCaps(level, table);
+    const requests = requestCount(steps, level, profile);
+    const tokens = tokenRange(requests, level, profile);
+    const wire = wireFor(intent, level);
+    const providerId = table && table.laneProviders ? table.laneProviders[wire.lane] : null;
+    const provider = providerById(table, providerId);
+    const cost = costRange(tokens, provider, requests, caps);
+    return {
+      level: level,
+      deliverable: deliverable(intent, level),
+      requests: requests,
+      tokens: tokens,
+      costUsd: cost.costUsd,
+      capped: cost.capped,
+      stopUsd: cost.stopUsd,
+      paidCallUsd: caps.paidCallUsd,
+      runCapUsd: caps.runCapUsd,
+      needsConfirm: level === "high" || level === "max",
+      wire: wire,
+      providerId: providerId,
+      providerPriced: priced(provider),
+      brief: buildBrief(intent, level, ctx, caps),
+      profileNote: (table && table.profileNote) || "",
+    };
+  }
+
+  function effortPreview(intent, steps, ctx) {
+    const table = priceTable(ctx);
+    const stepCount = (steps || []).length;
+    const out = {};
+    EFFORT_LEVELS.forEach(function (level) {
+      out[level] = effortRow(intent, stepCount, level, ctx, table);
+    });
+    return out;
+  }
+
+  function cursorCloudAgentStub() {
+    return {
+      id: "cursor-cloud-agents",
+      kind: "cursor-stub",
+      calls: 0,
+      send: function () {
+        this.calls += 1;
+        throw new Error("Cursor cloud agent stub is not called in this version");
+      },
+    };
+  }
+
+  function lightLlmEstimator() {
+    return {
+      id: "light-llm",
+      kind: "light-llm",
+      calls: 0,
+      estimate: function () {
+        this.calls += 1;
+        throw new Error("light LLM estimator is not called in this version");
+      },
+    };
+  }
+
+  function deterministicEstimator() {
+    return { id: "deterministic-profile", kind: "deterministic" };
+  }
+
+  function estimate(planObj, ctx) {
+    ctx = ctx || {};
+    const estimator = ctx.estimator || deterministicEstimator();
+    if (estimator.kind === "light-llm") {
+      return {
+        estimatorId: estimator.id,
+        called: false,
+        efforts: effortPreview(planObj && planObj.intent, (planObj && planObj.steps) || [], ctx),
+      };
+    }
+    if (estimator.kind === "custom" && typeof estimator.estimate === "function") {
+      return estimator.estimate(planObj, ctx);
+    }
+    return {
+      estimatorId: "deterministic-profile",
+      called: false,
+      efforts: effortPreview(planObj && planObj.intent, (planObj && planObj.steps) || [], ctx),
+    };
+  }
+
+  function costCalibration(predicted) {
+    predicted = predicted || {};
+    return {
+      schema: CALIBRATION_SCHEMA,
+      predicted: {
+        requests: predicted.requests === undefined ? null : predicted.requests,
+        tokens: predicted.tokens === undefined ? null : predicted.tokens,
+        costUsd: predicted.costUsd === undefined ? null : predicted.costUsd,
+      },
+      actual: { requests: null, tokens: null, costUsd: null },
+      recordedAt: null,
+    };
+  }
+
+  function startEffort(planObj, level, ctx) {
+    ctx = ctx || {};
+    const row = planObj && planObj.efforts && planObj.efforts[level];
+    if (!row) return { ok: false, started: false, sent: false, reason: "Unknown effort." };
+    if (row.needsConfirm && ctx.confirmed !== true) {
+      return { ok: false, started: false, sent: false, reason: "Confirm before high or max starts." };
+    }
+    return {
+      ok: true,
+      started: false,
+      sent: false,
+      reason: "Allowed. No prompt is sent in this version.",
+      wire: row.wire,
+      brief: row.brief,
+      calibration: costCalibration(row),
+    };
+  }
+
   function createPlanner(adapter) {
     const bound = adapter || offlineAdapter();
     return {
@@ -656,5 +930,15 @@
     proposeOntology: proposeOntology,
     acceptProposal: acceptProposal,
     exportAccepted: exportAccepted,
+    EFFORT_LEVELS: EFFORT_LEVELS.slice(),
+    priceTable: function () { return defaultPrices(); },
+    wireFor: wireFor,
+    effortPreview: function (intent, steps, ctx) { return effortPreview(intent, steps, ctx); },
+    estimate: estimate,
+    startEffort: startEffort,
+    costCalibration: costCalibration,
+    cursorCloudAgentStub: cursorCloudAgentStub,
+    lightLlmEstimator: lightLlmEstimator,
+    deterministicEstimator: deterministicEstimator,
   };
 });

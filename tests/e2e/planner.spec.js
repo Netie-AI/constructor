@@ -117,6 +117,41 @@ test.describe("planner", () => {
     await expect(page.locator("#power")).toContainText("Sketch (no fetch)");
   });
 
+  test("effort picker shows the cost preview and the confirm gate", async ({ page }) => {
+    await page.locator("#chat-close").click();
+    await page.evaluate(() => {
+      const plan = window.Planner.plan("Write a javascript function that checks the plan schema", {
+        synthetic: true,
+        diffNames: ["planner.js", "planner-ui.js"],
+      });
+      window.PlannerUI.render(plan, { full: true });
+    });
+    const efforts = page.getByTestId("planner-efforts");
+    await expect(efforts).toBeVisible();
+    await expect(efforts.getByTestId("effort-low")).toContainText("No code");
+    await expect(efforts.getByTestId("effort-low").getByTestId("effort-cost")).toHaveText("cost unknown");
+    await expect(efforts.getByTestId("effort-low").getByTestId("effort-tokens")).toHaveText("tokens unknown");
+    await expect(efforts.getByTestId("effort-low").getByTestId("effort-wire")).toContainText("cortex / governed");
+    await expect(efforts.getByTestId("effort-medium")).toContainText("one module");
+    await expect(efforts.getByTestId("effort-high").getByTestId("effort-wire")).toContainText("cursor-cloud-agents / outsourced-coding");
+    await expect(efforts.getByTestId("effort-high")).toContainText("one PR with tests");
+    await expect(efforts.getByTestId("effort-high").getByTestId("effort-brief")).toContainText("planner.js");
+    await expect(efforts.getByTestId("effort-max")).toContainText("$30");
+    await expect(efforts.getByTestId("effort-low")).toContainText("$0.02");
+    await expect(efforts.getByTestId("effort-low")).toContainText("$5");
+    const fetches = await page.evaluate(() => window.__fetches);
+    expect(fetches).toEqual([]);
+    await efforts.screenshot({ path: shot("planner-effort-preview.png") });
+
+    await efforts.getByTestId("effort-high-start").click();
+    await expect(page.getByTestId("effort-gate")).toContainText("Confirm before high or max starts");
+    await efforts.getByTestId("effort-high-confirm").click();
+    await efforts.getByTestId("effort-high-start").click();
+    await expect(page.getByTestId("effort-gate")).toContainText("No prompt is sent");
+    const after = await page.evaluate(() => window.__fetches);
+    expect(after).toEqual([]);
+  });
+
   test("planner panel fits a narrow viewport", async ({ page }) => {
     await page.locator("#chat-close").click();
     await page.setViewportSize({ width: 390, height: 844 });

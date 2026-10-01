@@ -9,6 +9,7 @@ Every request becomes a plan in Constructor before Cortex runs. Cortex is the on
 | `planner.js` | Model. Intent router, goal plan, answer spec, ontology proposals, prompt registry. No DOM. No fetch. |
 | `planner-ui.js` | Canvas panel. Chips, proposal cards, JSON export. No fetch. |
 | `planner.css` | Panel styles. |
+| `planner-prices.json` | Versioned price table and estimator profile. Null price means unknown. |
 | `tests/fixtures/planner-intents.synthetic.json` | Labelled synthetic requests. Not measured traffic. |
 | `tests/fixtures/planner-table.synthetic.json` | Synthetic table schema plus distinct values. Not a live table. |
 
@@ -32,7 +33,21 @@ Lanes: `Cortex`, `DMS SQL`, `OpenVault FreeRoute model hop`, `KB`.
 
 Prompt modes: `one-shot`, `few-shot`, `multi-step`.
 
-Budget, as a stop rule: about 20 requests a minute, a paid call stops at $0.02, a run stops at $5.
+Budget, as a stop rule: about 20 requests a minute, a paid call stops at $0.02, a run stops at $5. Max effort stops at $30.
+
+## Effort and cost
+
+Every plan offers low, medium, high, and max before a prompt is sent. Each level shows the deliverable, the request count from the estimator profile, the token range, the cost range, and the client or lane it is wired to.
+
+The estimator is `step count x the per-lane request profile x the provider price table` (`planner-prices.json`, version 1). Token sizes in that file are null, so the token range and the cost stay `unknown` until a sourced price and a sourced token profile exist. A null price is never replaced with a guess. `estimate` accepts another estimator. The light LLM estimator is not called.
+
+Low, medium, and high keep the $0.02 call stop and the $5 run stop. Max stops at $30. High and max stay blocked until the user confirms. Confirmation does not send a prompt.
+
+## Build lane
+
+`build-code`, `build-model`, and `app-prompt` at high or max wire to the outsourced coding lane. The adapter is a Cursor cloud agent stub and it is not called. The brief is diff-first: target repo, affected paths from the supplied diff list, acceptance tests, and a budget. The whole tree is not ingested. Knowledge, database, and insight stay on the Cortex governed lane at every level.
+
+After a run, `costCalibration` stores predicted against actual. Actual stays null in this version. Schema `netie.planner-cost-calibration/1`.
 
 Governance uses the answer contract `netie.governed-answer/1`:
 

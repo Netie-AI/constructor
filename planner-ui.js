@@ -7,7 +7,7 @@
   const P = window.Planner;
   if (!P) throw new Error("Planner missing. Load planner.js before planner-ui.js.");
 
-  const state = { plan: null, cards: [] };
+  const state = { plan: null, cards: [], confirmed: { high: false, max: false }, gate: "" };
 
   function el(tag, attrs, text) {
     const node = document.createElement(tag);
@@ -63,6 +63,10 @@
     const panel = ensure();
     if (!panel || !plan) return;
     if (opts.cards) state.cards = opts.cards;
+    if (!state.plan || state.plan.request !== plan.request) {
+      state.confirmed = { high: false, max: false };
+      state.gate = "";
+    }
     state.plan = plan;
     if (opts.full === true) panel.classList.add("is-full");
     if (opts.full === false) panel.classList.remove("is-full");
@@ -81,6 +85,7 @@
     panel.appendChild(head);
 
     if (plan.label) panel.appendChild(el("p", { class: "planner-note", "data-testid": "planner-synthetic" }, plan.label));
+    panel.appendChild(renderEfforts(plan));
 
     const body = el("div", { class: "planner-body" });
     const main = el("div", { "data-testid": "planner-plan-body" });
@@ -173,6 +178,64 @@
     side.appendChild(onto);
     body.appendChild(side);
     panel.appendChild(body);
+  }
+
+  function costText(value) {
+    if (value === "unknown") return "unknown";
+    if (value && typeof value.min === "number" && typeof value.max === "number") {
+      return "$" + value.min + " to $" + value.max + (value.capped ? ", capped" : "");
+    }
+    return "unknown";
+  }
+
+  function tokenText(value) {
+    if (!value || value === "unknown") return "unknown";
+    return "in " + value.inputMin + "-" + value.inputMax + ", out " + value.outputMin + "-" + value.outputMax;
+  }
+
+  function renderEfforts(plan) {
+    const box = el("section", { class: "planner-efforts", "data-testid": "planner-efforts" });
+    box.appendChild(el("div", { class: "eyebrow" }, "EFFORT"));
+    box.appendChild(el("p", { class: "planner-note" }, (plan.efforts && plan.efforts.low && plan.efforts.low.profileNote) || ""));
+    const grid = el("div", { class: "planner-effort-grid" });
+    (P.EFFORT_LEVELS || []).forEach(function (level) {
+      const row = plan.efforts && plan.efforts[level];
+      if (!row) return;
+      const card = el("article", { class: "planner-effort", "data-testid": "effort-" + level, "data-level": level });
+      card.appendChild(el("strong", null, level));
+      card.appendChild(el("p", { "data-testid": "effort-deliverable" }, row.deliverable));
+      card.appendChild(el("p", null, "requests " + row.requests));
+      card.appendChild(el("p", { "data-testid": "effort-tokens" }, "tokens " + tokenText(row.tokens)));
+      card.appendChild(el("p", { "data-testid": "effort-cost" }, "cost " + costText(row.costUsd)));
+      card.appendChild(el("p", null, "paid call stops at $" + row.paidCallUsd));
+      card.appendChild(el("p", null, "run stops at $" + row.runCapUsd));
+      const wire = row.wire || {};
+      card.appendChild(el("p", { "data-testid": "effort-wire" }, "wired to " + wire.client + " / " + wire.lane));
+      if (row.brief) {
+        const paths = row.brief.affectedPaths || [];
+        card.appendChild(el("p", { "data-testid": "effort-brief" }, row.brief.targetRepo + " paths " + (paths.length ? paths.join(", ") : "none") + ". " + row.brief.note));
+      }
+      if (row.needsConfirm && !state.confirmed[level]) {
+        const confirm = el("button", { type: "button", "data-testid": "effort-" + level + "-confirm" }, "Confirm before this starts");
+        confirm.addEventListener("click", function () {
+          state.confirmed[level] = true;
+          state.gate = "";
+          render(state.plan, { cards: state.cards });
+        });
+        card.appendChild(confirm);
+      }
+      const start = el("button", { type: "button", class: "ghost", "data-testid": "effort-" + level + "-start" }, row.needsConfirm && !state.confirmed[level] ? "Start" : "Start");
+      start.addEventListener("click", function () {
+        const result = P.startEffort(state.plan, level, { confirmed: !!state.confirmed[level] });
+        state.gate = level + ": " + result.reason;
+        render(state.plan, { cards: state.cards });
+      });
+      card.appendChild(start);
+      grid.appendChild(card);
+    });
+    box.appendChild(grid);
+    if (state.gate) box.appendChild(el("p", { "data-testid": "effort-gate" }, state.gate));
+    return box;
   }
 
   function openDemo() {
