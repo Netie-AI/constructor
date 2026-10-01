@@ -693,7 +693,12 @@ function chatSay(role, text) {
 function attachPlan(text) {
   const Planner = window.Planner;
   if (!Planner || typeof Planner.plan !== "function") return null;
-  const plan = Planner.plan(text, { adapter: Planner.cortexPlannerStub() });
+  const settings = typeof Planner.readSettings === "function" ? Planner.readSettings(window.localStorage) : null;
+  const plan = Planner.plan(text, {
+    adapter: Planner.cortexPlannerStub(),
+    settings: settings || undefined,
+    storage: window.localStorage,
+  });
   if (window.Constructor) window.Constructor.lastPlan = plan;
   if (window.PlannerUI && typeof window.PlannerUI.render === "function") {
     window.PlannerUI.render(plan, { full: false });

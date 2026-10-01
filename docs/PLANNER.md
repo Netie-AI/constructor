@@ -33,15 +33,23 @@ Lanes: `Cortex`, `DMS SQL`, `OpenVault FreeRoute model hop`, `KB`.
 
 Prompt modes: `one-shot`, `few-shot`, `multi-step`.
 
-Budget, as a stop rule: about 20 requests a minute, a paid call stops at $0.02, a run stops at $5. Max effort stops at $30.
+Budget rate stays about 20 requests a minute. Dollar caps are user settings. Empty means unlimited.
 
 ## Effort and cost
 
-Every plan offers low, medium, high, and max before a prompt is sent. Each level shows the deliverable, the request count from the estimator profile, the token range, the cost range, and the client or lane it is wired to.
+Every plan offers low, medium, high, and max before a prompt is sent. The default mode is `auto`. Auto picks one level per request from the router plus the estimator, shows that level and the predicted cost on the plan, and appends a log row. Auto does not ask for confirmation.
+
+Router pick, before a cap steps it down: `unclear` is low, `knowledge` / `database` / `insight` are medium, and `build-code` / `build-model` / `app-prompt` are high. If the predicted max is over a user cap, auto steps down. If the prediction is unknown and a cap is set, auto stays at low and does not invent a dollar amount. Empty caps leave the router pick in place.
+
+Each level shows the deliverable, the request count from the estimator profile, the token range, the cost range, the caps that apply, and the client or lane it is wired to. The remaining per-call, per-run, and max-level budget stays on the plan. A numeric logged spend is the only amount subtracted. Unknown predictions are not subtracted. `spentUsd` stays null until a numeric cost is logged.
 
 The estimator is `step count x the per-lane request profile x the provider price table` (`planner-prices.json`, version 1). Token sizes in that file are null, so the token range and the cost stay `unknown` until a sourced price and a sourced token profile exist. A null price is never replaced with a guess. `estimate` accepts another estimator. The light LLM estimator is not called.
 
-Low, medium, and high keep the $0.02 call stop and the $5 run stop. Max stops at $30. High and max stay blocked until the user confirms. Confirmation does not send a prompt.
+## Settings
+
+Schema `netie.planner-settings/1`. Fields: effort mode (`auto`, `low`, `medium`, `high`, `max`), confirmation, per-call cap, per-run cap, max-level budget. Defaults: auto, confirmation off, caps empty. The Settings panel on the planner edits them. `localStorage` key `netie.constructor.planner.settings` stores them. The choice log is `netie.constructor.planner.log` (`netie.planner-effort-log/1`). There is no settings server.
+
+A number the user saves is enforced: the shown cost stops at the tightest remaining cap, and start refuses a level whose predicted max is over that cap. An empty cap does not clamp. Confirmation, when on, blocks a manual high or max until the user confirms. Auto still does not ask. Confirmation does not send a prompt.
 
 ## Build lane
 

@@ -53,8 +53,10 @@ test.describe("planner", () => {
     await expect(panel.getByTestId("planner-goal")).toContainText("governed row answer");
     await expect(panel.getByTestId("planner-success")).toBeVisible();
     await expect(panel.getByTestId("planner-steps")).toContainText("DMS SQL");
-    await expect(panel.getByTestId("planner-budget")).toContainText("$0.02");
-    await expect(panel.getByTestId("planner-budget")).toContainText("$5");
+    await expect(panel.getByTestId("planner-budget")).toContainText("20");
+    await expect(panel.getByTestId("planner-budget")).toContainText("unlimited");
+    await expect(panel.getByTestId("effort-choice")).toContainText("auto chose medium");
+    await expect(panel.getByTestId("effort-choice")).toContainText("predicted cost unknown");
     await expect(panel.getByTestId("planner-gates")).toContainText("withheld");
     await expect(panel.getByTestId("planner-chip")).toHaveCount(6);
     await expect(panel.locator("[data-kind=grain]")).toContainText("one row per order");
@@ -136,20 +138,71 @@ test.describe("planner", () => {
     await expect(efforts.getByTestId("effort-high").getByTestId("effort-wire")).toContainText("cursor-cloud-agents / outsourced-coding");
     await expect(efforts.getByTestId("effort-high")).toContainText("one PR with tests");
     await expect(efforts.getByTestId("effort-high").getByTestId("effort-brief")).toContainText("planner.js");
-    await expect(efforts.getByTestId("effort-max")).toContainText("$30");
-    await expect(efforts.getByTestId("effort-low")).toContainText("$0.02");
-    await expect(efforts.getByTestId("effort-low")).toContainText("$5");
+    await expect(efforts.getByTestId("effort-choice")).toContainText("auto chose high");
+    await expect(efforts.getByTestId("effort-choice")).toContainText("predicted cost unknown");
+    await expect(efforts.getByTestId("effort-log")).toContainText("build-code");
+    await expect(efforts.getByTestId("effort-remaining")).toContainText("unlimited");
+    await expect(efforts.getByTestId("effort-low").getByTestId("effort-cap")).toContainText("unlimited");
+    await expect(efforts.getByTestId("effort-max")).toContainText("unlimited");
+    await expect(efforts.getByTestId("effort-high-confirm")).toHaveCount(0);
+    await efforts.getByTestId("planner-settings-open").click();
+    await expect(efforts.getByTestId("settings-mode")).toHaveValue("auto");
+    await expect(efforts.getByTestId("settings-confirm")).not.toBeChecked();
+    await expect(efforts.getByTestId("settings-paid-call")).toHaveValue("");
     const fetches = await page.evaluate(() => window.__fetches);
     expect(fetches).toEqual([]);
     await efforts.screenshot({ path: shot("planner-effort-preview.png") });
+    await page.getByTestId("planner-settings").screenshot({ path: shot("planner-settings.png") });
 
-    await efforts.getByTestId("effort-high-start").click();
-    await expect(page.getByTestId("effort-gate")).toContainText("Confirm before high or max starts");
-    await efforts.getByTestId("effort-high-confirm").click();
     await efforts.getByTestId("effort-high-start").click();
     await expect(page.getByTestId("effort-gate")).toContainText("No prompt is sent");
     const after = await page.evaluate(() => window.__fetches);
     expect(after).toEqual([]);
+  });
+
+  test("settings persist after reload and an empty cap stays unlimited", async ({ page }) => {
+    await page.evaluate(() => {
+      localStorage.removeItem("netie.constructor.planner.settings");
+      localStorage.removeItem("netie.constructor.planner.log");
+    });
+    await page.locator("#chat-close").click();
+    await page.getByTestId("open-planner").click();
+    await page.getByTestId("planner-settings-open").click();
+    await page.getByTestId("settings-paid-call").fill("1.5");
+    await page.getByTestId("settings-run").fill("12");
+    await page.getByTestId("settings-max").fill("40");
+    await page.getByTestId("settings-confirm").check();
+    await page.getByTestId("settings-save").click();
+    await expect(page.getByTestId("effort-remaining")).toContainText("$1.5");
+    await expect(page.getByTestId("effort-remaining")).toContainText("$12");
+    await expect(page.getByTestId("effort-remaining")).toContainText("$40");
+    await expect(page.getByTestId("effort-choice")).toContainText("auto chose low");
+    await expect(page.getByTestId("effort-high-confirm")).toHaveCount(0);
+    await page.getByTestId("effort-high-start").click();
+    await expect(page.getByTestId("effort-gate")).toContainText("No prompt is sent");
+    await page.screenshot({ path: shot("planner-settings-saved.png") });
+
+    await page.reload();
+    await expect(page.locator(".node")).toHaveCount(8);
+    const close = page.locator("#chat-close");
+    if (await close.isVisible()) await close.click();
+    await page.getByTestId("open-planner").click();
+    await page.getByTestId("planner-settings-open").click();
+    await expect(page.getByTestId("settings-paid-call")).toHaveValue("1.5");
+    await expect(page.getByTestId("settings-run")).toHaveValue("12");
+    await expect(page.getByTestId("settings-max")).toHaveValue("40");
+    await expect(page.getByTestId("settings-confirm")).toBeChecked();
+    await expect(page.getByTestId("settings-mode")).toHaveValue("auto");
+    await page.getByTestId("settings-paid-call").fill("");
+    await page.getByTestId("settings-run").fill("");
+    await page.getByTestId("settings-max").fill("");
+    await page.getByTestId("settings-save").click();
+    await expect(page.getByTestId("effort-remaining")).toContainText("per call unlimited");
+    await expect(page.getByTestId("effort-remaining")).toContainText("per run unlimited");
+    await expect(page.getByTestId("effort-choice")).toContainText("auto chose medium");
+    await expect(page.getByTestId("effort-low").getByTestId("effort-wire")).toContainText("cortex / governed");
+    const fetches = await page.evaluate(() => window.__fetches);
+    expect(fetches).toEqual([]);
   });
 
   test("planner panel fits a narrow viewport", async ({ page }) => {

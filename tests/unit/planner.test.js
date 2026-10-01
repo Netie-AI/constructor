@@ -115,8 +115,12 @@ test("governance gates name linked, no link, and withheld", () => {
   assert.match(plan.governance.noLink, /badge off/);
   assert.match(plan.governance.noExecutedQuery, /withheld/);
   assert.equal(plan.budget.requestsPerMinute, 20);
-  assert.equal(plan.budget.paidCallUsd, 0.02);
-  assert.equal(plan.budget.runUsd, 5);
+  assert.equal(plan.budget.paidCallUsd, null);
+  assert.equal(plan.budget.runUsd, null);
+  assert.equal(plan.budget.maxLevelBudgetUsd, null);
+  assert.equal(plan.budget.effortMode, "auto");
+  assert.equal(plan.budget.confirm, false);
+  assert.equal(plan.budget.remaining.runUsd, "unlimited");
 });
 
 test("ontology proposals stay proposed until a person accepts one", () => {
@@ -226,8 +230,14 @@ test("existing chat prompts that compile a graph are not unclear", () => {
 
 test("validatePlan rejects a plan that skips the budget", () => {
   const plan = P.plan("What is the runbook?");
-  plan.budget.paidCallUsd = 1;
+  assert.equal(plan.budget.paidCallUsd, null);
+  plan.budget.requestsPerMinute = 1;
   const v = P.validatePlan(plan);
   assert.equal(v.ok, false);
-  assert.ok(v.errors.some((e) => e.code === "PLAN_BUDGET_CALL"));
+  assert.ok(v.errors.some((e) => e.code === "PLAN_BUDGET_RATE"));
+  plan.budget.requestsPerMinute = 20;
+  plan.budget.paidCallUsd = -1;
+  const v2 = P.validatePlan(plan);
+  assert.equal(v2.ok, false);
+  assert.ok(v2.errors.some((e) => e.code === "PLAN_BUDGET_CALL"));
 });

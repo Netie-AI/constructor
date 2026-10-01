@@ -7,7 +7,14 @@
   const P = window.Planner;
   if (!P) throw new Error("Planner missing. Load planner.js before planner-ui.js.");
 
-  const state = { plan: null, cards: [], confirmed: { high: false, max: false }, gate: "" };
+  const state = {
+    plan: null,
+    cards: [],
+    confirmed: { high: false, max: false },
+    gate: "",
+    settingsOpen: false,
+    settingsError: "",
+  };
 
   function el(tag, attrs, text) {
     const node = document.createElement(tag);
@@ -188,6 +195,108 @@
     return "unknown";
   }
 
+  function capLabel(value) {
+    return typeof value === "number" ? "$" + value : "unlimited";
+  }
+
+  function remainingText(plan) {
+    const left = (plan.budget && plan.budget.remaining) || {};
+    return "remaining per call " + capLabel(left.paidCallUsd === "unlimited" ? null : left.paidCallUsd) + ", per run " + capLabel(left.runUsd === "unlimited" ? null : left.runUsd) + ", max-level " + capLabel(left.maxLevelBudgetUsd === "unlimited" ? null : left.maxLevelBudgetUsd);
+  }
+
+  function pathsFrom(plan) {
+    const paths = [];
+    ["high", "max"].forEach(function (level) {
+      const brief = plan.efforts && plan.efforts[level] && plan.efforts[level].brief;
+      ((brief && brief.affectedPaths) || []).forEach(function (name) {
+        if (paths.indexOf(name) < 0) paths.push(name);
+      });
+    });
+    return paths;
+  }
+
+  function saveSettings(form) {
+    const written = P.writeSettings({
+      effortMode: form.querySelector("[data-testid=settings-mode]").value,
+      confirm: form.querySelector("[data-testid=settings-confirm]").checked,
+      paidCallUsd: form.querySelector("[data-testid=settings-paid-call]").value,
+      runUsd: form.querySelector("[data-testid=settings-run]").value,
+      maxLevelBudgetUsd: form.querySelector("[data-testid=settings-max]").value,
+    }, window.localStorage);
+    if (!written.ok) {
+      state.settingsError = "Caps must be empty or a number that is at least 0.";
+      render(state.plan, { cards: state.cards });
+      return;
+    }
+    state.settingsError = "";
+    const prev = state.plan;
+    const panel = document.getElementById("planner-panel");
+    const plan = P.plan(prev.request, {
+      adapter: P.cortexPlannerStub(),
+      synthetic: prev.synthetic === true,
+      settings: written.settings,
+      storage: window.localStorage,
+      diffNames: pathsFrom(prev),
+      recordedAt: new Date().toISOString(),
+    });
+    render(plan, { cards: state.cards, full: !!(panel && panel.classList.contains("is-full")) });
+    if (window.Constructor) window.Constructor.lastPlan = plan;
+  }
+
+  function renderSettings(plan) {
+    const box = el("section", { class: "planner-settings", "data-testid": "planner-settings" });
+    const toggle = el("button", {
+      type: "button",
+      class: "ghost",
+      "data-testid": "planner-settings-open",
+    }, state.settingsOpen ? "Hide settings" : "Settings");
+    toggle.addEventListener("click", function () {
+      state.settingsOpen = !state.settingsOpen;
+      state.settingsError = "";
+      render(state.plan, { cards: state.cards });
+    });
+    box.appendChild(toggle);
+    if (!state.settingsOpen) return box;
+    const settings = plan.settings || P.defaultSettings();
+    const form = el("form", { "data-testid": "planner-settings-form" });
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      saveSettings(form);
+    });
+    const modeLabel = el("label", null, "Effort mode");
+    const mode = el("select", { "data-testid": "settings-mode" });
+    ["auto", "low", "medium", "high", "max"].forEach(function (level) {
+      const opt = el("option", { value: level }, level);
+      if (settings.effortMode === level) opt.selected = true;
+      mode.appendChild(opt);
+    });
+    modeLabel.appendChild(mode);
+    form.appendChild(modeLabel);
+    const confirmLabel = el("label", null, "Require confirmation for manual high and max");
+    const confirmAttrs = { type: "checkbox", "data-testid": "settings-confirm" };
+    if (settings.confirm) confirmAttrs.checked = "checked";
+    confirmLabel.appendChild(el("input", confirmAttrs));
+    form.appendChild(confirmLabel);
+    function moneyField(testId, label, value) {
+      const lab = el("label", null, label);
+      lab.appendChild(el("input", {
+        type: "text",
+        inputmode: "decimal",
+        "data-testid": testId,
+        placeholder: "unlimited",
+        value: typeof value === "number" ? String(value) : "",
+      }));
+      return lab;
+    }
+    form.appendChild(moneyField("settings-paid-call", "Per call cap", settings.paidCallUsd));
+    form.appendChild(moneyField("settings-run", "Per run cap", settings.runUsd));
+    form.appendChild(moneyField("settings-max", "Max-level budget", settings.maxLevelBudgetUsd));
+    form.appendChild(el("button", { type: "submit", "data-testid": "settings-save" }, "Save settings"));
+    box.appendChild(form);
+    if (state.settingsError) box.appendChild(el("p", { class: "planner-settings-error", "data-testid": "settings-error" }, state.settingsError));
+    return box;
+  }
+
   function tokenText(value) {
     if (!value || value === "unknown") return "unknown";
     return "in " + value.inputMin + "-" + value.inputMax + ", out " + value.outputMin + "-" + value.outputMax;
@@ -196,19 +305,27 @@
   function renderEfforts(plan) {
     const box = el("section", { class: "planner-efforts", "data-testid": "planner-efforts" });
     box.appendChild(el("div", { class: "eyebrow" }, "EFFORT"));
+    const choice = plan.effortChoice || {};
+    const predicted = costText(choice.predictedUsd);
+    const prefix = plan.settings && plan.settings.effortMode === "auto" ? "auto chose " : "effort ";
+    box.appendChild(el("p", { class: "planner-choice", "data-testid": "effort-choice" }, prefix + choice.level + ", predicted cost " + predicted));
+    box.appendChild(el("p", { class: "planner-note", "data-testid": "effort-log" }, "logged: " + plan.intent + ", " + choice.level + ", " + predicted + ". " + (choice.reason || "")));
+    box.appendChild(el("p", { class: "planner-note", "data-testid": "effort-remaining" }, remainingText(plan)));
+    box.appendChild(renderSettings(plan));
     box.appendChild(el("p", { class: "planner-note" }, (plan.efforts && plan.efforts.low && plan.efforts.low.profileNote) || ""));
     const grid = el("div", { class: "planner-effort-grid" });
     (P.EFFORT_LEVELS || []).forEach(function (level) {
       const row = plan.efforts && plan.efforts[level];
       if (!row) return;
       const card = el("article", { class: "planner-effort", "data-testid": "effort-" + level, "data-level": level });
+      if (choice.level === level) card.setAttribute("data-chosen", "true");
       card.appendChild(el("strong", null, level));
       card.appendChild(el("p", { "data-testid": "effort-deliverable" }, row.deliverable));
       card.appendChild(el("p", null, "requests " + row.requests));
       card.appendChild(el("p", { "data-testid": "effort-tokens" }, "tokens " + tokenText(row.tokens)));
       card.appendChild(el("p", { "data-testid": "effort-cost" }, "cost " + costText(row.costUsd)));
-      card.appendChild(el("p", null, "paid call stops at $" + row.paidCallUsd));
-      card.appendChild(el("p", null, "run stops at $" + row.runCapUsd));
+      const capLine = "per call " + capLabel(row.paidCallUsd) + ", per run " + capLabel(row.runUsd) + (level === "max" ? ", max-level " + capLabel(row.maxLevelBudgetUsd) : "");
+      card.appendChild(el("p", { "data-testid": "effort-cap" }, capLine));
       const wire = row.wire || {};
       card.appendChild(el("p", { "data-testid": "effort-wire" }, "wired to " + wire.client + " / " + wire.lane));
       if (row.brief) {
@@ -226,7 +343,10 @@
       }
       const start = el("button", { type: "button", class: "ghost", "data-testid": "effort-" + level + "-start" }, row.needsConfirm && !state.confirmed[level] ? "Start" : "Start");
       start.addEventListener("click", function () {
-        const result = P.startEffort(state.plan, level, { confirmed: !!state.confirmed[level] });
+        const result = P.startEffort(state.plan, level, {
+          confirmed: !!state.confirmed[level],
+          settings: state.plan.settings,
+        });
         state.gate = level + ": " + result.reason;
         render(state.plan, { cards: state.cards });
       });
@@ -240,7 +360,13 @@
 
   function openDemo() {
     const adapter = P.cortexPlannerStub();
-    const plan = P.plan(P.demoRequest(), { adapter: adapter, synthetic: true });
+    const settings = P.readSettings(window.localStorage);
+    const plan = P.plan(P.demoRequest(), {
+      adapter: adapter,
+      synthetic: true,
+      settings: settings,
+      storage: window.localStorage,
+    });
     const cards = P.proposeOntology(P.sampleSchema());
     render(plan, { full: true, cards: cards });
     if (window.Constructor) window.Constructor.lastPlan = plan;

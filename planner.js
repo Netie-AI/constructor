@@ -18,8 +18,6 @@
   const MIN_SCORE = 2;
   const LOW_CARDINALITY_MAX = 12;
   const BUDGET_REQUESTS_PER_MINUTE = 20;
-  const BUDGET_PAID_CALL_USD = 0.02;
-  const BUDGET_RUN_USD = 5;
   const CLARIFY = "Which job is this: docs, governed rows, an aggregate, code, training a model, or an app skin?";
   const INTENTS = ["knowledge", "database", "insight", "build-code", "build-model", "app-prompt", "unclear"];
   const LANES = ["Cortex", "DMS SQL", "OpenVault FreeRoute model hop", "KB"];
@@ -28,7 +26,11 @@
   const BUILD_INTENTS = ["build-code", "build-model", "app-prompt"];
   const CALIBRATION_SCHEMA = "netie.planner-cost-calibration/1";
   const BRIEF_SCHEMA = "netie.build-brief/1";
-  const MAX_RUN_USD = 30;
+  const SETTINGS_SCHEMA = "netie.planner-settings/1";
+  const LOG_SCHEMA = "netie.planner-effort-log/1";
+  const SETTINGS_KEY = "netie.constructor.planner.settings";
+  const LOG_KEY = "netie.constructor.planner.log";
+  const EFFORT_MODES = ["auto", "low", "medium", "high", "max"];
   const DEMO_REQUEST = "list open orders where status is open, columns order_id status region, one row per order, sort by order_id";
 
   const SIGNALS = [
@@ -210,13 +212,159 @@
     };
   }
 
-  function budget() {
+  function defaultSettings() {
+    return {
+      schema: SETTINGS_SCHEMA,
+      effortMode: "auto",
+      confirm: false,
+      paidCallUsd: null,
+      runUsd: null,
+      maxLevelBudgetUsd: null,
+      spentUsd: null,
+    };
+  }
+
+  function moneyOrNull(value) {
+    if (value == null || value === "") return null;
+    if (typeof value === "number" && isFinite(value) && value >= 0) return value;
+    if (typeof value === "string" && value.trim() !== "" && isFinite(Number(value))) {
+      const n = Number(value);
+      if (n >= 0) return n;
+    }
+    return undefined;
+  }
+
+  function normalizeSettings(input) {
+    const base = defaultSettings();
+    if (!input || typeof input !== "object") return { ok: true, settings: base, invalid: [] };
+    const invalid = [];
+    const mode = input.effortMode == null || input.effortMode === "" ? "auto" : input.effortMode;
+    if (EFFORT_MODES.indexOf(mode) < 0) invalid.push("effortMode");
+    else base.effortMode = mode;
+    if (input.confirm == null || input.confirm === "" || input.confirm === false || input.confirm === "false") base.confirm = false;
+    else if (input.confirm === true || input.confirm === "true") base.confirm = true;
+    else invalid.push("confirm");
+    ["paidCallUsd", "runUsd", "maxLevelBudgetUsd", "spentUsd"].forEach(function (key) {
+      if (!Object.prototype.hasOwnProperty.call(input, key)) return;
+      const n = moneyOrNull(input[key]);
+      if (n === undefined) invalid.push(key);
+      else base[key] = n;
+    });
+    return { ok: invalid.length === 0, settings: base, invalid: invalid };
+  }
+
+  function storageOf(storage) {
+    if (storage && typeof storage.getItem === "function" && typeof storage.setItem === "function") return storage;
+    return null;
+  }
+
+  function readSettings(storage) {
+    const store = storageOf(storage);
+    if (!store) return defaultSettings();
+    try {
+      const raw = store.getItem(SETTINGS_KEY);
+      if (!raw) return defaultSettings();
+      const norm = normalizeSettings(JSON.parse(raw));
+      if (!norm.ok) return defaultSettings();
+      return norm.settings;
+    } catch (err) {
+      return defaultSettings();
+    }
+  }
+
+  function writeSettings(input, storage) {
+    const store = storageOf(storage);
+    const prev = readSettings(store);
+    if (!store) return { ok: false, settings: prev, invalid: ["storage"] };
+    const norm = normalizeSettings(Object.assign({}, prev, input || {}));
+    if (!norm.ok) return { ok: false, settings: prev, invalid: norm.invalid };
+    try {
+      store.setItem(SETTINGS_KEY, JSON.stringify(norm.settings));
+    } catch (err) {
+      return { ok: false, settings: prev, invalid: ["storage"] };
+    }
+    return { ok: true, settings: norm.settings, invalid: [] };
+  }
+
+  function readLog(storage) {
+    const store = storageOf(storage);
+    if (!store) return [];
+    try {
+      const raw = store.getItem(LOG_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (err) {
+      return [];
+    }
+  }
+
+  function recordChoice(entry, storage) {
+    const row = {
+      schema: LOG_SCHEMA,
+      intent: entry.intent,
+      level: entry.level,
+      costUsd: entry.costUsd,
+      predictedUsd: entry.predictedUsd,
+      reason: entry.reason,
+      recordedAt: entry.recordedAt == null ? null : entry.recordedAt,
+    };
+    const store = storageOf(storage);
+    if (!store) return null;
+    const list = readLog(store);
+    list.push(row);
+    try {
+      store.setItem(LOG_KEY, JSON.stringify(list));
+    } catch (err) {
+      return null;
+    }
+    return row;
+  }
+
+  function resolveSettings(ctx) {
+    ctx = ctx || {};
+    if (ctx.settings) return normalizeSettings(ctx.settings).settings;
+    if (ctx.storage) return readSettings(ctx.storage);
+    return defaultSettings();
+  }
+
+  function moneyLabel(value) {
+    return typeof value === "number" ? "$" + value : "unlimited";
+  }
+
+  function remainingView(settings) {
+    const spent = typeof settings.spentUsd === "number" ? settings.spentUsd : 0;
+    function left(cap) {
+      if (typeof cap !== "number") return "unlimited";
+      return Math.max(0, cap - spent);
+    }
+    return {
+      paidCallUsd: typeof settings.paidCallUsd === "number" ? settings.paidCallUsd : "unlimited",
+      runUsd: left(settings.runUsd),
+      maxLevelBudgetUsd: left(settings.maxLevelBudgetUsd),
+      spentUsd: typeof settings.spentUsd === "number" ? settings.spentUsd : null,
+    };
+  }
+
+  function budget(settings) {
+    settings = settings || defaultSettings();
+    const confirm = settings.confirm === true
+      ? "Confirmation is on for a manual high or max. Auto does not ask."
+      : "Confirmation is off.";
     return {
       requestsPerMinute: BUDGET_REQUESTS_PER_MINUTE,
-      paidCallUsd: BUDGET_PAID_CALL_USD,
-      runUsd: BUDGET_RUN_USD,
-      rule: "About 20 requests a minute. A paid call stops at $0.02. A run stops at $5.",
+      paidCallUsd: settings.paidCallUsd,
+      runUsd: settings.runUsd,
+      maxLevelBudgetUsd: settings.maxLevelBudgetUsd,
+      confirm: settings.confirm === true,
+      effortMode: settings.effortMode,
+      remaining: remainingView(settings),
+      rule: "About 20 requests a minute. Per call " + moneyLabel(settings.paidCallUsd) + ". Per run " + moneyLabel(settings.runUsd) + ". Max-level budget " + moneyLabel(settings.maxLevelBudgetUsd) + ". " + confirm,
     };
+  }
+
+  function moneyOk(value) {
+    return value == null || (typeof value === "number" && isFinite(value) && value >= 0);
   }
 
   function governance() {
@@ -415,6 +563,17 @@
     const text = String(request || "").trim();
     const routed = route(text);
     const shaped = shapeFor(routed.intent, text);
+    const settings = resolveSettings(ctx);
+    const efforts = effortPreview(routed.intent, shaped.steps, ctx, settings);
+    const choice = chooseEffort(routed.intent, efforts, settings);
+    const logged = recordChoice({
+      intent: routed.intent,
+      level: choice.level,
+      costUsd: choice.costUsd,
+      predictedUsd: choice.predictedUsd,
+      reason: choice.reason,
+      recordedAt: ctx.recordedAt == null ? null : ctx.recordedAt,
+    }, ctx.storage);
     return {
       schema: SCHEMA,
       version: VERSION,
@@ -433,11 +592,20 @@
       promptMode: shaped.promptMode,
       promptModeReason: shaped.promptModeReason,
       promptLog: shaped.promptLog,
-      budget: budget(),
+      budget: budget(settings),
+      settings: settings,
       governance: governance(),
       answerSpec: shaped.answerSpec,
       adapter: { id: adapter.id, kind: adapter.kind, called: false },
-      efforts: effortPreview(routed.intent, shaped.steps, ctx),
+      efforts: efforts,
+      effortChoice: {
+        level: choice.level,
+        costUsd: choice.costUsd,
+        predictedUsd: choice.predictedUsd,
+        reason: choice.reason,
+        prompted: false,
+        logged: !!logged,
+      },
       synthetic: ctx.synthetic === true,
       label: ctx.synthetic === true ? SYNTHETIC_LABEL : null,
     };
@@ -471,8 +639,12 @@
     });
     const b = planObj.budget || {};
     if (b.requestsPerMinute !== BUDGET_REQUESTS_PER_MINUTE) err("PLAN_BUDGET_RATE", "request budget must stay at 20 a minute");
-    if (b.paidCallUsd !== BUDGET_PAID_CALL_USD) err("PLAN_BUDGET_CALL", "a paid call must stop at 0.02");
-    if (b.runUsd !== BUDGET_RUN_USD) err("PLAN_BUDGET_RUN", "a run must stop at 5");
+    if (!moneyOk(b.paidCallUsd)) err("PLAN_BUDGET_CALL", "per-call cap must be empty or a number that is at least 0");
+    if (!moneyOk(b.runUsd)) err("PLAN_BUDGET_RUN", "per-run cap must be empty or a number that is at least 0");
+    if (!moneyOk(b.maxLevelBudgetUsd)) err("PLAN_BUDGET_MAX", "max-level budget must be empty or a number that is at least 0");
+    const settings = planObj.settings || defaultSettings();
+    if (!planObj.settings || planObj.settings.schema !== SETTINGS_SCHEMA) err("PLAN_SETTINGS", "settings are required");
+    if (EFFORT_MODES.indexOf(settings.effortMode) < 0) err("PLAN_SETTINGS_MODE", "effort mode is not known");
     const g = planObj.governance || {};
     if (g.contract !== "netie.governed-answer/1") err("PLAN_GATE_CONTRACT", "governance contract mismatch");
     if (!g.linked || !g.noLink || !g.noExecutedQuery || !g.predict) err("PLAN_GATES", "governance gates are incomplete");
@@ -500,17 +672,25 @@
         err("PLAN_EFFORT_LEVEL", "missing effort " + level);
         return;
       }
-      if (row.paidCallUsd !== BUDGET_PAID_CALL_USD) err("PLAN_EFFORT_CALL", level + " paid call cap drifted");
-      const runCap = level === "max" ? MAX_RUN_USD : BUDGET_RUN_USD;
-      if (row.runCapUsd !== runCap) err("PLAN_EFFORT_RUN", level + " run cap drifted");
-      if (row.needsConfirm !== (level === "high" || level === "max")) err("PLAN_EFFORT_CONFIRM", level + " confirm gate drifted");
+      if (!moneyOk(row.paidCallUsd)) err("PLAN_EFFORT_CALL", level + " per-call cap must be empty or a number");
+      if (!moneyOk(row.runUsd)) err("PLAN_EFFORT_RUN", level + " per-run cap must be empty or a number");
+      const confirmOn = settings.confirm === true && settings.effortMode !== "auto";
+      if (row.needsConfirm !== (confirmOn && (level === "high" || level === "max"))) err("PLAN_EFFORT_CONFIRM", level + " confirm gate drifted");
       if (row.costUsd !== "unknown" && !(row.costUsd && typeof row.costUsd.min === "number" && typeof row.costUsd.max === "number")) {
         err("PLAN_EFFORT_COST", level + " cost must be unknown or a min/max pair");
+      }
+      if (row.predictedUsd !== "unknown" && !(row.predictedUsd && typeof row.predictedUsd.min === "number" && typeof row.predictedUsd.max === "number")) {
+        err("PLAN_EFFORT_PREDICTED", level + " predicted cost must be unknown or a min/max pair");
       }
       if (row.tokens !== "unknown" && !(row.tokens && typeof row.tokens.inputMin === "number")) {
         err("PLAN_EFFORT_TOKENS", level + " tokens must be unknown or a range");
       }
     });
+    if (!planObj.effortChoice || EFFORT_LEVELS.indexOf(planObj.effortChoice.level) < 0) err("PLAN_EFFORT_CHOICE", "effort choice is required");
+    if (planObj.effortChoice && planObj.effortChoice.prompted !== false) err("PLAN_EFFORT_PROMPT", "the effort choice must not prompt");
+    if (settings.effortMode !== "auto" && planObj.effortChoice && planObj.effortChoice.level !== settings.effortMode) {
+      err("PLAN_EFFORT_MODE", "a manual mode keeps the chosen level");
+    }
     return { ok: errors.length === 0, errors: errors };
   }
 
@@ -685,17 +865,19 @@
       return "A governed answer on the Cortex lane.";
     }
     if (BUILD_INTENTS.indexOf(intent) >= 0) {
-      return "An end-to-end build of a whole app or ML pipeline, plus orchestration, tests, and an improve loop. The run stops at USD 30.";
+      return "An end-to-end build of a whole app or ML pipeline, plus orchestration, tests, and an improve loop.";
     }
-    return "A governed Cortex answer. The run stops at USD 30.";
+    return "A governed Cortex answer at max effort.";
   }
 
-  function effortCaps(level, table) {
-    const caps = (table && table.caps) || {};
-    const paid = typeof caps.paidCallUsd === "number" ? caps.paidCallUsd : BUDGET_PAID_CALL_USD;
-    const runMap = caps.runUsd || {};
-    const run = typeof runMap[level] === "number" ? runMap[level] : (level === "max" ? MAX_RUN_USD : BUDGET_RUN_USD);
-    return { paidCallUsd: paid, runCapUsd: run };
+  function capsFromSettings(settings) {
+    settings = settings || defaultSettings();
+    return {
+      paidCallUsd: typeof settings.paidCallUsd === "number" ? settings.paidCallUsd : null,
+      runUsd: typeof settings.runUsd === "number" ? settings.runUsd : null,
+      maxLevelBudgetUsd: typeof settings.maxLevelBudgetUsd === "number" ? settings.maxLevelBudgetUsd : null,
+      spentUsd: typeof settings.spentUsd === "number" ? settings.spentUsd : null,
+    };
   }
 
   function requestCount(steps, level, profile) {
@@ -726,16 +908,32 @@
     };
   }
 
-  function costRange(tokens, provider, requests, caps) {
+  function limitList(caps, requests, level) {
+    const spent = typeof caps.spentUsd === "number" ? caps.spentUsd : 0;
+    const limits = [];
+    if (typeof caps.paidCallUsd === "number" && typeof requests === "number") limits.push(caps.paidCallUsd * requests);
+    if (typeof caps.runUsd === "number") limits.push(Math.max(0, caps.runUsd - spent));
+    if (level === "max" && typeof caps.maxLevelBudgetUsd === "number") limits.push(Math.max(0, caps.maxLevelBudgetUsd - spent));
+    return limits;
+  }
+
+  function costRange(tokens, provider, requests, caps, level) {
+    const limits = limitList(caps, requests, level);
+    const stop = limits.length ? Math.min.apply(null, limits) : null;
     if (tokens === "unknown" || !priced(provider) || typeof requests !== "number") {
-      return { costUsd: "unknown", capped: false, stopUsd: caps.runCapUsd };
+      return { costUsd: "unknown", predictedUsd: "unknown", capped: false, stopUsd: stop };
     }
     const min = (tokens.inputMin / 1000000) * provider.inputUsdPerMillion + (tokens.outputMin / 1000000) * provider.outputUsdPerMillion;
     const max = (tokens.inputMax / 1000000) * provider.inputUsdPerMillion + (tokens.outputMax / 1000000) * provider.outputUsdPerMillion;
-    const stop = Math.min(caps.runCapUsd, caps.paidCallUsd * requests);
+    const predictedUsd = { min: min, max: max };
+    if (stop == null) {
+      return { costUsd: { min: min, max: max, capped: false }, predictedUsd: predictedUsd, capped: false, stopUsd: null };
+    }
+    const hit = max > stop || min > stop;
     return {
-      costUsd: { min: Math.min(min, stop), max: Math.min(max, stop), capped: max > stop || min > stop },
-      capped: max > stop || min > stop,
+      costUsd: { min: Math.min(min, stop), max: Math.min(max, stop), capped: hit },
+      predictedUsd: predictedUsd,
+      capped: hit,
       stopUsd: stop,
     };
   }
@@ -762,33 +960,37 @@
       targetRepo: (ctx && ctx.repo) || "Netie-AI/constructor",
       affectedPaths: paths,
       acceptanceTests: ["npm run test:laws", "npm run test:unit"],
-      budget: { paidCallUsd: caps.paidCallUsd, runUsd: caps.runCapUsd },
+      budget: { paidCallUsd: caps.paidCallUsd, runUsd: caps.runUsd, maxLevelBudgetUsd: caps.maxLevelBudgetUsd },
       note: paths.length
         ? "Paths come from the diff list. The whole tree is not ingested."
         : "No diff list was supplied. The whole tree is not ingested.",
     };
   }
 
-  function effortRow(intent, steps, level, ctx, table) {
+  function effortRow(intent, steps, level, ctx, table, settings) {
     const profile = table && table.profile;
-    const caps = effortCaps(level, table);
+    const caps = capsFromSettings(settings);
     const requests = requestCount(steps, level, profile);
     const tokens = tokenRange(requests, level, profile);
     const wire = wireFor(intent, level);
     const providerId = table && table.laneProviders ? table.laneProviders[wire.lane] : null;
     const provider = providerById(table, providerId);
-    const cost = costRange(tokens, provider, requests, caps);
+    const cost = costRange(tokens, provider, requests, caps, level);
+    const confirmOn = settings.confirm === true && settings.effortMode !== "auto";
     return {
       level: level,
       deliverable: deliverable(intent, level),
       requests: requests,
       tokens: tokens,
       costUsd: cost.costUsd,
+      predictedUsd: cost.predictedUsd,
       capped: cost.capped,
       stopUsd: cost.stopUsd,
       paidCallUsd: caps.paidCallUsd,
-      runCapUsd: caps.runCapUsd,
-      needsConfirm: level === "high" || level === "max",
+      runUsd: caps.runUsd,
+      runCapUsd: cost.stopUsd,
+      maxLevelBudgetUsd: caps.maxLevelBudgetUsd,
+      needsConfirm: confirmOn && (level === "high" || level === "max"),
       wire: wire,
       providerId: providerId,
       providerPriced: priced(provider),
@@ -797,14 +999,98 @@
     };
   }
 
-  function effortPreview(intent, steps, ctx) {
+  function effortPreview(intent, steps, ctx, settings) {
     const table = priceTable(ctx);
+    settings = settings || resolveSettings(ctx);
     const stepCount = (steps || []).length;
     const out = {};
     EFFORT_LEVELS.forEach(function (level) {
-      out[level] = effortRow(intent, stepCount, level, ctx, table);
+      out[level] = effortRow(intent, stepCount, level, ctx, table, settings);
     });
     return out;
+  }
+
+  function routerLevel(intent) {
+    if (intent === "unclear") return "low";
+    if (BUILD_INTENTS.indexOf(intent) >= 0) return "high";
+    return "medium";
+  }
+
+  function capIsSet(settings, level) {
+    if (typeof settings.paidCallUsd === "number") return true;
+    if (typeof settings.runUsd === "number") return true;
+    if (level === "max" && typeof settings.maxLevelBudgetUsd === "number") return true;
+    return false;
+  }
+
+  function fits(row, settings) {
+    if (!row) return { ok: false, unknown: false, reason: "Missing effort row." };
+    if (!capIsSet(settings, row.level)) return { ok: true, unknown: false, reason: "No user cap is set." };
+    const predicted = row.predictedUsd;
+    if (!predicted || predicted === "unknown" || typeof predicted.max !== "number") {
+      return { ok: false, unknown: true, reason: "Predicted cost is unknown against a user cap." };
+    }
+    const spent = typeof settings.spentUsd === "number" ? settings.spentUsd : 0;
+    if (typeof settings.paidCallUsd === "number") {
+      if (typeof row.requests !== "number") return { ok: false, unknown: true, reason: "Request count is unknown against a per-call cap." };
+      if (predicted.max > settings.paidCallUsd * row.requests) return { ok: false, unknown: false, reason: "Predicted cost is over the per-call cap." };
+    }
+    if (typeof settings.runUsd === "number") {
+      const left = Math.max(0, settings.runUsd - spent);
+      if (predicted.max > left) return { ok: false, unknown: false, reason: "Predicted cost is over the remaining run budget." };
+    }
+    if (row.level === "max" && typeof settings.maxLevelBudgetUsd === "number") {
+      const left = Math.max(0, settings.maxLevelBudgetUsd - spent);
+      if (predicted.max > left) return { ok: false, unknown: false, reason: "Predicted cost is over the remaining max-level budget." };
+    }
+    return { ok: true, unknown: false, reason: "Predicted cost fits the user caps." };
+  }
+
+  function chooseEffort(intent, efforts, settings) {
+    settings = normalizeSettings(settings).settings;
+    if (settings.effortMode !== "auto") {
+      const level = settings.effortMode;
+      const row = efforts[level];
+      return {
+        level: level,
+        costUsd: row ? row.costUsd : "unknown",
+        predictedUsd: row ? row.predictedUsd : "unknown",
+        reason: "The effort mode is set to " + level + ".",
+        prompted: false,
+      };
+    }
+    const preferred = routerLevel(intent);
+    const order = ["max", "high", "medium", "low"];
+    const start = order.indexOf(preferred);
+    let blockedUnknown = false;
+    for (let i = start; i < order.length; i++) {
+      const level = order[i];
+      const row = efforts[level];
+      const fit = fits(row, settings);
+      if (fit.ok) {
+        const stepped = level !== preferred;
+        return {
+          level: level,
+          costUsd: row.costUsd,
+          predictedUsd: row.predictedUsd,
+          reason: stepped
+            ? "Router picked " + preferred + " for " + intent + ". Estimator stepped down to " + level + ". " + fit.reason
+            : "Router picked " + preferred + " for " + intent + ". " + fit.reason,
+          prompted: false,
+        };
+      }
+      if (fit.unknown) blockedUnknown = true;
+    }
+    const low = efforts.low;
+    return {
+      level: "low",
+      costUsd: low ? low.costUsd : "unknown",
+      predictedUsd: low ? low.predictedUsd : "unknown",
+      reason: blockedUnknown
+        ? "Predicted cost is unknown and a user cap is set, so auto stays at low. No dollar amount was guessed."
+        : "No level fits the remaining user budget, so auto stays at low.",
+      prompted: false,
+    };
   }
 
   function cursorCloudAgentStub() {
@@ -838,11 +1124,14 @@
   function estimate(planObj, ctx) {
     ctx = ctx || {};
     const estimator = ctx.estimator || deterministicEstimator();
+    const settings = ctx.settings
+      ? normalizeSettings(ctx.settings).settings
+      : ((planObj && planObj.settings) || defaultSettings());
     if (estimator.kind === "light-llm") {
       return {
         estimatorId: estimator.id,
         called: false,
-        efforts: effortPreview(planObj && planObj.intent, (planObj && planObj.steps) || [], ctx),
+        efforts: effortPreview(planObj && planObj.intent, (planObj && planObj.steps) || [], ctx, settings),
       };
     }
     if (estimator.kind === "custom" && typeof estimator.estimate === "function") {
@@ -851,7 +1140,7 @@
     return {
       estimatorId: "deterministic-profile",
       called: false,
-      efforts: effortPreview(planObj && planObj.intent, (planObj && planObj.steps) || [], ctx),
+      efforts: effortPreview(planObj && planObj.intent, (planObj && planObj.steps) || [], ctx, settings),
     };
   }
 
@@ -873,14 +1162,20 @@
     ctx = ctx || {};
     const row = planObj && planObj.efforts && planObj.efforts[level];
     if (!row) return { ok: false, started: false, sent: false, reason: "Unknown effort." };
-    if (row.needsConfirm && ctx.confirmed !== true) {
+    const settings = normalizeSettings(ctx.settings || (planObj && planObj.settings) || defaultSettings()).settings;
+    const confirmOn = settings.effortMode !== "auto" && settings.confirm === true && (level === "high" || level === "max");
+    if (confirmOn && ctx.confirmed !== true) {
       return { ok: false, started: false, sent: false, reason: "Confirm before high or max starts." };
+    }
+    const fit = fits(row, settings);
+    if (!fit.ok && !fit.unknown) {
+      return { ok: false, started: false, sent: false, reason: fit.reason };
     }
     return {
       ok: true,
       started: false,
       sent: false,
-      reason: "Allowed. No prompt is sent in this version.",
+      reason: fit.unknown ? fit.reason + " No prompt is sent in this version." : "Allowed. No prompt is sent in this version.",
       wire: row.wire,
       brief: row.brief,
       calibration: costCalibration(row),
@@ -931,9 +1226,17 @@
     acceptProposal: acceptProposal,
     exportAccepted: exportAccepted,
     EFFORT_LEVELS: EFFORT_LEVELS.slice(),
+    SETTINGS_SCHEMA: SETTINGS_SCHEMA,
+    LOG_SCHEMA: LOG_SCHEMA,
+    SETTINGS_KEY: SETTINGS_KEY,
+    LOG_KEY: LOG_KEY,
+    defaultSettings: defaultSettings,
+    readSettings: readSettings,
+    writeSettings: writeSettings,
+    readLog: readLog,
     priceTable: function () { return defaultPrices(); },
     wireFor: wireFor,
-    effortPreview: function (intent, steps, ctx) { return effortPreview(intent, steps, ctx); },
+    effortPreview: function (intent, steps, ctx) { return effortPreview(intent, steps, ctx, resolveSettings(ctx)); },
     estimate: estimate,
     startEffort: startEffort,
     costCalibration: costCalibration,

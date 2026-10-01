@@ -15,11 +15,6 @@
       requestsPerStep: { low: 1, medium: 1, high: 2, max: 3 },
       tokensPerStep: null,
     },
-    caps: {
-      paidCallUsd: 0.02,
-      runUsd: { low: 5, medium: 5, high: 5, max: 30 },
-      source: "Planner stop rules: 0.02 per paid call; 5 per run for low, medium, and high; 30 hard cap for max.",
-    },
     laneProviders: {
       Cortex: "cortex",
       "DMS SQL": "dms-sql",

@@ -170,6 +170,46 @@
   margin-bottom: 0.15rem;
 }
 
+.planner-effort[data-chosen="true"] {
+  border-color: rgba(255, 255, 255, 0.55);
+}
+
+.planner-choice {
+  margin: 0.2rem 0;
+  font-size: 0.85rem;
+}
+
+.planner-settings {
+  margin: 0.35rem 0 0.55rem;
+}
+
+.planner-settings label {
+  display: grid;
+  gap: 0.15rem;
+  margin: 0.35rem 0;
+  font-size: 0.75rem;
+}
+
+.planner-settings input,
+.planner-settings select {
+  background: #111;
+  color: inherit;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.14));
+  border-radius: 6px;
+  padding: 0.25rem 0.4rem;
+  font: inherit;
+}
+
+.planner-settings input[type="checkbox"] {
+  justify-self: start;
+}
+
+.planner-settings-error {
+  color: #e7b3b3;
+  font-size: 0.75rem;
+  margin: 0.2rem 0;
+}
+
 @media (max-width: 900px) {
   .planner-effort-grid {
     grid-template-columns: 1fr 1fr;
