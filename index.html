@@ -6,7 +6,7 @@
     <title>Constructor — Netie</title>
     <link rel="icon" href="favicon.ico" sizes="any" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=33" />
+    <link rel="stylesheet" href="styles.css?v=34" />
     <link rel="stylesheet" href="ontology.css?v=33" />
     <link rel="stylesheet" href="planner.css?v=33" />
   </head>
@@ -112,6 +112,42 @@
       </main>
 
       <aside class="inspect" id="inspect" tabindex="0" aria-label="Inspect">
+        <section id="governed-answer" class="governed-panel" data-testid="governed-answer" aria-label="Governed answer">
+          <div class="eyebrow">GOVERNED ANSWER</div>
+          <div class="answer-panel" data-testid="ga-shared-answer">
+            <div class="card-face">
+              <strong data-testid="ga-shared-title">Answer</strong>
+              <span class="chip" data-testid="ga-shared-badge" data-on="false">badge off</span>
+            </div>
+            <p class="card-summary" data-testid="ga-shared-state">withheld</p>
+            <p class="card-summary" data-testid="ga-shared-values">values empty</p>
+            <button type="button" class="info-btn" data-testid="ga-info" aria-label="Answer details" aria-controls="info-ga-answer" aria-expanded="false">i</button>
+            <div id="info-ga-answer" class="info-pop" role="dialog" aria-modal="false" aria-label="Answer details" hidden></div>
+          </div>
+          <p class="hint">Stored JSONL only. No live model call.</p>
+          <label class="ga-file-label">
+            JSONL file
+            <input id="ga-file" data-testid="ga-file" type="file" accept=".jsonl,text/plain,application/jsonl,application/x-ndjson" />
+          </label>
+          <div class="ga-url-row">
+            <input id="ga-url" data-testid="ga-url" type="url" placeholder="Optional JSONL URL" autocomplete="off" />
+            <button type="button" id="ga-load-url" class="ghost" data-testid="ga-load-url">Load URL</button>
+          </div>
+          <label class="ga-file-label" for="ga-refusal-filter">
+            Refusals
+            <select id="ga-refusal-filter" data-testid="ga-refusal-filter">
+              <option value="">All answers</option>
+              <option value="refusals">All refusals</option>
+              <option value="pacing (rate limit / no healthy key)">pacing (rate limit / no healthy key)</option>
+              <option value="not yet an approved query">not yet an approved query</option>
+              <option value="wrong level of detail">wrong level of detail</option>
+              <option value="truly missing data">truly missing data</option>
+              <option value="unlabelled">unlabelled</option>
+            </select>
+          </label>
+          <p class="hint" id="ga-status" data-testid="ga-status"></p>
+          <div id="ga-list" data-testid="ga-list"></div>
+        </section>
         <div class="eyebrow">BLOCK</div>
         <p class="hint" id="inspect-empty">Select a block. Press to edit object, action, and persona.</p>
         <div id="inspect-card" class="inspect-card" hidden></div>
@@ -186,7 +222,8 @@
     <script src="core/constructor.js?v=28"></script>
     <script src="ontology.js?v=28"></script>
     <script src="skin-state.js?v=33"></script>
-    <script src="app.js?v=33"></script>
+    <script src="governed-answer.js?v=34"></script>
+    <script src="app.js?v=34"></script>
     <script src="ontology-studio.js?v=33"></script>
     <script src="planner-prices.js?v=31"></script>
     <script src="planner.js?v=33"></script>

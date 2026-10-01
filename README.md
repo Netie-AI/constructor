@@ -1,4 +1,4 @@
-# Constructor v0.1.0
+# Constructor v0.2.0
 
 Netie-native flow constructor. Ticket: [landing#9](https://github.com/Netie-AI/landing/issues/9) / CONSTRUCTOR-01.
 
@@ -38,6 +38,7 @@ Until this branch is merged, the Pages sketch still reflects the default branch 
 ```
 core/constructor.js   Netie IR: compile, topo, ghost walk, refuse, chat graph
 ontology.js           Ontology Studio model (objects/links/actions). Distill Foundry, do not clone.
+governed-answer.js   Stored JSONL loader (v0.2.0). No fetch. Classifies governed / no-link / withheld.
 app.js                Canvas / inspect / chat dock (Pages-safe, no fetch)
 engine.js             Cortex consumer: ghost, RSF consume, live run when origin is /cortex
 docs/patches/         Cortex mount notes (no live Cortex writer from this repo)
@@ -55,5 +56,7 @@ Tests: `npm test` (laws + node:test unit including `core/constructor.js` + Playw
 Default graph is connector -> ontology -> insight -> foundry -> app (ingest is hop 0). Ghost dry-run refuses a broken spine with `GRAPH_*` codes.
 
 Ontology Studio (rail `Ontology studio`, header `Ontology`, chat `ontology`) edits object types, properties, link types, action types, interfaces and fetch places in place, with an SVG graph, validation issues, changelog (`source` / `actor`), undo/redo, and export as native JSON, Cortex catalog, JSON-LD, or Turtle. Native JSON round-trips; Cortex catalog is a lossy view. Turtle/JSON-LD are export-only. Contract: `docs/ONTOLOGY_STUDIO.md`. Tests: `npm test` (laws, unit, Playwright e2e with screenshots).
+
+Governed Answer (canvas panel, schema `netie.governed-answer/1`) reads a stored JSONL run: file picker on this sketch, optional URL only from `engine.js` when the origin is `/cortex`. That URL load refuses Cortex and model hosts. A question linked to table, key, and measure with executed SQL shows the SQL, rows, source, and a governed badge. No link shows the model idea only, with values empty and the badge off. A figure with no executed query is WITHHELD. Predict stays refused unless a fitted model envelope says forecast. A refused row reads `refusal_reason` exactly as stored. `GEN-01: insights_timeout` is the pacing chip `pacing (rate limit / no healthy key)`. Any other code, including a missing one, stays `unlabelled`. The panel filter lists refusals by chip. The panel uses the shared skin state, the shared i popover, and the design tokens. The shared answer stays withheld, badge off, values empty. The only shipped rows are `tests/fixtures/governed-answer.example.jsonl`, labelled `example data, not a measured result`.
 
 Do not merge landing. Do not clone n8n/Activepieces.

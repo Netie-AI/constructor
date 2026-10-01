@@ -1624,6 +1624,7 @@ window.addEventListener("resize", drawWires);
   stage.addEventListener(
     "wheel",
     function (event) {
+      if (eventInGoverned(event)) return;
       event.preventDefault();
       const rect = stage.getBoundingClientRect();
       const mx = event.clientX - rect.left;
@@ -1655,6 +1656,7 @@ window.addEventListener("resize", drawWires);
   });
 
   stage.addEventListener("pointerdown", function (event) {
+    if (eventInGoverned(event)) return;
     if (event.target.closest && event.target.closest(".node")) {
       if (event.button !== 1 && !spaceDown) return;
     }
@@ -1678,6 +1680,245 @@ window.addEventListener("resize", drawWires);
     panning = null;
     if (!spaceDown) stage.classList.remove("panning");
   });
+})();
+
+function eventInGoverned(event) {
+  return !!(event.target && event.target.closest && event.target.closest("#governed-answer"));
+}
+
+function governedCard(view) {
+  const card = document.createElement("article");
+  card.className = "ga-card";
+  card.setAttribute("data-testid", "ga-card");
+  card.setAttribute("data-state", view.state);
+  if (view.refusalChip) card.setAttribute("data-reason", view.refusalChip);
+  const title = document.createElement("h3");
+  title.textContent = view.question || "";
+  card.appendChild(title);
+  if (view.exampleLabel) {
+    const ex = document.createElement("p");
+    ex.className = "ga-example";
+    ex.setAttribute("data-testid", "ga-example");
+    ex.textContent = view.exampleLabel;
+    card.appendChild(ex);
+  }
+  if (view.badge) {
+    const badge = document.createElement("p");
+    badge.className = "chip";
+    badge.setAttribute("data-testid", "ga-badge");
+    badge.textContent = view.badge;
+    card.appendChild(badge);
+  }
+  if (view.state === "unlinked") {
+    const idea = document.createElement("p");
+    idea.className = "ga-idea";
+    idea.setAttribute("data-testid", "ga-idea");
+    idea.textContent = view.idea || "";
+    card.appendChild(idea);
+    const values = document.createElement("p");
+    values.setAttribute("data-testid", "ga-values");
+    values.hidden = true;
+    values.textContent = "";
+    card.appendChild(values);
+    const note = document.createElement("p");
+    note.className = "ga-nolink";
+    note.textContent = "no link";
+    card.appendChild(note);
+  }
+  if (view.notice) {
+    const notice = document.createElement("p");
+    notice.className = "ga-notice";
+    notice.setAttribute("data-testid", view.notice === "WITHHELD" ? "ga-withheld" : "ga-refused");
+    notice.textContent = view.notice;
+    card.appendChild(notice);
+  }
+  if (view.state === "refused") {
+    const chip = document.createElement("p");
+    chip.className = "chip";
+    chip.setAttribute("data-testid", "ga-refusal-chip");
+    chip.textContent = view.refusalChip || "unlabelled";
+    card.appendChild(chip);
+    if (view.missing) {
+      const missing = document.createElement("p");
+      missing.setAttribute("data-testid", "ga-missing");
+      missing.textContent = "missing: " + view.missing;
+      card.appendChild(missing);
+    }
+    if (view.wouldAnswer) {
+      const answer = document.createElement("p");
+      answer.setAttribute("data-testid", "ga-would-answer");
+      answer.textContent = "would answer: " + view.wouldAnswer;
+      card.appendChild(answer);
+    }
+  }
+  if (view.state === "governed") {
+    const sql = document.createElement("pre");
+    sql.setAttribute("data-testid", "ga-sql");
+    sql.textContent = view.sql || "";
+    card.appendChild(sql);
+    const rows = document.createElement("pre");
+    rows.setAttribute("data-testid", "ga-rows");
+    rows.textContent = JSON.stringify(view.rows || [], null, 2);
+    card.appendChild(rows);
+    const source = document.createElement("p");
+    source.setAttribute("data-testid", "ga-source");
+    const tables = (view.tables || []).join(", ");
+    source.textContent = (view.source || "source") + (tables ? " / " + tables : "");
+    card.appendChild(source);
+    if (view.link) {
+      const link = document.createElement("p");
+      link.setAttribute("data-testid", "ga-link");
+      link.textContent = view.link.table + " / " + view.link.key + " / " + view.link.measure;
+      card.appendChild(link);
+    }
+    if (view.verdict) {
+      const verdict = document.createElement("p");
+      verdict.setAttribute("data-testid", "ga-verdict");
+      verdict.textContent = "row-match: " + view.verdict;
+      card.appendChild(verdict);
+    }
+    const meta = document.createElement("p");
+    meta.className = "ga-meta";
+    meta.textContent = [view.provider, view.model].filter(Boolean).join(" / ");
+    card.appendChild(meta);
+  }
+  return card;
+}
+
+let governedAnswerLoad = null;
+
+function syncGovernedSkin() {
+  const titleEl = document.querySelector("[data-testid='ga-shared-title']");
+  const badge = document.querySelector("[data-testid='ga-shared-badge']");
+  const stateEl = document.querySelector("[data-testid='ga-shared-state']");
+  const valuesEl = document.querySelector("[data-testid='ga-shared-values']");
+  const pop = document.getElementById("info-ga-answer");
+  if (!titleEl || !pop) return;
+  const skin = window.SkinState ? window.SkinState.get() : null;
+  const answer = (skin && skin.answer) || { title: "Answer" };
+  titleEl.textContent = answer.title || "Answer";
+  if (badge) {
+    badge.textContent = "badge off";
+    badge.setAttribute("data-on", "false");
+  }
+  if (stateEl) stateEl.textContent = "withheld";
+  if (valuesEl) valuesEl.textContent = "values empty";
+  while (pop.firstChild) pop.removeChild(pop.firstChild);
+  const g = skin && skin.plan && skin.plan.governance;
+  const lines = [];
+  if (g) {
+    if (g.noExecutedQuery) lines.push(g.noExecutedQuery);
+    if (g.noLink) lines.push(g.noLink);
+    if (g.linked) lines.push(g.linked);
+    if (g.predict) lines.push(g.predict);
+  } else {
+    lines.push("The shared answer stays withheld. Badge off. Values empty.");
+    lines.push("Stored JSONL cards are classified beside it. A figure with no executed query stays WITHHELD.");
+  }
+  lines.push("Refusal codes are read exactly as stored. GEN-01: insights_timeout is pacing. A missing code stays unlabelled.");
+  lines.forEach(function (line) {
+    const p = document.createElement("p");
+    p.textContent = line;
+    pop.appendChild(p);
+  });
+}
+
+function refusalFilterValue() {
+  const filter = document.getElementById("ga-refusal-filter");
+  return filter ? filter.value : "";
+}
+
+function paintGovernedAnswer(result) {
+  const list = document.getElementById("ga-list");
+  const status = document.getElementById("ga-status");
+  if (!list || !status) return;
+  governedAnswerLoad = result;
+  while (list.firstChild) list.removeChild(list.firstChild);
+  if (!result) {
+    status.textContent = "No stored run. Pick a JSONL file. No live model call.";
+    return;
+  }
+  if (!result.ok) {
+    const errors = result.errors || [{ line: 0, message: result.error || "load failed" }];
+    status.textContent = errors
+      .map(function (e) {
+        return "line " + e.line + ": " + e.message;
+      })
+      .join(" ");
+    return;
+  }
+  const GA = window.GovernedAnswer;
+  const filter = refusalFilterValue();
+  const views = filter && GA && typeof GA.filterRefusals === "function" ? GA.filterRefusals(result.views, filter) : result.views;
+  const n = views.length;
+  const noun = filter ? "refusal" : "stored record";
+  status.textContent =
+    n +
+    " " +
+    noun +
+    (n === 1 ? "" : "s") +
+    (filter && filter !== "refusals" ? ": " + filter : "") +
+    "." +
+    (result.exampleLabel ? " " + result.exampleLabel + "." : "") +
+    " No live model call.";
+  views.forEach(function (view) {
+    list.appendChild(governedCard(view));
+  });
+}
+
+(function bindGovernedAnswer() {
+  const GA = window.GovernedAnswer;
+  const file = document.getElementById("ga-file");
+  const urlBtn = document.getElementById("ga-load-url");
+  const urlInput = document.getElementById("ga-url");
+  const filter = document.getElementById("ga-refusal-filter");
+  paintGovernedAnswer(null);
+  syncGovernedSkin();
+  if (window.SkinState && !window.__governedSkinSub) {
+    window.__governedSkinSub = true;
+    window.SkinState.subscribe(function () {
+      syncGovernedSkin();
+    });
+  }
+  if (filter) {
+    filter.addEventListener("change", function () {
+      paintGovernedAnswer(governedAnswerLoad);
+    });
+  }
+  if (file) {
+    file.addEventListener("change", function () {
+      const picked = file.files && file.files[0];
+      if (!picked) return;
+      const reader = new FileReader();
+      reader.onload = function () {
+        if (!GA || typeof GA.loadText !== "function") {
+          paintGovernedAnswer({ ok: false, errors: [{ line: 0, message: "loader missing" }] });
+          return;
+        }
+        paintGovernedAnswer(GA.loadText(String(reader.result || "")));
+      };
+      reader.onerror = function () {
+        paintGovernedAnswer({ ok: false, errors: [{ line: 0, message: "file read failed" }] });
+      };
+      reader.readAsText(picked);
+    });
+  }
+  if (urlBtn) {
+    urlBtn.addEventListener("click", async function () {
+      const url = urlInput ? urlInput.value.trim() : "";
+      const loader = window.Constructor && window.Constructor.loadGovernedAnswerUrl;
+      if (!loader) {
+        paintGovernedAnswer({ ok: false, errors: [{ line: 0, message: "Pages never fetch. Use the file picker." }] });
+        return;
+      }
+      const result = await loader(url);
+      if (result && result.ok === false && result.error && !result.errors) {
+        paintGovernedAnswer({ ok: false, errors: [{ line: 0, message: result.error }] });
+        return;
+      }
+      paintGovernedAnswer(result);
+    });
+  }
 })();
 
 function cortexOrigin() {

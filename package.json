@@ -1,6 +1,6 @@
 {
   "name": "constructor-skin",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "commonjs",
   "description": "Netie-native Constructor skin. Cortex is the only engine. Not n8n, not Activepieces, not Crew.",
