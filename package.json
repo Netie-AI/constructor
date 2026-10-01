@@ -17,6 +17,7 @@
     "node": ">=18"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
     "@playwright/test": "1.56.1",
     "http-server": "^14.1.1"
   }

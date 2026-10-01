@@ -7,8 +7,11 @@ Every request becomes a plan in Constructor before Cortex runs. Cortex is the on
 | File | Role |
 |------|------|
 | `planner.js` | Model. Intent router, goal plan, answer spec, ontology proposals, prompt registry. No DOM. No fetch. |
-| `planner-ui.js` | Canvas panel. Chips, proposal cards, JSON export. No fetch. |
-| `planner.css` | Panel styles. |
+| `planner-ui.js` | Canvas panel. Title, one-line summary, status chip. Detail sits behind an i button. No fetch. |
+| `planner.css` | Panel styles. Solid surfaces. |
+| `info-pop.js` | Shared i button. Hover or focus opens it. Click pins it. Esc closes it. |
+| `skin-state.js` | Shared state for the plan, proposals, pipeline, and answer title. |
+| `tryit.js` | One-shot Try it. Typed line or a dropped JSON/CSV fixture. Offline. |
 | `planner-prices.json` | Versioned price table and estimator profile. Null price means unknown. |
 | `tests/fixtures/planner-intents.synthetic.json` | Labelled synthetic requests. Not measured traffic. |
 | `tests/fixtures/planner-table.synthetic.json` | Synthetic table schema plus distinct values. Not a live table. |
@@ -81,7 +84,15 @@ A limit is set only when the request writes a number (`top 10`, `limit 10`).
 
 ## Ontology proposals
 
-`proposeOntology` reads a table schema plus sampled distinct values. It emits cards for the object, key, measure, dimension, and low-cardinality value lists. Every card starts `proposed` with `certified: false`. A person accepts one card at a time. Export sends accepted items as `netie.ontology-proposal/1` with `certified: false` for Cortex. There is no certify function.
+`proposeOntology` reads a table schema plus sampled distinct values. It emits cards for the object, key, measure, dimension, and low-cardinality value lists. Every card starts `proposed` with `certified: false`. A person accepts one card, or clicks Accept all suggested. That click still leaves `certified: false`. Export sends accepted items as `netie.ontology-proposal/1` with `certified: false` for Cortex. There is no certify function.
+
+Cards show a title, a one-line summary, and a status chip. Signals, confidence, schema, sources, the prompt template and version, and the cost breakdown sit behind the i button. Nested proposal rows indent by 8px: object, then key or measure or dimension, then values.
+
+## Try it
+
+The rail has one input and one Try it action. An empty run uses the labelled example: `Planner.demoRequest()` plus `Planner.sampleSchema()` (`synthetic orders table, not a live table`). A typed line uses that request. A dropped JSON or CSV fixture supplies columns and cells from the file only. The action routes intent, proposes ontology (still proposed), shows the goal plan and answer-spec chips, and wires five canvas nodes: ingest, ontology, insight (plan), agent (Cortex lane, not called), app (answer). Nodes with a role can be renamed, removed, reordered, or moved to another lane. The answer panel stays withheld, badge off, values empty. This version does not execute a query.
+
+`skin-state.js` (`netie.skin-state/1`) holds the request, plan, proposals, pipeline, and answer title. A canvas edit writes there, and the planner panel and Studio proposal chip read it back.
 
 Low cardinality is the fixture flag `cardinality: "low"` or `lowCardinality: true`, or a distinct list whose length equals `distinctCount` and is at most 12.
 

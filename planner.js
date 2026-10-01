@@ -908,6 +908,15 @@
     });
   }
 
+  function acceptAllProposals(cards) {
+    return (cards || []).map(function (card) {
+      const next = clone(card);
+      if (next.status === "proposed") next.status = "accepted";
+      next.certified = false;
+      return next;
+    });
+  }
+
   function exportAccepted(cards) {
     const items = (cards || []).filter(function (card) { return card && card.status === "accepted"; }).map(function (card) {
       const row = clone(card);
@@ -1344,6 +1353,7 @@
     exportAnswerSpec: exportAnswerSpec,
     proposeOntology: proposeOntology,
     acceptProposal: acceptProposal,
+    acceptAllProposals: acceptAllProposals,
     exportAccepted: exportAccepted,
     EFFORT_LEVELS: EFFORT_LEVELS.slice(),
     SETTINGS_SCHEMA: SETTINGS_SCHEMA,

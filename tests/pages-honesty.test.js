@@ -24,7 +24,7 @@ test("engine.js fetch is gated on cortexOrigin", () => {
 });
 
 test("no invented constructor.netie.ai host", () => {
-  const files = ["README.md", "AGENTS.md", "index.html", "app.js", "engine.js", "core/constructor.js", "ontology.js", "ontology-studio.js", "planner.js", "planner-ui.js", "planner-prices.js", "docs/PLANNER.md"];
+  const files = ["README.md", "AGENTS.md", "index.html", "app.js", "engine.js", "core/constructor.js", "ontology.js", "ontology-studio.js", "planner.js", "planner-ui.js", "planner-prices.js", "skin-state.js", "info-pop.js", "tryit.js", "docs/PLANNER.md"];
   for (const rel of files) {
     const src = read(rel);
     const uses = src.match(/https?:\/\/constructor\.netie\.ai/gi) || [];
@@ -84,7 +84,7 @@ test("FDE runbook names sketch, 8012 mount, ov_ keys, and Hyperlift 404", () => 
 });
 
 test("Pages-safe files still have zero fetch", () => {
-  for (const rel of ["app.js", "ontology.js", "ontology-studio.js", "planner.js", "planner-ui.js", "planner-prices.js"]) {
+  for (const rel of ["app.js", "ontology.js", "ontology-studio.js", "planner.js", "planner-ui.js", "planner-prices.js", "skin-state.js", "info-pop.js", "tryit.js"]) {
     assert.equal(/\bfetch\s*\(/.test(read(rel)), false, rel);
   }
 });

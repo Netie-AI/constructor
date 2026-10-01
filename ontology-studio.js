@@ -221,6 +221,7 @@
       "<h2>Ontology Studio</h2>" +
       '<span class="os-rev" data-testid="os-rev"></span>' +
       '<span class="os-badge" data-testid="os-badge"></span>' +
+      '<span class="os-badge" data-testid="os-proposals"></span>' +
       '<span class="os-empty" data-testid="os-flash"></span>' +
       '<input class="os-search" data-testid="os-search" type="search" placeholder="Search types  /" />' +
       '<button type="button" data-testid="os-validate">Validate</button>' +
@@ -431,21 +432,38 @@
     var map = mapOf(tab, onto);
     filterIds(map).forEach(function (id) {
       var row = map[id];
-      var sub = row.label && row.label !== id ? row.label : "";
-      if (tab === "objects") sub = keys(row.properties).length + " props · used " + usageCount(id);
-      if (tab === "links") sub = (row.from || "") + " → " + (row.to || "");
+      var sub = row.label && row.label !== id ? row.label : id;
+      if (tab === "objects") sub = keys(row.properties).length + " props";
+      if (tab === "links") sub = (row.from || "") + " to " + (row.to || "");
+      var status = issuesFor(tab === "objects" ? "objectTypes." + id : id).length ? "check" : "ok";
+      var wrap = el("div", { className: "os-row" + (id === selectedId ? " is-on" : ""), "data-id": id });
       var btn = el("button", {
         type: "button",
-        "data-id": id,
-        className: id === selectedId ? "is-on" : "",
+        className: "os-row-main",
         onclick: function () {
           selectedId = id;
           render();
         },
       });
       btn.appendChild(el("div", { className: "os-row-id", text: id }));
-      if (sub) btn.appendChild(el("div", { className: "os-row-sub", text: sub }));
-      list.appendChild(btn);
+      btn.appendChild(el("div", { className: "os-row-sub card-summary", text: sub }));
+      btn.appendChild(el("span", { className: "chip", text: status }));
+      wrap.appendChild(btn);
+      var popId = "info-os-" + tab + "-" + id;
+      var info = el("button", {
+        type: "button",
+        className: "info-btn",
+        "aria-label": "Details for " + id,
+        "aria-controls": popId,
+        "aria-expanded": "false",
+        text: "i",
+      });
+      var pop = el("div", { id: popId, className: "info-pop", role: "dialog", "aria-modal": "false", "aria-label": "Details for " + id });
+      pop.hidden = true;
+      pop.appendChild(el("p", { text: sub + (tab === "objects" ? ". Used " + usageCount(id) + "." : "") }));
+      wrap.appendChild(info);
+      wrap.appendChild(pop);
+      list.appendChild(wrap);
     });
   }
 
@@ -1158,6 +1176,13 @@
     var badge = tid("os-badge");
     badge.textContent = badgeText(v);
     badge.className = "os-badge " + (v.errors && v.errors.length ? "is-error" : v.warnings && v.warnings.length ? "is-warn" : "is-ok");
+    var proposals = tid("os-proposals");
+    if (proposals && window.SkinState) {
+      var snap = window.SkinState.get();
+      var cards = snap.proposals || [];
+      var accepted = cards.filter(function (card) { return card.status === "accepted"; }).length;
+      proposals.textContent = cards.length ? accepted + " accepted / " + cards.length + " proposals" : "";
+    }
     tid("os-undo").disabled = !(O() && O().canUndo && O().canUndo());
     tid("os-redo").disabled = !(O() && O().canRedo && O().canRedo());
     var search = tid("os-search");
@@ -1213,6 +1238,14 @@
     select: select,
     render: render,
   };
+
+  if (window.SkinState && !window.__studioSkinSub) {
+    window.__studioSkinSub = true;
+    window.SkinState.subscribe(function () {
+      if (!root || root.hidden) return;
+      renderChrome();
+    });
+  }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", build);
   else build();

@@ -143,6 +143,12 @@ test("ontology proposals stay proposed until a person accepts one", () => {
   const accepted = P.acceptProposal(cards, cards[0].id);
   assert.equal(accepted[0].status, "accepted");
   assert.equal(accepted[0].certified, false);
+  const all = P.acceptAllProposals(cards);
+  all.forEach((card) => {
+    assert.equal(card.status, "accepted");
+    assert.equal(card.certified, false);
+  });
+  assert.equal(JSON.stringify(all).indexOf('"certified":true'), -1);
   accepted.slice(1).forEach((card) => assert.equal(card.status, "proposed"));
   const exported = P.exportAccepted(accepted);
   assert.equal(exported.schema, P.ONTOLOGY_SCHEMA);

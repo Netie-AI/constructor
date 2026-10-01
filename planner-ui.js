@@ -83,9 +83,7 @@
     const head = el("header", { class: "planner-head" });
     head.appendChild(el("div", { class: "eyebrow" }, "PLAN"));
     head.appendChild(el("strong", { "data-testid": "planner-intent" }, plan.intent));
-    const conf = plan.confidence === 1 ? "1" : plan.confidence === 0 ? "0" : String(Math.round(plan.confidence * 100) / 100);
-    const closest = plan.intent === "unclear" && plan.candidate ? ", closest " + plan.candidate : "";
-    head.appendChild(el("span", { "data-testid": "planner-confidence" }, "confidence " + conf + closest));
+    head.appendChild(el("span", { class: "chip" }, plan.clarify ? "clarify" : "routed"));
     const close = el("button", { type: "button", class: "ghost", "data-testid": "planner-close" }, "Close");
     close.addEventListener("click", function () { panel.hidden = true; });
     head.appendChild(close);
@@ -95,7 +93,7 @@
     panel.appendChild(renderEfforts(plan));
 
     const body = el("div", { class: "planner-body" });
-    const main = el("div", { "data-testid": "planner-plan-body" });
+    const main = el("div", { class: "planner-plan", "data-testid": "planner-plan-body" });
     const signals = el("ul", { class: "planner-signals", "data-testid": "planner-signals" });
     (plan.signals || []).forEach(function (s) {
       signals.appendChild(el("li", null, s.id + " -> " + s.intent + " (" + s.weight + ")"));
@@ -103,9 +101,13 @@
     if (!plan.signals || !plan.signals.length) {
       signals.appendChild(el("li", null, "no signal matched"));
     }
-    main.appendChild(signals);
-    main.appendChild(el("p", { "data-testid": "planner-goal" }, plan.goal));
-    main.appendChild(el("p", { "data-testid": "planner-success" }, plan.successCheck));
+    main.appendChild(el("p", { class: "card-summary", "data-testid": "planner-goal" }, plan.goal));
+    main.appendChild(el("p", { class: "card-summary", "data-testid": "planner-success" }, plan.successCheck));
+    const planInfo = infoPair("plan-body", "Plan details");
+    const conf = plan.confidence === 1 ? "1" : plan.confidence === 0 ? "0" : String(Math.round(plan.confidence * 100) / 100);
+    const closest = plan.intent === "unclear" && plan.candidate ? ", closest " + plan.candidate : "";
+    planInfo.pop.appendChild(el("p", { "data-testid": "planner-confidence" }, "confidence " + conf + closest));
+    planInfo.pop.appendChild(signals);
 
     const steps = el("ol", { class: "planner-steps", "data-testid": "planner-steps" });
     (plan.steps || []).forEach(function (s) {
@@ -117,22 +119,24 @@
       li.appendChild(el("span", { class: "planner-reason" }, s.templateId + " v" + s.templateVersion));
       steps.appendChild(li);
     });
-    main.appendChild(steps);
-    main.appendChild(el("p", { "data-testid": "planner-mode" }, plan.promptMode + ". " + plan.promptModeReason));
+    planInfo.pop.appendChild(steps);
+    planInfo.pop.appendChild(el("p", { "data-testid": "planner-mode" }, plan.promptMode + ". " + plan.promptModeReason));
     const b = plan.budget || {};
-    main.appendChild(el("p", { "data-testid": "planner-budget" }, b.rule || ""));
+    planInfo.pop.appendChild(el("p", { "data-testid": "planner-budget" }, b.rule || ""));
     const gates = el("ul", { class: "planner-gates", "data-testid": "planner-gates" });
     const g = plan.governance || {};
     [g.linked, g.noLink, g.noExecutedQuery, g.predict].forEach(function (line) {
       if (line) gates.appendChild(el("li", null, line));
     });
-    main.appendChild(gates);
-    if (plan.clarify) main.appendChild(el("p", { "data-testid": "planner-clarify" }, plan.clarify));
+    planInfo.pop.appendChild(gates);
     const used = el("p", { class: "planner-note", "data-testid": "planner-templates" });
     used.textContent = (plan.promptLog || []).map(function (row) {
       return row.id + " v" + row.version;
     }).join(", ");
-    main.appendChild(used);
+    planInfo.pop.appendChild(used);
+    main.appendChild(planInfo.btn);
+    main.appendChild(planInfo.pop);
+    if (plan.clarify) main.appendChild(el("p", { class: "card-summary", "data-testid": "planner-clarify" }, plan.clarify));
     body.appendChild(main);
 
     const side = el("div", { class: "planner-side" });
@@ -160,23 +164,38 @@
       cards.appendChild(el("p", { class: "planner-note" }, "No schema loaded. Proposals stay empty until a person asks."));
     }
     state.cards.forEach(function (card) {
+      const depth = card.role === "object" ? 0 : card.role === "value-list" ? 2 : 1;
       const box = el("article", { class: "planner-card", "data-testid": "planner-card", "data-status": card.status, "data-role": card.role });
-      box.appendChild(el("span", { class: "planner-badge" }, card.status === "accepted" ? "ACCEPTED" : "PROPOSED"));
-      box.appendChild(el("strong", null, card.role + " " + card.name));
-      box.appendChild(el("p", null, card.reason));
-      if (card.values && card.values.length) {
-        box.appendChild(el("p", { class: "planner-values" }, card.values.join(", ")));
-      }
+      box.style.marginLeft = (depth * 8) + "px";
+      const face = el("div", { class: "card-face" });
+      face.appendChild(el("strong", null, card.role + " " + card.name));
+      face.appendChild(el("span", { class: "chip" }, card.status === "accepted" ? "ACCEPTED" : "PROPOSED"));
+      box.appendChild(face);
+      box.appendChild(el("p", { class: "card-summary" }, card.reason));
+      const info = infoPair("card-" + card.id, "Details for " + card.name);
+      info.pop.appendChild(el("p", null, card.reason));
+      if (card.values && card.values.length) info.pop.appendChild(el("p", { class: "planner-values" }, card.values.join(", ")));
+      box.appendChild(info.btn);
+      box.appendChild(info.pop);
       const accept = el("button", { type: "button", "data-testid": "planner-accept" }, card.status === "accepted" ? "Accepted" : "Accept");
       accept.disabled = card.status === "accepted";
       accept.addEventListener("click", function () {
         state.cards = P.acceptProposal(state.cards, card.id);
+        if (window.SkinState) window.SkinState.setProposals(state.cards);
         render(state.plan, { cards: state.cards });
       });
       box.appendChild(accept);
       cards.appendChild(box);
     });
     onto.appendChild(cards);
+    const acceptAll = el("button", { type: "button", class: "ghost", "data-testid": "planner-accept-all" }, "Accept all suggested");
+    acceptAll.disabled = !state.cards.some(function (card) { return card.status === "proposed"; });
+    acceptAll.addEventListener("click", function () {
+      state.cards = P.acceptAllProposals(state.cards);
+      if (window.SkinState) window.SkinState.setProposals(state.cards);
+      render(state.plan, { cards: state.cards });
+    });
+    onto.appendChild(acceptAll);
     const exportOnto = el("button", { type: "button", class: "ghost", "data-testid": "planner-export-ontology" }, "Export accepted JSON");
     exportOnto.addEventListener("click", function () {
       download("ontology-proposals.json", P.exportAccepted(state.cards));
@@ -184,7 +203,49 @@
     onto.appendChild(exportOnto);
     side.appendChild(onto);
     body.appendChild(side);
+    body.appendChild(renderAnswer(plan));
     panel.appendChild(body);
+  }
+
+  function infoPair(id, label) {
+    const popId = "info-" + id;
+    const btn = el("button", {
+      type: "button",
+      class: "info-btn",
+      "data-testid": "info-" + id,
+      "aria-label": label,
+      "aria-controls": popId,
+      "aria-expanded": "false",
+    }, "i");
+    const pop = el("div", {
+      id: popId,
+      class: "info-pop",
+      role: "dialog",
+      "aria-modal": "false",
+      "aria-label": label,
+    });
+    pop.hidden = true;
+    return { btn: btn, pop: pop };
+  }
+
+  function renderAnswer(plan) {
+    const skin = window.SkinState ? window.SkinState.get() : null;
+    const title = (skin && skin.answer && skin.answer.title) || "Answer";
+    const box = el("section", { class: "answer-panel", "data-testid": "answer-panel" });
+    const face = el("div", { class: "card-face" });
+    face.appendChild(el("strong", { "data-testid": "answer-title" }, title));
+    face.appendChild(el("span", { class: "chip", "data-testid": "answer-badge", "data-on": "false" }, "badge off"));
+    box.appendChild(face);
+    box.appendChild(el("p", { class: "card-summary", "data-testid": "answer-state" }, "withheld"));
+    box.appendChild(el("p", { class: "card-summary", "data-testid": "answer-values" }, "values empty"));
+    const info = infoPair("answer", "Answer details");
+    const g = plan.governance || {};
+    [g.noExecutedQuery, g.noLink, g.linked, g.predict].forEach(function (line) {
+      if (line) info.pop.appendChild(el("p", null, line));
+    });
+    box.appendChild(info.btn);
+    box.appendChild(info.pop);
+    return box;
   }
 
   function costText(value) {
@@ -346,19 +407,25 @@
       if (!row) return;
       const card = el("article", { class: "planner-effort", "data-testid": "effort-" + level, "data-level": level });
       if (choice.level === level) card.setAttribute("data-chosen", "true");
-      card.appendChild(el("strong", null, level));
-      card.appendChild(el("p", { "data-testid": "effort-deliverable" }, row.deliverable));
-      card.appendChild(el("p", null, "requests " + row.requests));
-      card.appendChild(el("p", { "data-testid": "effort-tokens" }, "tokens " + tokenText(row.tokens)));
-      card.appendChild(el("p", { "data-testid": "effort-cost" }, "cost " + costText(row.costUsd)));
-      const capLine = "per call " + capLabel(row.paidCallUsd) + ", per run " + capLabel(row.runUsd) + (level === "max" ? ", max-level " + capLabel(row.maxLevelBudgetUsd) : "");
-      card.appendChild(el("p", { "data-testid": "effort-cap" }, capLine));
+      const face = el("div", { class: "card-face" });
+      face.appendChild(el("strong", null, level));
       const wire = row.wire || {};
-      card.appendChild(el("p", { "data-testid": "effort-wire" }, "wired to " + wire.client + " / " + wire.lane));
+      face.appendChild(el("span", { class: "chip" }, wire.lane || ""));
+      card.appendChild(face);
+      card.appendChild(el("p", { class: "card-summary", "data-testid": "effort-deliverable" }, row.deliverable));
+      const info = infoPair("effort-" + level, "Details for " + level);
+      info.pop.appendChild(el("p", null, "requests " + row.requests));
+      info.pop.appendChild(el("p", { "data-testid": "effort-tokens" }, "tokens " + tokenText(row.tokens)));
+      info.pop.appendChild(el("p", { "data-testid": "effort-cost" }, "cost " + costText(row.costUsd)));
+      const capLine = "per call " + capLabel(row.paidCallUsd) + ", per run " + capLabel(row.runUsd) + (level === "max" ? ", max-level " + capLabel(row.maxLevelBudgetUsd) : "");
+      info.pop.appendChild(el("p", { "data-testid": "effort-cap" }, capLine));
+      info.pop.appendChild(el("p", { "data-testid": "effort-wire" }, "wired to " + wire.client + " / " + wire.lane));
       if (row.brief) {
         const paths = row.brief.affectedPaths || [];
-        card.appendChild(el("p", { "data-testid": "effort-brief" }, row.brief.targetRepo + " paths " + (paths.length ? paths.join(", ") : "none") + ". " + row.brief.note));
+        info.pop.appendChild(el("p", { "data-testid": "effort-brief" }, row.brief.targetRepo + " paths " + (paths.length ? paths.join(", ") : "none") + ". " + row.brief.note));
       }
+      card.appendChild(info.btn);
+      card.appendChild(info.pop);
       if (row.needsConfirm && !state.confirmed[level]) {
         const confirm = el("button", { type: "button", "data-testid": "effort-" + level + "-confirm" }, "Confirm before this starts");
         confirm.addEventListener("click", function () {
@@ -418,6 +485,14 @@
     openDemo: openDemo,
     cards: function () { return state.cards.slice(); },
   };
+
+  if (window.InfoPop) window.InfoPop.install();
+  if (window.SkinState && !window.__plannerSkinSub) {
+    window.__plannerSkinSub = true;
+    window.SkinState.subscribe(function () {
+      if (state.plan) render(state.plan, { cards: state.cards });
+    });
+  }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mount);
   else mount();
