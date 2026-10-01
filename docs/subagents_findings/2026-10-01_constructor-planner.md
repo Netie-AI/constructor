@@ -16,6 +16,8 @@ New: `planner.js` + `planner-ui.js`. Intent router, goal plan, answer spec chips
 
 UX pass: cards show a title, one line, and a chip. Detail is an i button (hover, pin, Esc). Solid tokens, no blur. Try it runs the offline pipeline. `skin-state.js` shares plan, proposals, pipeline, and the withheld answer. Accept all suggested never sets certified.
 
+CI checkout is shallow, so `origin/landing-9-first-path` is missing until `git fetch`. The build-lane test diffs `origin/$GITHUB_BASE_REF...HEAD` (else `landing-9-first-path`) and still requires a non-empty path list.
+
 ## Do not
 
 - Paste n8n, LangChain, LangFlow, Crew, or Activepieces.

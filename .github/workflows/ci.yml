@@ -15,6 +15,10 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch the PR base
+        run: git fetch --no-tags origin "${GITHUB_BASE_REF:-landing-9-first-path}"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
