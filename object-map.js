@@ -10,6 +10,9 @@
 
   const SCHEMA = "netie.object-map/1";
   const LABEL = "synthetic object map, not a live catalog";
+  const CONFIDENCE_CAP = 0.95;
+  const NODE_W = 140;
+  const NODE_H = 56;
   const SYNONYMS = [
     ["vendor", "supplier"],
     ["order", "purchaseorder"],
@@ -204,7 +207,7 @@
           leftLabel: a.label,
           rightLabel: b.label,
           reason: reasons.join("; "),
-          confidence: points / 100,
+          confidence: Math.min(CONFIDENCE_CAP, points / 100),
           applied: false,
           certified: false,
         });
@@ -258,6 +261,10 @@
     const links = (src.links || []).map(clone).sort(function (a, b) {
       return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
     });
+    const labels = placeEdgeLabels(objects, links);
+    links.forEach(function (link) {
+      link.label = labels[link.id] || null;
+    });
     return {
       schema: SCHEMA,
       label: src.label || LABEL,
@@ -265,6 +272,70 @@
       links: links,
       suggestions: suggestionsFor(objects),
     };
+  }
+
+  function boxesOverlap(a, b, gap) {
+    gap = gap || 0;
+    return a.x < b.x + b.w + gap && a.x + a.w + gap > b.x && a.y < b.y + b.h + gap && a.y + a.h + gap > b.y;
+  }
+
+  function placeEdgeLabels(objects, links) {
+    const nodes = (objects || []).map(function (obj) {
+      return { id: obj.id, x: obj.x, y: obj.y, w: NODE_W, h: NODE_H };
+    });
+    const byId = {};
+    (objects || []).forEach(function (obj) { byId[obj.id] = obj; });
+    const placed = [];
+    const out = {};
+    (links || []).forEach(function (link) {
+      const a = byId[link.from];
+      const b = byId[link.to];
+      if (!a || !b) return;
+      const x1 = a.x + NODE_W / 2;
+      const y1 = a.y + NODE_H / 2;
+      const x2 = b.x + NODE_W / 2;
+      const y2 = b.y + NODE_H / 2;
+      const mx = (x1 + x2) / 2;
+      const my = (y1 + y2) / 2;
+      const w = Math.ceil(String(link.type).length * 8) + 16;
+      const h = 18;
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const len = Math.sqrt(dx * dx + dy * dy) || 1;
+      const nx = -dy / len;
+      const ny = dx / len;
+      function boxAt(cx, cy) {
+        return { x: Math.round(cx - w / 2), y: Math.round(cy - h / 2), w: w, h: h };
+      }
+      function blocked(box) {
+        if (box.x < 2 || box.y < 2 || box.x + box.w > 638 || box.y + box.h > 398) return true;
+        for (let i = 0; i < nodes.length; i++) {
+          if (boxesOverlap(box, nodes[i], 2)) return true;
+        }
+        for (let i = 0; i < placed.length; i++) {
+          if (boxesOverlap(box, placed[i], 2)) return true;
+        }
+        return false;
+      }
+      let chosen = boxAt(mx, my);
+      if (blocked(chosen)) {
+        let found = null;
+        for (let step = 1; step <= 16 && !found; step++) {
+          const dist = step * 8;
+          const trials = [
+            boxAt(mx + nx * dist, my + ny * dist),
+            boxAt(mx - nx * dist, my - ny * dist),
+          ];
+          for (let t = 0; t < trials.length; t++) {
+            if (!blocked(trials[t])) { found = trials[t]; break; }
+          }
+        }
+        if (found) chosen = found;
+      }
+      placed.push(chosen);
+      out[link.id] = chosen;
+    });
+    return out;
   }
 
   function seed(proposals) {
@@ -293,6 +364,7 @@
     companion: function () { return clone(COMPANION); },
     links: function () { return clone(LINKS); },
     defaultInput: defaultInput,
+    CONFIDENCE_CAP: CONFIDENCE_CAP,
     build: build,
     seed: seed,
     statusOf: statusOf,

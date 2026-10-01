@@ -75,8 +75,13 @@
     const label = el("p", { class: "card-summary", "data-testid": "map-label" }, "");
     head.appendChild(label);
     const tools = el("div", { class: "object-map-tools" });
-    [["map-zoom-in", "Zoom in"], ["map-zoom-out", "Zoom out"], ["map-reset-view", "Reset view"], ["map-close", "Close"]].forEach(function (pair) {
-      const btn = el("button", { type: "button", class: "ghost", "data-testid": pair[0] }, pair[1]);
+    [["map-zoom-in", "+", "Zoom in"], ["map-zoom-out", "-", "Zoom out"], ["map-reset-view", "1", "Reset view"], ["map-close", "x", "Close"]].forEach(function (pair) {
+      const btn = el("button", {
+        type: "button",
+        class: "ghost map-tool",
+        "data-testid": pair[0],
+        "aria-label": pair[2],
+      }, pair[1]);
       btn.addEventListener("click", function () {
         if (pair[0] === "map-close") { root.hidden = true; return; }
         if (pair[0] === "map-reset-view") { view.x = 0; view.y = 0; view.k = 1; }
@@ -196,13 +201,6 @@
         "data-testid": "map-edge",
         "data-id": link.id,
       }));
-      const label = svgEl("text", {
-        x: Math.round((x1 + x2) / 2),
-        y: Math.round((y1 + y2) / 2) - 6,
-        class: "map-edge-label",
-      });
-      label.textContent = link.type;
-      world.appendChild(label);
     });
     map.objects.forEach(function (obj) {
       const node = svgEl("g", {
@@ -232,6 +230,34 @@
         render();
       });
       world.appendChild(node);
+    });
+    map.links.forEach(function (link) {
+      if (!link.label) return;
+      const box = link.label;
+      const group = svgEl("g", {
+        class: "map-edge-label",
+        "data-testid": "map-edge-label",
+        "data-id": link.id,
+        "data-type": link.type,
+      });
+      group.appendChild(svgEl("rect", {
+        x: box.x,
+        y: box.y,
+        width: box.w,
+        height: box.h,
+        rx: "4",
+        class: "map-edge-label-bg",
+      }));
+      const text = svgEl("text", {
+        x: box.x + box.w / 2,
+        y: box.y + box.h / 2,
+        "text-anchor": "middle",
+        "dominant-baseline": "middle",
+        class: "map-edge-label-text",
+      });
+      text.textContent = link.type;
+      group.appendChild(text);
+      world.appendChild(group);
     });
     applyView();
   }
@@ -285,14 +311,15 @@
       const card = el("article", { class: "map-suggestion", "data-testid": "map-suggestion", "data-id": row.id });
       const face = el("div", { class: "card-face" });
       face.appendChild(el("strong", null, row.leftLabel + " and " + row.rightLabel));
-      face.appendChild(el("span", { class: "chip", "data-testid": "map-confidence" }, String(row.confidence)));
+      face.appendChild(el("span", { class: "chip", "data-testid": "map-confidence" }, percent(row.confidence)));
       card.appendChild(face);
       card.appendChild(el("p", { class: "card-summary map-reason" }, row.reason));
       const info = infoPair("merge-" + row.id, "Why " + row.leftLabel + " and " + row.rightLabel);
       info.pop.appendChild(el("p", null, row.reason));
-      info.pop.appendChild(el("p", null, "Confidence " + row.confidence + ". A merge stays a proposal until a person acts elsewhere."));
+      info.pop.appendChild(el("p", null, "Confidence " + percent(row.confidence) + ". A merge stays a proposal until a person acts elsewhere."));
       card.appendChild(info.btn);
       card.appendChild(info.pop);
+      const actions = el("div", { class: "map-actions" });
       const merge = el("button", { type: "button", "data-testid": "map-merge" }, "Merge");
       const dismiss = el("button", { type: "button", class: "ghost", "data-testid": "map-dismiss" }, "Dismiss");
       if (saved && saved.status === "proposed") {
@@ -310,10 +337,15 @@
         window.SkinState.dismissMerge(row);
         render();
       });
-      card.appendChild(merge);
-      card.appendChild(dismiss);
+      actions.appendChild(merge);
+      actions.appendChild(dismiss);
+      card.appendChild(actions);
       box.appendChild(card);
     });
+  }
+
+  function percent(value) {
+    return Math.round(Number(value) * 100) + "%";
   }
 
   function render() {

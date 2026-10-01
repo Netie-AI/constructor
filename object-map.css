@@ -4,8 +4,9 @@
   z-index: 70;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-2);
+  gap: var(--space-1);
+  padding: var(--space-1);
+  overflow: hidden;
   background: var(--black);
   color: var(--text);
   font-family: var(--font);
@@ -22,25 +23,44 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  max-width: var(--measure);
+  flex: 0 0 auto;
+  min-width: 0;
 }
 
 .object-map h2 {
   margin: 0;
+  flex: 0 0 auto;
   font-size: var(--fs-4);
   font-weight: var(--fw-strong);
   line-height: var(--lh);
+  white-space: nowrap;
+}
+
+.object-map-head .card-summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .object-map-tools {
   display: flex;
+  flex: 0 0 auto;
   gap: var(--space-1);
+}
+
+.map-tool {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  line-height: 30px;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .object-map-body {
   position: relative;
-  flex: 1;
-  min-height: 280px;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .object-map-canvas {
@@ -62,7 +82,6 @@
   stroke-width: 1.5;
 }
 
-.map-edge-label,
 .map-node-title,
 .map-node-status {
   fill: var(--text);
@@ -71,10 +90,21 @@
   font-weight: 400;
 }
 
-.map-node-status,
-.map-edge-label {
+.map-node-status {
   font-size: 12px;
   fill: var(--muted);
+}
+
+.map-edge-label-bg {
+  fill: var(--surface-2);
+  stroke: var(--border);
+}
+
+.map-edge-label-text {
+  fill: var(--text);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 400;
 }
 
 .map-node rect {
@@ -128,7 +158,8 @@
 }
 
 .map-suggestions {
-  max-height: 220px;
+  flex: 0 0 auto;
+  max-height: 46%;
   overflow: auto;
   display: flex;
   flex-direction: column;
@@ -137,6 +168,13 @@
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
+}
+
+.map-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
 }
 
 .map-suggestion {

@@ -41,7 +41,9 @@ test("the same seed builds the same map and suggestions", () => {
   assert.deepEqual(fields, proposed);
   const ids = once.suggestions.map(function (row) { return row.id; });
   assert.deepEqual(ids, ["suppliers~vendors", "orders~purchase_orders"]);
-  assert.equal(once.suggestions[0].confidence, 1);
+  assert.equal(once.suggestions[0].confidence, 0.95);
+  assert.equal(once.suggestions[0].confidence <= M.CONFIDENCE_CAP, true);
+  assert.equal(once.suggestions[0].confidence < 1, true);
   assert.equal(once.suggestions[0].reason, "name similarity; overlapping key supplier_id; shared source table suppliers");
   assert.equal(once.suggestions[1].confidence, 0.8);
   assert.equal(once.suggestions[1].applied, false);
@@ -144,6 +146,40 @@ test("a merge click is a proposal and does not change the map", () => {
   assert.equal(/\.certified\s*=/.test(ui), false);
   assert.equal(/certifiedBy\s*[:=]/.test(ui), false);
   assert.equal(/status\s*=\s*["']certified["']/.test(ui), false);
+});
+
+test("edge labels sit near the midpoint and do not overlap", () => {
+  const map = M.seed();
+  const nodes = map.objects.map(function (obj) {
+    return { id: obj.id, x: obj.x, y: obj.y, w: 140, h: 56 };
+  });
+  function overlap(a, b, gap) {
+    return a.x < b.x + b.w + gap && a.x + a.w + gap > b.x && a.y < b.y + b.h + gap && a.y + a.h + gap > b.y;
+  }
+  const forOrder = map.links.filter(function (link) { return link.type === "for-order"; })[0];
+  assert.ok(forOrder.label);
+  map.links.forEach(function (link) {
+    const box = link.label;
+    assert.equal(box.x >= 2 && box.y >= 2 && box.x + box.w <= 638 && box.y + box.h <= 398, true, link.id);
+    nodes.forEach(function (node) {
+      assert.equal(overlap(box, node, 2), false, link.id + " overlaps " + node.id);
+    });
+    const from = map.objects.filter(function (obj) { return obj.id === link.from; })[0];
+    const to = map.objects.filter(function (obj) { return obj.id === link.to; })[0];
+    const mx = (from.x + 70 + to.x + 70) / 2;
+    const my = (from.y + 28 + to.y + 28) / 2;
+    const dist = Math.hypot(box.x + box.w / 2 - mx, box.y + box.h / 2 - my);
+    assert.equal(dist <= 48, true, link.id + " is " + dist + "px from the midpoint");
+  });
+  for (let i = 0; i < map.links.length; i++) {
+    for (let j = i + 1; j < map.links.length; j++) {
+      assert.equal(overlap(map.links[i].label, map.links[j].label, 2), false);
+    }
+  }
+  map.suggestions.forEach(function (row) {
+    assert.equal(row.confidence <= 0.95, true);
+    assert.equal(row.confidence < 1, true);
+  });
 });
 
 test("object map css stays on the solid token scale", () => {

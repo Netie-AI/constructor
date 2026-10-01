@@ -217,21 +217,39 @@
       "from": "purchase_orders",
       "to": "orders",
       "type": "same-key",
-      "via": "order_id"
+      "via": "order_id",
+      "label": {
+        "x": 352,
+        "y": 93,
+        "w": 80,
+        "h": 18
+      }
     },
     {
       "id": "shipments.for-order.orders",
       "from": "shipments",
       "to": "orders",
       "type": "for-order",
-      "via": "order_id"
+      "via": "order_id",
+      "label": {
+        "x": 297,
+        "y": 184,
+        "w": 88,
+        "h": 18
+      }
     },
     {
       "id": "vendors.same-party.suppliers",
       "from": "vendors",
       "to": "suppliers",
       "type": "same-party",
-      "via": "supplier_id"
+      "via": "supplier_id",
+      "label": {
+        "x": 157,
+        "y": 229,
+        "w": 96,
+        "h": 18
+      }
     }
   ],
   "suggestions": [
@@ -242,7 +260,7 @@
       "leftLabel": "Supplier",
       "rightLabel": "Vendor",
       "reason": "name similarity; overlapping key supplier_id; shared source table suppliers",
-      "confidence": 1,
+      "confidence": 0.95,
       "applied": false,
       "certified": false
     },
