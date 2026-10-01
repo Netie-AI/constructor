@@ -215,6 +215,30 @@
     return paths;
   }
 
+  function planContext(extra) {
+    const ctx = {
+      adapter: P.cortexPlannerStub(),
+      settings: P.readSettings(window.localStorage),
+      storage: window.localStorage,
+      search: window.location.search,
+    };
+    if (P.currentDmsRaw() !== undefined) ctx.dmsSettings = P.currentDmsRaw();
+    Object.keys(extra || {}).forEach(function (key) { ctx[key] = extra[key]; });
+    return ctx;
+  }
+
+  function replan(prev, extra) {
+    const panel = document.getElementById("planner-panel");
+    const plan = P.plan(prev.request, planContext(Object.assign({
+      synthetic: prev.synthetic === true,
+      diffNames: pathsFrom(prev),
+      recordedAt: new Date().toISOString(),
+    }, extra || {})));
+    render(plan, { cards: state.cards, full: !!(panel && panel.classList.contains("is-full")) });
+    if (window.Constructor) window.Constructor.lastPlan = plan;
+    return plan;
+  }
+
   function saveSettings(form) {
     const written = P.writeSettings({
       effortMode: form.querySelector("[data-testid=settings-mode]").value,
@@ -229,18 +253,7 @@
       return;
     }
     state.settingsError = "";
-    const prev = state.plan;
-    const panel = document.getElementById("planner-panel");
-    const plan = P.plan(prev.request, {
-      adapter: P.cortexPlannerStub(),
-      synthetic: prev.synthetic === true,
-      settings: written.settings,
-      storage: window.localStorage,
-      diffNames: pathsFrom(prev),
-      recordedAt: new Date().toISOString(),
-    });
-    render(plan, { cards: state.cards, full: !!(panel && panel.classList.contains("is-full")) });
-    if (window.Constructor) window.Constructor.lastPlan = plan;
+    replan(state.plan, { settings: written.settings });
   }
 
   function renderSettings(plan) {
@@ -257,7 +270,8 @@
     });
     box.appendChild(toggle);
     if (!state.settingsOpen) return box;
-    const settings = plan.settings || P.defaultSettings();
+    const local = P.readSettings(window.localStorage);
+    const settings = plan.settingsSource === "dms" ? local : (plan.settings || local);
     const form = el("form", { "data-testid": "planner-settings-form" });
     form.addEventListener("submit", function (event) {
       event.preventDefault();
@@ -292,6 +306,14 @@
     form.appendChild(moneyField("settings-run", "Per run cap", settings.runUsd));
     form.appendChild(moneyField("settings-max", "Max-level budget", settings.maxLevelBudgetUsd));
     form.appendChild(el("button", { type: "submit", "data-testid": "settings-save" }, "Save settings"));
+    const exportSchema = el("button", { type: "button", class: "ghost", "data-testid": "settings-export-schema" }, "Export settings schema");
+    exportSchema.addEventListener("click", function () {
+      download("planner-settings.schema.json", P.settingsSchema());
+    });
+    form.appendChild(exportSchema);
+    if (plan.settingsSource === "dms") {
+      form.appendChild(el("p", { class: "planner-note", "data-testid": "settings-dms-note" }, "DMS is the active source. Saving here updates the Constructor copy only."));
+    }
     box.appendChild(form);
     if (state.settingsError) box.appendChild(el("p", { class: "planner-settings-error", "data-testid": "settings-error" }, state.settingsError));
     return box;
@@ -311,6 +333,11 @@
     box.appendChild(el("p", { class: "planner-choice", "data-testid": "effort-choice" }, prefix + choice.level + ", predicted cost " + predicted));
     box.appendChild(el("p", { class: "planner-note", "data-testid": "effort-log" }, "logged: " + plan.intent + ", " + choice.level + ", " + predicted + ". " + (choice.reason || "")));
     box.appendChild(el("p", { class: "planner-note", "data-testid": "effort-remaining" }, remainingText(plan)));
+    const sourceName = plan.settingsSource === "dms" ? "DMS" : "Constructor";
+    box.appendChild(el("p", { class: "planner-note", "data-testid": "settings-source" }, "settings source " + sourceName));
+    if (plan.settingsWarning) {
+      box.appendChild(el("p", { class: "planner-settings-error", "data-testid": "settings-source-warning" }, plan.settingsWarning));
+    }
     box.appendChild(renderSettings(plan));
     box.appendChild(el("p", { class: "planner-note" }, (plan.efforts && plan.efforts.low && plan.efforts.low.profileNote) || ""));
     const grid = el("div", { class: "planner-effort-grid" });
@@ -359,14 +386,7 @@
   }
 
   function openDemo() {
-    const adapter = P.cortexPlannerStub();
-    const settings = P.readSettings(window.localStorage);
-    const plan = P.plan(P.demoRequest(), {
-      adapter: adapter,
-      synthetic: true,
-      settings: settings,
-      storage: window.localStorage,
-    });
+    const plan = P.plan(P.demoRequest(), planContext({ synthetic: true }));
     const cards = P.proposeOntology(P.sampleSchema());
     render(plan, { full: true, cards: cards });
     if (window.Constructor) window.Constructor.lastPlan = plan;
@@ -374,6 +394,16 @@
 
   function mount() {
     ensure();
+    if (!window.__plannerDmsListener) {
+      window.__plannerDmsListener = true;
+      window.addEventListener("message", function (event) {
+        const data = event.data;
+        if (!data || data.type !== P.DMS_MESSAGE_TYPE) return;
+        P.noteDmsMessage(data);
+        if (!state.plan) return;
+        replan(state.plan);
+      });
+    }
     const rail = document.querySelector(".rail");
     if (!rail || document.getElementById("open-planner")) return;
     const btn = el("button", { type: "button", id: "open-planner", class: "ghost", "data-testid": "open-planner" }, "Planner");

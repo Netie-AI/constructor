@@ -292,6 +292,107 @@ test("settings persist in the supplied store and an empty cap stays unlimited", 
   assert.equal(JSON.stringify(unknown.effortChoice).indexOf("4.00"), -1);
 });
 
+test("DMS settings override local ones, and an invalid DMS payload falls back", () => {
+  P.clearDmsInbox();
+  const schemaFile = require(path.join(root, "planner-settings.schema.json"));
+  assert.deepEqual(P.settingsSchema(), schemaFile);
+  assert.equal(schemaFile.$id, "netie.planner-settings/1");
+  assert.equal(schemaFile.properties.schema.const, "netie.planner-settings/1");
+  function dms(over) {
+    return Object.assign({
+      schema: "netie.planner-settings/1",
+      effortMode: "auto",
+      confirm: false,
+      paidCallUsd: null,
+      runUsd: null,
+      maxLevelBudgetUsd: null,
+      spentUsd: null,
+    }, over || {});
+  }
+  const text = "Look up the customer row for account_id A-14";
+  const table = pricedTable();
+  try {
+    const mem = memory();
+    P.writeSettings({ effortMode: "auto", confirm: false, runUsd: 9 }, mem);
+    const localOnly = P.plan(text, { storage: mem, dmsSettings: null });
+    assert.equal(localOnly.settingsSource, "constructor");
+    assert.equal(localOnly.settings.runUsd, 9);
+    assert.equal(localOnly.settingsWarning, null);
+
+    const over = P.plan(text, {
+      prices: table,
+      storage: mem,
+      settings: { runUsd: 9, effortMode: "auto" },
+      dmsSettings: dms({ runUsd: 0.02 }),
+    });
+    assert.equal(over.settingsSource, "dms");
+    assert.equal(over.settings.runUsd, 0.02);
+    assert.equal(over.settingsWarning, null);
+    assert.equal(over.effortChoice.prompted, false);
+    assert.equal(over.effortChoice.level, "low");
+    assert.equal(P.startEffort(over, "medium").ok, false);
+    assert.match(P.startEffort(over, "medium").reason, /run budget/);
+    assert.equal(P.readSettings(mem).runUsd, 9);
+
+    const absent = P.plan(text, {
+      prices: table,
+      settings: { runUsd: 9, effortMode: "auto" },
+      dmsSettings: null,
+    });
+    assert.equal(absent.settingsSource, "constructor");
+    assert.equal(absent.settings.runUsd, 9);
+    assert.equal(absent.effortChoice.level, "medium");
+    assert.equal(P.startEffort(absent, "medium").ok, true);
+
+    const bad = P.plan(text, {
+      prices: table,
+      settings: { runUsd: 9, effortMode: "auto" },
+      dmsSettings: { schema: "netie.planner-settings/1", effortMode: "turbo", runUsd: 0.02 },
+    });
+    assert.equal(bad.settingsSource, "constructor");
+    assert.equal(bad.settings.runUsd, 9);
+    assert.equal(bad.effortChoice.level, "medium");
+    assert.match(bad.settingsWarning, /DMS settings were rejected/);
+    assert.match(bad.settingsWarning, /effortMode/);
+
+    const search = "?netiePlannerSettings=" + encodeURIComponent(JSON.stringify(dms({ runUsd: 0.02 })));
+    const fromUrl = P.plan(text, {
+      prices: table,
+      settings: { runUsd: 9, effortMode: "auto" },
+      search: search,
+    });
+    assert.equal(fromUrl.settingsSource, "dms");
+    assert.equal(fromUrl.settings.runUsd, 0.02);
+    assert.equal(fromUrl.effortChoice.level, "low");
+
+    const emptyUrl = P.plan(text, {
+      settings: { runUsd: 9, effortMode: "auto" },
+      search: "?netiePlannerSettings=",
+    });
+    assert.equal(emptyUrl.settingsSource, "constructor");
+    assert.equal(emptyUrl.settings.runUsd, 9);
+    assert.match(emptyUrl.settingsWarning, /rejected/);
+
+    P.noteDmsMessage({ type: "netie.planner-settings", settings: dms({ effortMode: "max", confirm: false }) });
+    const fromMsg = P.plan("Write a javascript function that checks the plan schema", {
+      settings: { effortMode: "low", runUsd: 9 },
+    });
+    assert.equal(fromMsg.settingsSource, "dms");
+    assert.equal(fromMsg.effortChoice.level, "max");
+    assert.equal(fromMsg.efforts.max.needsConfirm, false);
+    assert.equal(fromMsg.efforts.high.wire.lane, "outsourced-coding");
+
+    P.clearDmsInbox();
+    global.window = { NETIE_PLANNER_DMS_SETTINGS: dms({ runUsd: 1, effortMode: "auto" }) };
+    const fromGlobal = P.plan(text, { settings: { runUsd: 9, effortMode: "auto" } });
+    assert.equal(fromGlobal.settingsSource, "dms");
+    assert.equal(fromGlobal.settings.runUsd, 1);
+  } finally {
+    P.clearDmsInbox();
+    delete global.window;
+  }
+});
+
 test("build intents at high and max use the coding stub lane and do not call it", () => {
   const stub = P.cursorCloudAgentStub();
   const wrapped = stub.send;

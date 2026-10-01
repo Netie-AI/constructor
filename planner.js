@@ -30,6 +30,10 @@
   const LOG_SCHEMA = "netie.planner-effort-log/1";
   const SETTINGS_KEY = "netie.constructor.planner.settings";
   const LOG_KEY = "netie.constructor.planner.log";
+  const DMS_MESSAGE_TYPE = "netie.planner-settings";
+  const DMS_URL_PARAM = "netiePlannerSettings";
+  const DMS_GLOBAL = "NETIE_PLANNER_DMS_SETTINGS";
+  let dmsInbox = null;
   const EFFORT_MODES = ["auto", "low", "medium", "high", "max"];
   const DEMO_REQUEST = "list open orders where status is open, columns order_id status region, one row per order, sort by order_id";
 
@@ -321,11 +325,122 @@
     return row;
   }
 
-  function resolveSettings(ctx) {
+  function settingsSchema() {
+    return {
+      $schema: "http://json-schema.org/draft-07/schema#",
+      $id: SETTINGS_SCHEMA,
+      title: "Planner settings",
+      description: "Shared settings object for Constructor and DMS. Empty caps mean unlimited. This file is the contract. DMS is not implemented in this repo.",
+      type: "object",
+      additionalProperties: false,
+      required: ["schema"],
+      properties: {
+        schema: { "const": SETTINGS_SCHEMA },
+        effortMode: { "enum": ["auto", "low", "medium", "high", "max"] },
+        confirm: { type: "boolean" },
+        paidCallUsd: { type: ["number", "null"], minimum: 0 },
+        runUsd: { type: ["number", "null"], minimum: 0 },
+        maxLevelBudgetUsd: { type: ["number", "null"], minimum: 0 },
+        spentUsd: { type: ["number", "null"], minimum: 0 },
+      },
+    };
+  }
+
+  function localSettings(ctx) {
     ctx = ctx || {};
-    if (ctx.settings) return normalizeSettings(ctx.settings).settings;
+    if (ctx.settings) {
+      const norm = normalizeSettings(ctx.settings);
+      if (norm.ok) return norm.settings;
+    }
     if (ctx.storage) return readSettings(ctx.storage);
     return defaultSettings();
+  }
+
+  function acceptDmsSettings(raw) {
+    if (raw == null) return { present: false, ok: true, invalid: [], settings: null };
+    let body = raw;
+    if (typeof raw === "string") {
+      if (raw.trim() === "") return { present: true, ok: false, invalid: ["empty"], settings: null };
+      try {
+        body = JSON.parse(raw);
+      } catch (err) {
+        return { present: true, ok: false, invalid: ["json"], settings: null };
+      }
+    }
+    if (!body || typeof body !== "object") return { present: true, ok: false, invalid: ["shape"], settings: null };
+    if (body.type === DMS_MESSAGE_TYPE) {
+      if (!body.settings || typeof body.settings !== "object") {
+        return { present: true, ok: false, invalid: ["settings"], settings: null };
+      }
+      body = body.settings;
+    }
+    if (body.schema !== SETTINGS_SCHEMA) return { present: true, ok: false, invalid: ["schema"], settings: null };
+    const norm = normalizeSettings(body);
+    if (!norm.ok) return { present: true, ok: false, invalid: norm.invalid.slice(), settings: null };
+    return { present: true, ok: true, invalid: [], settings: norm.settings };
+  }
+
+  function readUrlDms(search) {
+    if (search == null || search === "") return undefined;
+    const text = String(search);
+    const q = text.charAt(0) === "?" ? text.slice(1) : text;
+    let params;
+    try {
+      params = new URLSearchParams(q);
+    } catch (err) {
+      return undefined;
+    }
+    if (!params.has(DMS_URL_PARAM)) return undefined;
+    return params.get(DMS_URL_PARAM);
+  }
+
+  function pickDmsRaw(ctx) {
+    ctx = ctx || {};
+    if (Object.prototype.hasOwnProperty.call(ctx, "dmsSettings")) return ctx.dmsSettings;
+    if (dmsInbox) return dmsInbox.raw;
+    if (typeof window !== "undefined" && window && window[DMS_GLOBAL] != null) return window[DMS_GLOBAL];
+    const search = ctx.search != null ? ctx.search : (typeof location !== "undefined" && location ? location.search : "");
+    const fromUrl = readUrlDms(search);
+    if (fromUrl !== undefined) return fromUrl;
+    return undefined;
+  }
+
+  function noteDmsMessage(data) {
+    const accepted = acceptDmsSettings(data);
+    dmsInbox = { raw: data, accepted: accepted };
+    return accepted;
+  }
+
+  function clearDmsInbox() {
+    dmsInbox = null;
+  }
+
+  function currentDmsRaw() {
+    return dmsInbox ? dmsInbox.raw : undefined;
+  }
+
+  function resolveSettingsSource(ctx) {
+    ctx = ctx || {};
+    const raw = pickDmsRaw(ctx);
+    const local = localSettings(ctx);
+    if (raw === undefined || raw === null) {
+      return { source: "constructor", settings: local, warning: null, invalid: [] };
+    }
+    const accepted = acceptDmsSettings(raw);
+    if (accepted.present && accepted.ok) {
+      return { source: "dms", settings: accepted.settings, warning: null, invalid: [] };
+    }
+    const why = (accepted.invalid && accepted.invalid.length) ? accepted.invalid.join(", ") : "invalid";
+    return {
+      source: "constructor",
+      settings: local,
+      warning: "DMS settings were rejected (" + why + "). Using Constructor settings.",
+      invalid: accepted.invalid || [],
+    };
+  }
+
+  function resolveSettings(ctx) {
+    return resolveSettingsSource(ctx).settings;
   }
 
   function moneyLabel(value) {
@@ -563,7 +678,8 @@
     const text = String(request || "").trim();
     const routed = route(text);
     const shaped = shapeFor(routed.intent, text);
-    const settings = resolveSettings(ctx);
+    const resolved = resolveSettingsSource(ctx);
+    const settings = resolved.settings;
     const efforts = effortPreview(routed.intent, shaped.steps, ctx, settings);
     const choice = chooseEffort(routed.intent, efforts, settings);
     const logged = recordChoice({
@@ -594,6 +710,8 @@
       promptLog: shaped.promptLog,
       budget: budget(settings),
       settings: settings,
+      settingsSource: resolved.source,
+      settingsWarning: resolved.warning,
       governance: governance(),
       answerSpec: shaped.answerSpec,
       adapter: { id: adapter.id, kind: adapter.kind, called: false },
@@ -645,6 +763,8 @@
     const settings = planObj.settings || defaultSettings();
     if (!planObj.settings || planObj.settings.schema !== SETTINGS_SCHEMA) err("PLAN_SETTINGS", "settings are required");
     if (EFFORT_MODES.indexOf(settings.effortMode) < 0) err("PLAN_SETTINGS_MODE", "effort mode is not known");
+    if (planObj.settingsSource !== "dms" && planObj.settingsSource !== "constructor") err("PLAN_SETTINGS_SOURCE", "settings source must be dms or constructor");
+    if (planObj.settingsWarning != null && typeof planObj.settingsWarning !== "string") err("PLAN_SETTINGS_WARNING", "settings warning must be a string or null");
     const g = planObj.governance || {};
     if (g.contract !== "netie.governed-answer/1") err("PLAN_GATE_CONTRACT", "governance contract mismatch");
     if (!g.linked || !g.noLink || !g.noExecutedQuery || !g.predict) err("PLAN_GATES", "governance gates are incomplete");
@@ -1124,9 +1244,9 @@
   function estimate(planObj, ctx) {
     ctx = ctx || {};
     const estimator = ctx.estimator || deterministicEstimator();
-    const settings = ctx.settings
-      ? normalizeSettings(ctx.settings).settings
-      : ((planObj && planObj.settings) || defaultSettings());
+    const settings = resolveSettingsSource(Object.assign({}, ctx, {
+      settings: ctx.settings || (planObj && planObj.settings) || undefined,
+    })).settings;
     if (estimator.kind === "light-llm") {
       return {
         estimatorId: estimator.id,
@@ -1230,10 +1350,19 @@
     LOG_SCHEMA: LOG_SCHEMA,
     SETTINGS_KEY: SETTINGS_KEY,
     LOG_KEY: LOG_KEY,
+    DMS_MESSAGE_TYPE: DMS_MESSAGE_TYPE,
+    DMS_URL_PARAM: DMS_URL_PARAM,
+    DMS_GLOBAL: DMS_GLOBAL,
     defaultSettings: defaultSettings,
     readSettings: readSettings,
     writeSettings: writeSettings,
     readLog: readLog,
+    settingsSchema: settingsSchema,
+    acceptDmsSettings: acceptDmsSettings,
+    noteDmsMessage: noteDmsMessage,
+    clearDmsInbox: clearDmsInbox,
+    currentDmsRaw: currentDmsRaw,
+    resolveSettingsSource: resolveSettingsSource,
     priceTable: function () { return defaultPrices(); },
     wireFor: wireFor,
     effortPreview: function (intent, steps, ctx) { return effortPreview(intent, steps, ctx, resolveSettings(ctx)); },

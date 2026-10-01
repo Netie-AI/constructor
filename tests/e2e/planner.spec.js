@@ -55,6 +55,7 @@ test.describe("planner", () => {
     await expect(panel.getByTestId("planner-steps")).toContainText("DMS SQL");
     await expect(panel.getByTestId("planner-budget")).toContainText("20");
     await expect(panel.getByTestId("planner-budget")).toContainText("unlimited");
+    await expect(panel.getByTestId("settings-source")).toContainText("Constructor");
     await expect(panel.getByTestId("effort-choice")).toContainText("auto chose medium");
     await expect(panel.getByTestId("effort-choice")).toContainText("predicted cost unknown");
     await expect(panel.getByTestId("planner-gates")).toContainText("withheld");
@@ -201,6 +202,56 @@ test.describe("planner", () => {
     await expect(page.getByTestId("effort-remaining")).toContainText("per run unlimited");
     await expect(page.getByTestId("effort-choice")).toContainText("auto chose medium");
     await expect(page.getByTestId("effort-low").getByTestId("effort-wire")).toContainText("cortex / governed");
+    const fetches = await page.evaluate(() => window.__fetches);
+    expect(fetches).toEqual([]);
+  });
+
+  test("DMS settings override local settings and an invalid payload falls back", async ({ page }) => {
+    await page.evaluate(() => {
+      localStorage.setItem("netie.constructor.planner.settings", JSON.stringify({
+        schema: "netie.planner-settings/1",
+        effortMode: "auto",
+        confirm: false,
+        paidCallUsd: null,
+        runUsd: 12,
+        maxLevelBudgetUsd: null,
+        spentUsd: null,
+      }));
+    });
+    await page.locator("#chat-close").click();
+    await page.getByTestId("open-planner").click();
+    await expect(page.getByTestId("settings-source")).toContainText("Constructor");
+    await expect(page.getByTestId("effort-remaining")).toContainText("$12");
+    await page.evaluate(() => {
+      window.postMessage({
+        type: "netie.planner-settings",
+        settings: {
+          schema: "netie.planner-settings/1",
+          effortMode: "auto",
+          confirm: false,
+          paidCallUsd: null,
+          runUsd: 2,
+          maxLevelBudgetUsd: null,
+          spentUsd: null,
+        },
+      }, "*");
+    });
+    await expect(page.getByTestId("settings-source")).toContainText("DMS");
+    await expect(page.getByTestId("effort-remaining")).toContainText("$2");
+    await expect(page.getByTestId("effort-high-confirm")).toHaveCount(0);
+    await expect(page.getByTestId("settings-source-warning")).toHaveCount(0);
+    await page.screenshot({ path: shot("planner-settings-dms.png") });
+    await page.evaluate(() => {
+      window.postMessage({
+        type: "netie.planner-settings",
+        settings: { schema: "netie.planner-settings/1", effortMode: "turbo", runUsd: 2 },
+      }, "*");
+    });
+    await expect(page.getByTestId("settings-source-warning")).toContainText("DMS settings were rejected");
+    await expect(page.getByTestId("settings-source")).toContainText("Constructor");
+    await expect(page.getByTestId("effort-remaining")).toContainText("$12");
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("netie.constructor.planner.settings")).runUsd);
+    expect(stored).toBe(12);
     const fetches = await page.evaluate(() => window.__fetches);
     expect(fetches).toEqual([]);
   });

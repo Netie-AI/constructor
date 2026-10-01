@@ -47,9 +47,18 @@ The estimator is `step count x the per-lane request profile x the provider price
 
 ## Settings
 
-Schema `netie.planner-settings/1`. Fields: effort mode (`auto`, `low`, `medium`, `high`, `max`), confirmation, per-call cap, per-run cap, max-level budget. Defaults: auto, confirmation off, caps empty. The Settings panel on the planner edits them. `localStorage` key `netie.constructor.planner.settings` stores them. The choice log is `netie.constructor.planner.log` (`netie.planner-effort-log/1`). There is no settings server.
+Schema `netie.planner-settings/1`. The JSON Schema is `planner-settings.schema.json`. Fields: effort mode (`auto`, `low`, `medium`, `high`, `max`), confirmation, per-call cap, per-run cap, max-level budget. Defaults: auto, confirmation off, caps empty. The Settings panel on the planner edits the Constructor copy. `localStorage` key `netie.constructor.planner.settings` stores that copy. The choice log is `netie.constructor.planner.log` (`netie.planner-effort-log/1`). There is no settings server. This repo does not implement DMS.
 
-A number the user saves is enforced: the shown cost stops at the tightest remaining cap, and start refuses a level whose predicted max is over that cap. An empty cap does not clamp. Confirmation, when on, blocks a manual high or max until the user confirms. Auto still does not ask. Confirmation does not send a prompt.
+Users can set the same object in DMS. The planner reads one active source:
+
+1. An injected `dmsSettings` object on the plan call, or `window.NETIE_PLANNER_DMS_SETTINGS` when Constructor is embedded.
+2. A `postMessage` whose `type` is `netie.planner-settings` and whose `settings` field is the object.
+3. The URL query `netiePlannerSettings`, a JSON string of the same object, when Constructor is embedded.
+4. The Constructor copy in `localStorage`.
+
+A valid DMS object takes precedence. The plan shows `settings source DMS` or `settings source Constructor`. Auto, confirmation, and caps behave the same either way. A DMS object is valid only when `schema` is `netie.planner-settings/1` and the fields match the schema. An invalid DMS object is not applied. The plan falls back to the Constructor copy and shows the warning `DMS settings were rejected`. Saving in the panel updates the Constructor copy only. It does not replace an active DMS object.
+
+A number from the active source is enforced: the shown cost stops at the tightest remaining cap, and start refuses a level whose predicted max is over that cap. An empty cap does not clamp. Confirmation, when on, blocks a manual high or max until the user confirms. Auto still does not ask. Confirmation does not send a prompt.
 
 ## Build lane
 

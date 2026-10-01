@@ -694,11 +694,16 @@ function attachPlan(text) {
   const Planner = window.Planner;
   if (!Planner || typeof Planner.plan !== "function") return null;
   const settings = typeof Planner.readSettings === "function" ? Planner.readSettings(window.localStorage) : null;
-  const plan = Planner.plan(text, {
+  const ctx = {
     adapter: Planner.cortexPlannerStub(),
     settings: settings || undefined,
     storage: window.localStorage,
-  });
+    search: window.location.search,
+  };
+  if (typeof Planner.currentDmsRaw === "function" && Planner.currentDmsRaw() !== undefined) {
+    ctx.dmsSettings = Planner.currentDmsRaw();
+  }
+  const plan = Planner.plan(text, ctx);
   if (window.Constructor) window.Constructor.lastPlan = plan;
   if (window.PlannerUI && typeof window.PlannerUI.render === "function") {
     window.PlannerUI.render(plan, { full: false });
