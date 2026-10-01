@@ -36,7 +36,7 @@ test("skin state keeps the answer withheld and shares node edits", () => {
 });
 
 test("design tokens are solid and have no blur", () => {
-  const css = ["styles.css", "planner.css", "ontology.css"].map(function (name) {
+  const css = ["styles.css", "planner.css", "ontology.css", "object-map.css"].map(function (name) {
     return fs.readFileSync(path.join(__dirname, "..", "..", name), "utf8");
   }).join("\n");
   assert.equal(/backdrop-filter/.test(css), false);

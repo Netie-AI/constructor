@@ -20,6 +20,7 @@
       proposals: [],
       pipeline: [],
       answer: { title: "Answer", state: "withheld", badge: false, values: [] },
+      merges: [],
     };
   }
 
@@ -38,8 +39,24 @@
     return clone(current);
   }
 
+  function cleanMerge(row) {
+    row = row || {};
+    const confidence = typeof row.confidence === "number" && isFinite(row.confidence) ? row.confidence : 0;
+    return {
+      id: String(row.id || ""),
+      status: row.status === "dismissed" ? "dismissed" : "proposed",
+      applied: false,
+      certified: false,
+      left: String(row.left || ""),
+      right: String(row.right || ""),
+      reason: String(row.reason || ""),
+      confidence: confidence,
+    };
+  }
+
   function set(next) {
     next = next || {};
+    const merges = Array.isArray(next.merges) ? next.merges.map(cleanMerge) : clone(current.merges || []);
     current = {
       schema: SCHEMA,
       request: next.request || "",
@@ -52,6 +69,7 @@
         badge: false,
         values: [],
       },
+      merges: merges,
     };
     emit();
     return get();
@@ -101,6 +119,24 @@
     return get();
   }
 
+  function writeMerge(row, status) {
+    const item = cleanMerge(Object.assign({}, row, { status: status }));
+    if (!item.id) return get();
+    current.merges = (current.merges || []).filter(function (m) { return m.id !== item.id; });
+    current.merges.push(item);
+    current.merges.sort(function (a, b) { return a.id < b.id ? -1 : a.id > b.id ? 1 : 0; });
+    emit();
+    return get();
+  }
+
+  function proposeMerge(row) {
+    return writeMerge(row, "proposed");
+  }
+
+  function dismissMerge(row) {
+    return writeMerge(row, "dismissed");
+  }
+
   return {
     SCHEMA: SCHEMA,
     LANES: LANES.slice(),
@@ -112,5 +148,7 @@
     removeNode: removeNode,
     moveNode: moveNode,
     setProposals: setProposals,
+    proposeMerge: proposeMerge,
+    dismissMerge: dismissMerge,
   };
 });
