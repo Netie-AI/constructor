@@ -48,6 +48,8 @@
       "aria-label": "Constructor plan",
     });
     panel.hidden = true;
+    panel.addEventListener("pointerdown", function (event) { event.stopPropagation(); });
+    panel.addEventListener("wheel", function (event) { event.stopPropagation(); }, { passive: true });
     stage.appendChild(panel);
     return panel;
   }

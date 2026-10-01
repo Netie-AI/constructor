@@ -118,6 +118,7 @@ test.describe("planner", () => {
   });
 
   test("planner panel fits a narrow viewport", async ({ page }) => {
+    await page.locator("#chat-close").click();
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByTestId("open-planner").click();
     const panel = page.getByTestId("planner-panel");
