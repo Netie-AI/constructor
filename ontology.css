@@ -13,7 +13,9 @@
   background: #070707;
   color: var(--text);
   border: 0;
-  font-size: 13px;
+  font-size: var(--fs-2, 14px);
+  font-family: var(--font, system-ui, sans-serif);
+  line-height: var(--lh, 1.5);
 }
 
 .ontology-studio[hidden] {
@@ -192,7 +194,26 @@
 
 .os-list .os-row-sub {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--fs-1, 12px);
+  max-width: var(--measure, 70ch);
+}
+
+.os-list .os-row {
+  display: flex;
+  align-items: flex-start;
+  position: relative;
+  padding-right: var(--space-4, 32px);
+}
+
+.os-list .os-row-main {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  font: inherit;
 }
 
 .os-new {

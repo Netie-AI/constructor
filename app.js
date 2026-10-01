@@ -752,8 +752,9 @@ function render() {
       "</div>" +
       '<button type="button" class="node-edit" data-edit="1" aria-label="edit node">+</button>' +
       "</div><h2>" +
-      meta.label +
+      escapeAttr(node.title || meta.label) +
       "</h2>" +
+      (node.lane ? '<span class="chip" data-testid="node-lane-chip">' + escapeAttr(node.lane) + "</span>" : "") +
       (node.kind === "ontology"
         ? '<p class="sub">' + escapeAttr(ontologySummary(node)) + "</p>"
         : '<p class="io"><span>IN</span> ' +
@@ -765,6 +766,32 @@ function render() {
       '<button type="button" class="port" data-port="in" aria-label="input port"></button>' +
       '<button type="button" class="port" data-port="out" aria-label="output port"></button>' +
       "</div>";
+    if (node.summary) {
+      const sum = document.createElement("p");
+      sum.className = "card-summary";
+      sum.textContent = node.summary;
+      el.appendChild(sum);
+    }
+    const info = document.createElement("button");
+    info.type = "button";
+    info.className = "info-btn";
+    info.textContent = "i";
+    info.setAttribute("aria-label", "Details for " + (node.title || meta.label));
+    info.setAttribute("aria-controls", "info-node-" + node.id);
+    info.setAttribute("aria-expanded", "false");
+    const pop = document.createElement("div");
+    pop.id = "info-node-" + node.id;
+    pop.className = "info-pop";
+    pop.hidden = true;
+    pop.setAttribute("role", "dialog");
+    pop.setAttribute("aria-modal", "false");
+    pop.setAttribute("aria-label", "Details for " + (node.title || meta.label));
+    const detail = document.createElement("p");
+    detail.textContent = (node.doing || node.note || meta.note || "") + (node.lane ? " Lane " + node.lane + "." : "");
+    pop.appendChild(detail);
+    const head = el.querySelector(".node-head");
+    if (head) head.appendChild(info);
+    el.appendChild(pop);
     nodesEl.appendChild(el);
   }
   drawWires();
@@ -1198,10 +1225,39 @@ function showInspect() {
       (node.kind === "ontology"
         ? '<p class="hint">' + escapeAttr(ontologySummary(node)) + "</p>" + objectChipsHtml(node)
         : "") +
+      (node.role
+        ? '<label for="node-rename">Name</label><input id="node-rename" data-testid="node-rename" value="' +
+          escapeAttr(node.title || meta.label) +
+          '" /><label for="node-lane">Lane</label><select id="node-lane" data-testid="node-lane">' +
+          ["Cortex", "DMS SQL", "OpenVault FreeRoute model hop", "KB"]
+            .map(function (lane) {
+              return '<option' + (node.lane === lane ? " selected" : "") + ">" + escapeAttr(lane) + "</option>";
+            })
+            .join("") +
+          '</select><button type="button" data-testid="node-earlier">Earlier</button> <button type="button" data-testid="node-later">Later</button> <button type="button" data-testid="node-remove">Remove</button>'
+        : "") +
       '<button type="button" id="press-decision">Edit node</button>' +
       (node.kind === "ontology"
         ? ' <button type="button" id="inspect-open-studio">Open Ontology Studio</button>'
         : "");
+    const rename = inspectCard.querySelector("[data-testid=node-rename]");
+    if (rename) {
+      rename.addEventListener("change", function () {
+        editPipeline(node.id, { title: rename.value });
+      });
+    }
+    const lanePick = inspectCard.querySelector("[data-testid=node-lane]");
+    if (lanePick) {
+      lanePick.addEventListener("change", function () {
+        editPipeline(node.id, { lane: lanePick.value });
+      });
+    }
+    const earlier = inspectCard.querySelector("[data-testid=node-earlier]");
+    if (earlier) earlier.addEventListener("click", function () { movePipeline(node.id, -1); });
+    const later = inspectCard.querySelector("[data-testid=node-later]");
+    if (later) later.addEventListener("click", function () { movePipeline(node.id, 1); });
+    const removeBtn = inspectCard.querySelector("[data-testid=node-remove]");
+    if (removeBtn) removeBtn.addEventListener("click", function () { removePipeline(node.id); });
     const press = document.getElementById("press-decision");
     if (press) {
       press.addEventListener("click", function (event) {
@@ -1638,6 +1694,69 @@ function cortexOrigin() {
   return false;
 }
 
+function applyTryPipeline(rows) {
+  const nodes = (rows || []).map(function (row, i) {
+    const node = seedNode(row.kind, 32 + i * 210, 48);
+    node.title = row.title;
+    node.summary = row.summary;
+    node.lane = row.lane;
+    node.role = row.role;
+    node.skinId = node.id;
+    return node;
+  });
+  const edges = [];
+  for (let i = 1; i < nodes.length; i++) edges.push({ from: nodes[i - 1].id, to: nodes[i].id });
+  state.nodes = nodes;
+  state.edges = edges;
+  selectedId = nodes.length ? nodes[0].id : null;
+  save();
+  render();
+  return nodes.map(function (node) {
+    return { id: node.id, kind: node.kind, role: node.role, title: node.title, summary: node.summary, lane: node.lane };
+  });
+}
+
+function editPipeline(id, patch) {
+  const node = state.nodes.find(function (n) { return n.id === id; });
+  if (!node) return;
+  if (patch.title != null) node.title = String(patch.title).slice(0, 80);
+  if (patch.lane != null) node.lane = String(patch.lane);
+  save();
+  render();
+  if (window.SkinState) window.SkinState.patchNode(id, { title: node.title, lane: node.lane, role: node.role });
+}
+
+function movePipeline(id, dir) {
+  const i = state.nodes.findIndex(function (n) { return n.id === id; });
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= state.nodes.length) return;
+  const a = state.nodes[i];
+  const b = state.nodes[j];
+  const ax = a.x;
+  const ay = a.y;
+  a.x = b.x;
+  a.y = b.y;
+  b.x = ax;
+  b.y = ay;
+  state.nodes[i] = b;
+  state.nodes[j] = a;
+  state.edges = [];
+  for (let k = 1; k < state.nodes.length; k++) state.edges.push({ from: state.nodes[k - 1].id, to: state.nodes[k].id });
+  save();
+  render();
+  if (window.SkinState) window.SkinState.moveNode(id, dir);
+}
+
+function removePipeline(id) {
+  state.nodes = state.nodes.filter(function (n) { return n.id !== id; });
+  state.edges = [];
+  for (let k = 1; k < state.nodes.length; k++) state.edges.push({ from: state.nodes[k - 1].id, to: state.nodes[k].id });
+  if (selectedId === id) selectedId = state.nodes[0] ? state.nodes[0].id : null;
+  save();
+  render();
+  if (window.SkinState) window.SkinState.removeNode(id);
+}
+
 function addNode(kind, x, y) {
   if (!KINDS[kind]) return null;
   const node = seedNode(kind, x, y);
@@ -1894,6 +2013,10 @@ window.Constructor = {
   markGhostWalk,
   loadFoundryPath,
   replaceGraph,
+  applyTryPipeline,
+  editPipeline,
+  movePipeline,
+  removePipeline,
   applySeed,
   setPlayLab,
   ensureKinds,
