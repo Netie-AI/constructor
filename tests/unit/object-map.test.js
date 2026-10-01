@@ -78,6 +78,32 @@ test("merge rules score name, keys, and source, and drop scores under 0.5", () =
   assert.equal(M.nameSimilar("shipment", "order"), false);
 });
 
+test("Try it proposals overlay status and cannot certify from the UI", () => {
+  const accepted = P.acceptAllProposals(P.proposeOntology(P.sampleSchema()));
+  const map = M.seed(accepted);
+  const orders = map.objects.filter(function (row) { return row.id === "orders"; })[0];
+  const supplier = map.objects.filter(function (row) { return row.id === "suppliers"; })[0];
+  assert.equal(orders.status, "accepted");
+  assert.equal(orders.certified, false);
+  assert.equal(supplier.status, "proposed");
+  assert.equal(map.objects.length, 5);
+  const forged = accepted.map(function (card) {
+    return Object.assign({}, card, { certified: true, certifiedBy: "ui" });
+  });
+  const blocked = M.seed(forged);
+  const still = blocked.objects.filter(function (row) { return row.id === "orders"; })[0];
+  assert.equal(still.status, "accepted");
+  assert.equal(still.certified, false);
+  const fromCortex = accepted.map(function (card) {
+    if (card.id !== "orders.object.orders") return card;
+    return Object.assign({}, card, { certified: true, certifiedBy: "cortex" });
+  });
+  const marked = M.seed(fromCortex);
+  const certified = marked.objects.filter(function (row) { return row.id === "orders"; })[0];
+  assert.equal(certified.status, "certified");
+  assert.equal(certified.certified, true);
+});
+
 test("certified status is read only when Cortex set it", () => {
   const input = M.defaultInput();
   const card = input.proposals.filter(function (row) { return row.id === "orders.object.orders"; })[0];
