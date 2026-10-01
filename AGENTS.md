@@ -10,4 +10,5 @@
 - No Supabase. No n8n. Do not merge landing from this repo.
 - P1 / O6 / P17 stay parked.
 - Ontology Studio lives in `ontology.js` (model, no DOM, Node-testable) and `ontology-studio.js` (UI). Contract in `docs/ONTOLOGY_STUDIO.md`. `app.js` catalog arrays are in-place views over `window.Ontology`; mutate through the API, never the arrays. New static files must be added to the `cp` line in `.github/workflows/pages.yml`; `scripts/check-laws.js` fails otherwise.
+- Governed Answer lives in `governed-answer.js` (JSONL loader, no DOM, no fetch). The canvas panel reads stored runs only. URL load is `engine.js` and only on a `/cortex` origin, and it refuses Cortex and model hosts. Do not fill a figure that has no executed query.
 - CI (`.github/workflows/ci.yml`) runs `npm test`: laws, `node --test tests/unit/`, Playwright e2e with screenshots uploaded as artifacts. Pages deploy stays on push to `landing-9-first-path`.

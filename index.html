@@ -109,6 +109,20 @@
           <svg id="wires" aria-hidden="true"></svg>
           <div id="nodes"></div>
         </div>
+        <section id="governed-answer" class="governed-panel" data-testid="governed-answer" aria-label="Governed answer">
+          <div class="eyebrow">GOVERNED ANSWER</div>
+          <p class="hint">Stored JSONL only. No live model call.</p>
+          <label class="ga-file-label">
+            JSONL file
+            <input id="ga-file" data-testid="ga-file" type="file" accept=".jsonl,text/plain,application/jsonl,application/x-ndjson" />
+          </label>
+          <div class="ga-url-row">
+            <input id="ga-url" data-testid="ga-url" type="url" placeholder="Optional JSONL URL" autocomplete="off" />
+            <button type="button" id="ga-load-url" class="ghost" data-testid="ga-load-url">Load URL</button>
+          </div>
+          <p class="hint" id="ga-status" data-testid="ga-status"></p>
+          <div id="ga-list" data-testid="ga-list"></div>
+        </section>
       </main>
 
       <aside class="inspect" id="inspect" tabindex="0" aria-label="Inspect">
@@ -186,6 +200,7 @@
     <script src="core/constructor.js?v=28"></script>
     <script src="ontology.js?v=28"></script>
     <script src="skin-state.js?v=33"></script>
+    <script src="governed-answer.js?v=33"></script>
     <script src="app.js?v=33"></script>
     <script src="ontology-studio.js?v=33"></script>
     <script src="planner-prices.js?v=31"></script>

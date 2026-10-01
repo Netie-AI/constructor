@@ -3,6 +3,7 @@
 | Date | Topic | Keywords | Main idea | Path |
 |------|-------|----------|-----------|------|
 | 2026-10-01 | constructor-planner | constructor, planner, intent, answer-spec, ontology-proposal, prompt-registry, cortex-stub, synthetic | v0.3.0 plans every request before Cortex. Offline router plus an uncalled stub. Proposals stay proposed. | `2026-10-01_constructor-planner.md` |
+| 2026-10-01 | constructor-governed-answer | constructor, governed-answer, jsonl, withheld, forecast, no-fetch | Canvas panel classifies stored JSONL: governed badge, no-link, WITHHELD. Predict refused unless fitted envelope says forecast. Example fixture only. No live model or Cortex call. | `2026-10-01_constructor-governed-answer.md` |
 | 2026-09-13 | constructor-fde-saleability | constructor, fde, ontology, provenance, ghost-refuse, 8012, hyperlift | Studio ref FKs + changelog source/actor; ghost refuses broken FDE spine; local :8012 runbook; prod cortex stays 404. | `2026-09-13_constructor-fde-saleability.md` |
 | 2026-09-06 | constructor-rsf-05-consume | constructor, rsf-05, certified, consume, constructor-run, n8n, hyperlift, ghost | CERTIFIED RSF into ghost/run. POST /cortex/constructor/run from engine.js. n8n/LC/LF BAN. Cortex mount is a patch note. | `2026-09-06_constructor-rsf-05-consume.md` |
 | 2026-09-05 | constructor-brain-notify | constructor, cortex-brain, notify, draft_email, pr-7, rsf-05 | Cortex brain on 8-node labs. Email/WhatsApp drafts. PR7 superseded. RSF-05 parked. | `2026-09-05_constructor-brain-notify.md` |

@@ -1192,6 +1192,28 @@ function bindChat() {
   syncCortexBrain({ source: "boot" });
 }
 
+async function loadGovernedAnswerUrl(url) {
+  if (!cortexOrigin()) {
+    return { ok: false, error: "Pages never fetch. Use the file picker." };
+  }
+  const GA = globalThis.GovernedAnswer;
+  if (!GA || typeof GA.urlLoadError !== "function" || typeof GA.loadText !== "function") {
+    return { ok: false, error: "Governed Answer loader missing." };
+  }
+  const why = GA.urlLoadError(url);
+  if (why) return { ok: false, error: why };
+  try {
+    const res = await fetch(String(url).trim(), { method: "GET", credentials: "omit" });
+    const text = await res.text();
+    if (!res.ok) return { ok: false, error: "HTTP " + res.status };
+    return GA.loadText(text);
+  } catch (err) {
+    return { ok: false, error: String(err && err.message ? err.message : err) };
+  }
+}
+
+if (window.Constructor) window.Constructor.loadGovernedAnswerUrl = loadGovernedAnswerUrl;
+
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", bindChat);
 } else {
