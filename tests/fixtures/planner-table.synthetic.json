@@ -1,0 +1,11 @@
+{
+  "label": "synthetic schema fixture, not a live table",
+  "synthetic": true,
+  "table": "orders",
+  "columns": [
+    { "name": "order_id", "type": "string", "primary": true, "distinctCount": 2, "distinct": ["A-100", "A-101"] },
+    { "name": "status", "type": "string", "cardinality": "low", "distinctCount": 3, "distinct": ["open", "closed", "held"] },
+    { "name": "region", "type": "string", "cardinality": "low", "distinctCount": 2, "distinct": ["north", "south"] },
+    { "name": "amount", "type": "number", "distinctCount": 40, "distinct": [] }
+  ]
+}

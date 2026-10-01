@@ -8,7 +8,7 @@ const fs = require("fs");
 const path = require("path");
 
 const ROOT = path.resolve(__dirname, "..");
-const NO_FETCH_FILES = ["app.js", "ontology.js", "ontology-studio.js"];
+const NO_FETCH_FILES = ["app.js", "ontology.js", "ontology-studio.js", "planner.js", "planner-ui.js"];
 const SKIP_DIRS = new Set([".git", "node_modules", "test-results", "playwright-report", ".cursor"]);
 const TEXT_EXT = new Set([
   ".js", ".mjs", ".cjs", ".ts", ".css", ".html", ".md", ".yml", ".yaml", ".json",

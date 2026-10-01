@@ -690,11 +690,23 @@ function chatSay(role, text) {
   log.scrollTop = log.scrollHeight;
 }
 
+function attachPlan(text) {
+  const Planner = window.Planner;
+  if (!Planner || typeof Planner.plan !== "function") return null;
+  const plan = Planner.plan(text, { adapter: Planner.cortexPlannerStub() });
+  if (window.Constructor) window.Constructor.lastPlan = plan;
+  if (window.PlannerUI && typeof window.PlannerUI.render === "function") {
+    window.PlannerUI.render(plan, { full: false });
+  }
+  return plan;
+}
+
 async function handleChat(raw) {
   const text = raw.trim();
   const t = text.toLowerCase();
   const C = window.Constructor;
   if (!t) return "Say the object, point, action, or run all.";
+  const plan = attachPlan(text);
   if (t === "help") {
     return "Click Check, or type a real line. Paste CERTIFIED RSF JSON, or rsf sample. n8n/langchain/langflow BAN. Live engine: local /cortex (constructor-mount http://127.0.0.1:8012/cortex/login) + ov_ key from OpenVault :5000. Prod app.netie.ai/cortex is 404 until Hyperlift. Email/WhatsApp are drafts you send. Pages never fetch.";
   }
@@ -948,6 +960,7 @@ async function handleChat(raw) {
       ". Constructor does not invent an OpenClaw host."
     );
   }
+  if (plan && plan.intent === "unclear") return plan.clarify;
   return await generateFromChat(text);
 }
 
