@@ -1704,7 +1704,7 @@ function governedCard(view) {
   }
   if (view.badge) {
     const badge = document.createElement("p");
-    badge.className = "ga-badge";
+    badge.className = "chip";
     badge.setAttribute("data-testid", "ga-badge");
     badge.textContent = view.badge;
     card.appendChild(badge);
@@ -1734,7 +1734,7 @@ function governedCard(view) {
   }
   if (view.state === "refused") {
     const chip = document.createElement("p");
-    chip.className = "ga-chip";
+    chip.className = "chip";
     chip.setAttribute("data-testid", "ga-refusal-chip");
     chip.textContent = view.refusalChip || "unlabelled";
     card.appendChild(chip);
@@ -1787,6 +1787,42 @@ function governedCard(view) {
 
 let governedAnswerLoad = null;
 
+function syncGovernedSkin() {
+  const titleEl = document.querySelector("[data-testid='ga-shared-title']");
+  const badge = document.querySelector("[data-testid='ga-shared-badge']");
+  const stateEl = document.querySelector("[data-testid='ga-shared-state']");
+  const valuesEl = document.querySelector("[data-testid='ga-shared-values']");
+  const pop = document.getElementById("info-ga-answer");
+  if (!titleEl || !pop) return;
+  const skin = window.SkinState ? window.SkinState.get() : null;
+  const answer = (skin && skin.answer) || { title: "Answer" };
+  titleEl.textContent = answer.title || "Answer";
+  if (badge) {
+    badge.textContent = "badge off";
+    badge.setAttribute("data-on", "false");
+  }
+  if (stateEl) stateEl.textContent = "withheld";
+  if (valuesEl) valuesEl.textContent = "values empty";
+  while (pop.firstChild) pop.removeChild(pop.firstChild);
+  const g = skin && skin.plan && skin.plan.governance;
+  const lines = [];
+  if (g) {
+    if (g.noExecutedQuery) lines.push(g.noExecutedQuery);
+    if (g.noLink) lines.push(g.noLink);
+    if (g.linked) lines.push(g.linked);
+    if (g.predict) lines.push(g.predict);
+  } else {
+    lines.push("The shared answer stays withheld. Badge off. Values empty.");
+    lines.push("Stored JSONL cards are classified beside it. A figure with no executed query stays WITHHELD.");
+  }
+  lines.push("Refusal codes are read exactly as stored. GEN-01: insights_timeout is pacing. A missing code stays unlabelled.");
+  lines.forEach(function (line) {
+    const p = document.createElement("p");
+    p.textContent = line;
+    pop.appendChild(p);
+  });
+}
+
 function refusalFilterValue() {
   const filter = document.getElementById("ga-refusal-filter");
   return filter ? filter.value : "";
@@ -1837,6 +1873,13 @@ function paintGovernedAnswer(result) {
   const urlInput = document.getElementById("ga-url");
   const filter = document.getElementById("ga-refusal-filter");
   paintGovernedAnswer(null);
+  syncGovernedSkin();
+  if (window.SkinState && !window.__governedSkinSub) {
+    window.__governedSkinSub = true;
+    window.SkinState.subscribe(function () {
+      syncGovernedSkin();
+    });
+  }
   if (filter) {
     filter.addEventListener("change", function () {
       paintGovernedAnswer(governedAnswerLoad);

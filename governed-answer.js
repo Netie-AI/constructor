@@ -20,6 +20,10 @@
   const CHIP_MISSING = "truly missing data";
   const CHIP_UNLABELLED = "unlabelled";
   const REFUSAL_CHIPS = [CHIP_PACING, CHIP_NOT_APPROVED, CHIP_WRONG_DETAIL, CHIP_MISSING, CHIP_UNLABELLED];
+  // Exact stored codes only. Labels, prefixes, and near-misses stay unlabelled.
+  const REFUSAL_CODES = {
+    "GEN-01: insights_timeout": CHIP_PACING,
+  };
 
   function clone(x) {
     if (x === undefined) return undefined;
@@ -145,11 +149,9 @@
   }
 
   function refusalChip(rec) {
-    const raw = rec.refusal_reason == null ? "" : String(rec.refusal_reason).trim();
-    if (raw === "pacing" || raw === CHIP_PACING) return CHIP_PACING;
-    if (raw === CHIP_NOT_APPROVED) return CHIP_NOT_APPROVED;
-    if (raw === CHIP_WRONG_DETAIL) return CHIP_WRONG_DETAIL;
-    if (raw === CHIP_MISSING) return CHIP_MISSING;
+    const raw = rec.refusal_reason;
+    if (typeof raw !== "string") return CHIP_UNLABELLED;
+    if (Object.prototype.hasOwnProperty.call(REFUSAL_CODES, raw)) return REFUSAL_CODES[raw];
     return CHIP_UNLABELLED;
   }
 

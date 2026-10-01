@@ -31,6 +31,7 @@ test("schema version is 0.2.0 and the loader does not fetch", () => {
   assert.equal(GA.SCHEMA, "netie.governed-answer/1");
   const src = fs.readFileSync(path.join(__dirname, "..", "..", "governed-answer.js"), "utf8");
   assert.equal(/\bfetch\s*\(/.test(src), false);
+  assert.equal(/SkinState|info-pop|backdrop-filter/.test(src), false);
 });
 
 test("example fixture is labelled and is not a measured result", () => {
@@ -203,13 +204,15 @@ test("refused chips use refusal_reason exactly, and a missing reason stays unlab
   assert.deepEqual(chips, [
     "unlabelled",
     "pacing (rate limit / no healthy key)",
-    "not yet an approved query",
-    "wrong level of detail",
-    "truly missing data",
+    "unlabelled",
+    "unlabelled",
+    "unlabelled",
   ]);
   const missing = views[8];
-  assert.equal(missing.missing, "example measure");
-  assert.equal(missing.wouldAnswer, "example_file");
+  assert.equal(missing.refusalChip, "unlabelled");
+  assert.equal(missing.missing, null);
+  assert.equal(missing.wouldAnswer, null);
+  assert.equal(JSON.stringify(missing).includes("example measure"), false);
   assert.equal(missing.sql, null);
   assert.deepEqual(missing.rows, []);
   assert.deepEqual(missing.values, []);
@@ -218,16 +221,21 @@ test("refused chips use refusal_reason exactly, and a missing reason stays unlab
   function refused(reason, extra) {
     return GA.loadText(line(Object.assign({ verdict: "refused", refusal_reason: reason }, extra || {}))).views[0];
   }
-  assert.equal(refused("pacing").refusalChip, "pacing (rate limit / no healthy key)");
-  assert.equal(refused("pacing").missing, null);
-  assert.equal(refused("not yet an approved query").refusalChip, "not yet an approved query");
-  assert.equal(refused("wrong level of detail").refusalChip, "wrong level of detail");
+  assert.equal(refused("GEN-01: insights_timeout").refusalChip, "pacing (rate limit / no healthy key)");
+  assert.equal(refused("GEN-01: insights_timeout").missing, null);
+  assert.equal(refused("pacing").refusalChip, "unlabelled");
+  assert.equal(refused("pacing (rate limit / no healthy key)").refusalChip, "unlabelled");
+  assert.equal(refused("insights_timeout").refusalChip, "unlabelled");
+  assert.equal(refused("GEN-01: insights_timeout ").refusalChip, "unlabelled");
+  assert.equal(refused("gen-01: insights_timeout").refusalChip, "unlabelled");
+  assert.equal(refused("not yet an approved query").refusalChip, "unlabelled");
+  assert.equal(refused("wrong level of detail").refusalChip, "unlabelled");
   const gap = refused("truly missing data", { missing: "example measure", would_answer: "example_file" });
-  assert.equal(gap.refusalChip, "truly missing data");
-  assert.equal(gap.missing, "example measure");
-  assert.equal(gap.wouldAnswer, "example_file");
-  assert.equal(refused("truly missing data").missing, null);
-  assert.equal(refused("truly missing data").wouldAnswer, null);
+  assert.equal(gap.refusalChip, "unlabelled");
+  assert.equal(gap.missing, null);
+  assert.equal(gap.wouldAnswer, null);
+  assert.equal(JSON.stringify(gap).includes("example measure"), false);
+  assert.equal(JSON.stringify(gap).includes("example_file"), false);
 
   const guessed = refused("rate limit");
   assert.equal(guessed.state, "refused");
@@ -248,21 +256,24 @@ test("refused chips use refusal_reason exactly, and a missing reason stays unlab
     GA.filterRefusals(loaded.views, "pacing (rate limit / no healthy key)").map((v) => v.question),
     ["example pacing refusal"]
   );
+  assert.deepEqual(GA.filterRefusals(loaded.views, "not yet an approved query"), []);
+  assert.deepEqual(GA.filterRefusals(loaded.views, "wrong level of detail"), []);
+  assert.deepEqual(GA.filterRefusals(loaded.views, "truly missing data"), []);
   assert.deepEqual(
-    GA.filterRefusals(loaded.views, "not yet an approved query").map((v) => v.question),
-    ["example unapproved refusal"]
-  );
-  assert.deepEqual(
-    GA.filterRefusals(loaded.views, "wrong level of detail").map((v) => v.question),
-    ["example detail refusal"]
-  );
-  assert.deepEqual(
-    GA.filterRefusals(loaded.views, "truly missing data").map((v) => v.question),
-    ["example missing-data refusal"]
+    GA.filterRefusals(
+      [{ state: "refused", refusalChip: "truly missing data", question: "kept" }],
+      "truly missing data"
+    ).map((v) => v.question),
+    ["kept"]
   );
   assert.deepEqual(
     GA.filterRefusals(loaded.views, "unlabelled").map((v) => v.question),
-    ["example predict question"]
+    [
+      "example predict question",
+      "example unapproved refusal",
+      "example detail refusal",
+      "example missing-data refusal",
+    ]
   );
   assert.equal(GA.filterRefusals(loaded.views, "refusals").length, 5);
   assert.equal(GA.filterRefusals(loaded.views, "all").length, 5);

@@ -942,48 +942,62 @@ details.quiet summary {
 
 .governed-panel {
   position: absolute;
-  left: 12px;
-  bottom: 12px;
+  left: var(--space-2);
+  bottom: var(--space-2);
   z-index: 30;
   pointer-events: auto;
-  width: min(420px, calc(100% - 24px));
+  width: min(420px, calc(100% - var(--space-4)));
   max-height: min(52%, 480px);
   overflow: auto;
-  background: rgba(13, 13, 13, 0.96);
+  background: var(--surface-2);
+  color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 0.75rem 0.8rem 0.85rem;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  border-radius: 8px;
+  padding: var(--space-2);
+  font-family: var(--font);
+  font-size: var(--fs-2);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh);
 }
 
-.governed-panel .hint {
-  margin: 0.2rem 0 0.45rem;
+.governed-panel .hint,
+.ga-example,
+.ga-meta,
+.ga-nolink {
+  margin: 0 0 var(--space-1);
+  color: var(--muted);
+  font-size: var(--fs-1);
+  line-height: var(--lh);
 }
 
 .ga-file-label {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.75rem;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+  font-size: var(--fs-1);
   color: var(--muted);
 }
 
 .ga-file-label input,
 .ga-file-label select,
 .ga-url-row input {
-  font: inherit;
+  font-family: var(--font);
+  font-size: var(--fs-2);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh);
   color: var(--text);
-  background: var(--panel);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 0.35rem 0.5rem;
+  padding: var(--space-1);
   width: 100%;
 }
 
 .ga-url-row {
   display: flex;
-  gap: 0.35rem;
-  margin-top: 0.4rem;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
 }
 
 .ga-url-row button {
@@ -991,75 +1005,54 @@ details.quiet summary {
 }
 
 .ga-card {
-  margin-top: 0.55rem;
-  padding: 0.55rem 0.6rem;
+  position: relative;
+  margin-top: var(--space-1);
+  padding: var(--space-1);
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--panel);
+  background: var(--surface);
 }
 
 .ga-card h3 {
-  margin: 0 0 0.3rem;
-  font-size: 0.92rem;
-  font-weight: 600;
+  margin: 0 0 var(--space-1);
+  max-width: var(--measure);
+  font-size: var(--fs-3);
+  font-weight: var(--fw-strong);
+  line-height: var(--lh);
 }
 
-.ga-example,
-.ga-meta,
-.ga-nolink {
-  margin: 0.15rem 0;
-  color: var(--muted);
-  font-size: 0.75rem;
-}
-
-.ga-badge {
-  display: inline-block;
-  margin: 0.15rem 0;
-  border: 1px solid #9ad7c2;
-  color: #9ad7c2;
-  font-size: 0.68rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 0.08rem 0.4rem;
-  border-radius: 999px;
+.ga-card .chip {
+  margin: 0 var(--space-1) var(--space-1) 0;
 }
 
 .ga-notice {
-  margin: 0.25rem 0;
-  color: #e8a07a;
-  font-weight: 700;
+  margin: 0 0 var(--space-1);
+  color: var(--text);
+  font-size: var(--fs-2);
+  font-weight: var(--fw-strong);
   letter-spacing: 0.08em;
-}
-
-.ga-chip {
-  display: inline-block;
-  margin: 0.2rem 0;
-  padding: 0.12rem 0.5rem;
-  border: 1px solid #e8a07a;
-  border-radius: 999px;
-  color: #e8a07a;
-  font-size: 0.72rem;
-}
-
-#ga-refusal-filter {
-  margin-top: 0.15rem;
+  line-height: var(--lh);
 }
 
 .ga-card pre {
-  margin: 0.35rem 0;
-  padding: 0.4rem;
+  margin: 0 0 var(--space-1);
+  padding: var(--space-1);
   overflow: auto;
-  font-size: 0.72rem;
-  line-height: 1.35;
+  max-width: var(--measure);
+  font-family: var(--font-mono);
+  font-size: var(--fs-1);
+  line-height: var(--lh);
   color: var(--text);
   background: var(--dark);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 .ga-idea {
-  margin: 0.25rem 0;
-  font-size: 0.88rem;
+  margin: 0 0 var(--space-1);
+  max-width: var(--measure);
+  font-size: var(--fs-2);
+  line-height: var(--lh);
 }

@@ -6,7 +6,7 @@
     <title>Constructor — Netie</title>
     <link rel="icon" href="favicon.ico" sizes="any" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=33" />
+    <link rel="stylesheet" href="styles.css?v=34" />
     <link rel="stylesheet" href="ontology.css?v=33" />
     <link rel="stylesheet" href="planner.css?v=33" />
   </head>
@@ -111,6 +111,16 @@
         </div>
         <section id="governed-answer" class="governed-panel" data-testid="governed-answer" aria-label="Governed answer">
           <div class="eyebrow">GOVERNED ANSWER</div>
+          <div class="answer-panel" data-testid="ga-shared-answer">
+            <div class="card-face">
+              <strong data-testid="ga-shared-title">Answer</strong>
+              <span class="chip" data-testid="ga-shared-badge" data-on="false">badge off</span>
+            </div>
+            <p class="card-summary" data-testid="ga-shared-state">withheld</p>
+            <p class="card-summary" data-testid="ga-shared-values">values empty</p>
+            <button type="button" class="info-btn" data-testid="ga-info" aria-label="Answer details" aria-controls="info-ga-answer" aria-expanded="false">i</button>
+            <div id="info-ga-answer" class="info-pop" role="dialog" aria-modal="false" aria-label="Answer details" hidden></div>
+          </div>
           <p class="hint">Stored JSONL only. No live model call.</p>
           <label class="ga-file-label">
             JSONL file
@@ -212,8 +222,8 @@
     <script src="core/constructor.js?v=28"></script>
     <script src="ontology.js?v=28"></script>
     <script src="skin-state.js?v=33"></script>
-    <script src="governed-answer.js?v=33"></script>
-    <script src="app.js?v=33"></script>
+    <script src="governed-answer.js?v=34"></script>
+    <script src="app.js?v=34"></script>
     <script src="ontology-studio.js?v=33"></script>
     <script src="planner-prices.js?v=31"></script>
     <script src="planner.js?v=33"></script>
