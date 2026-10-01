@@ -223,7 +223,7 @@
       '<span class="os-badge" data-testid="os-badge"></span>' +
       '<span class="os-badge" data-testid="os-proposals"></span>' +
       '<span class="os-empty" data-testid="os-flash"></span>' +
-      '<input class="os-search" data-testid="os-search" type="search" placeholder="Search types  /" />' +
+      '<input class="os-search" data-testid="os-search" type="search" aria-label="Search types" placeholder="Search types  /" />' +
       '<button type="button" data-testid="os-validate">Validate</button>' +
       '<button type="button" data-testid="os-undo">Undo</button>' +
       '<button type="button" data-testid="os-redo">Redo</button>' +
@@ -239,15 +239,15 @@
       '<button type="button" data-testid="os-reset">Reset</button>' +
       '<button type="button" data-testid="os-close">Close</button>' +
       "</div>" +
-      '<aside class="os-rail"><div class="os-tabs" data-testid="os-tabs"></div>' +
-      '<div class="os-list" data-testid="os-list"></div>' +
+      '<aside class="os-rail"><div class="os-tabs" role="tablist" aria-label="Ontology kinds" data-testid="os-tabs"></div>' +
+      '<div class="os-list" tabindex="0" aria-label="Type list" data-testid="os-list"></div>' +
       '<button type="button" class="os-new" data-testid="os-new">New</button></aside>' +
-      '<div class="os-editor" data-testid="os-editor"></div>' +
+      '<div class="os-editor" tabindex="0" aria-label="Type editor" data-testid="os-editor"></div>' +
       '<div class="os-graph" data-testid="os-graph">' +
       '<div class="os-graph-tools"><button type="button" data-testid="os-layout">Auto layout</button></div>' +
       "</div>" +
-      '<div class="os-issues" data-testid="os-issues"></div>' +
-      '<div class="os-changelog" data-testid="os-changelog"></div>';
+      '<div class="os-issues" tabindex="0" aria-label="Validation issues" data-testid="os-issues"></div>' +
+      '<div class="os-changelog" tabindex="0" aria-label="Changelog" data-testid="os-changelog"></div>';
     document.body.appendChild(root);
 
     fileInput = tid("os-import-file");
@@ -410,6 +410,7 @@
           {
             type: "button",
             "data-testid": "os-tab-" + name,
+            role: "tab",
             "aria-selected": name === tab ? "true" : "false",
             onclick: function () {
               setTab(name, null);
@@ -480,6 +481,10 @@
     var lab = el("label", null, [label]);
     var d = dot(path);
     if (d) lab.appendChild(d);
+    if (control) {
+      if (!control.id) control.id = "os-" + String(control.getAttribute("data-focus") || label).replace(/[^a-z0-9_-]+/gi, "-");
+      lab.htmlFor = control.id;
+    }
     return [lab, control];
   }
 
@@ -650,26 +655,26 @@
       var p = t.properties[pid];
       var ppath = path + ".properties." + pid;
       var tr = el("tr", { "data-prop": pid });
-      var idIn = input({ value: pid, "data-focus": "prop-" + pid + "-id" });
+      var idIn = input({ value: pid, "data-focus": "prop-" + pid + "-id", "aria-label": pid + " id" });
       idIn.addEventListener("blur", function () {
         var next = idIn.value.trim();
         if (next && next !== pid) ok(O().renameProperty(t.id, pid, next));
       });
-      var typeSel = el("select", { "data-focus": "prop-" + pid + "-type" }, selectOpts(TYPES, p.type, false));
+      var typeSel = el("select", { "data-focus": "prop-" + pid + "-type", "aria-label": pid + " type" }, selectOpts(TYPES, p.type, false));
       typeSel.addEventListener("change", function () {
         var patch = { type: typeSel.value };
         if (typeSel.value === "ref" && !p.ref) patch.ref = keys(O().get().objectTypes)[0] || "";
         ok(O().updateProperty(t.id, pid, patch));
       });
-      var req = input({ type: "checkbox", checked: !!p.required, "data-focus": "prop-" + pid + "-req" });
+      var req = input({ type: "checkbox", checked: !!p.required, "data-focus": "prop-" + pid + "-req", "aria-label": pid + " required" });
       req.addEventListener("change", function () {
         ok(O().updateProperty(t.id, pid, { required: req.checked }));
       });
-      var pii = input({ type: "checkbox", checked: !!p.pii, "data-focus": "prop-" + pid + "-pii" });
+      var pii = input({ type: "checkbox", checked: !!p.pii, "data-focus": "prop-" + pid + "-pii", "aria-label": pid + " pii" });
       pii.addEventListener("change", function () {
         ok(O().updateProperty(t.id, pid, { pii: pii.checked }));
       });
-      var desc = input({ value: p.description || "", "data-focus": "prop-" + pid + "-desc" });
+      var desc = input({ value: p.description || "", "data-focus": "prop-" + pid + "-desc", "aria-label": pid + " description" });
       desc.addEventListener("change", function () {
         ok(O().updateProperty(t.id, pid, { description: desc.value }));
       });
@@ -694,7 +699,7 @@
       if (p.type === "ref") {
         var extra = el("tr");
         var td = el("td", { colspan: "6" });
-        var refSel = el("select", { "data-focus": "prop-" + pid + "-ref" }, selectOpts(keys(O().get().objectTypes), p.ref, true));
+        var refSel = el("select", { "data-focus": "prop-" + pid + "-ref", "aria-label": pid + " ref" }, selectOpts(keys(O().get().objectTypes), p.ref, true));
         refSel.addEventListener("change", function () {
           ok(O().updateProperty(t.id, pid, { ref: refSel.value }));
         });

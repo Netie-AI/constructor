@@ -54,6 +54,7 @@
       "data-testid": "planner-panel",
       "aria-label": "Constructor plan",
     });
+    panel.tabIndex = 0;
     panel.hidden = true;
     panel.addEventListener("pointerdown", function (event) { event.stopPropagation(); });
     panel.addEventListener("wheel", function (event) { event.stopPropagation(); }, { passive: true });

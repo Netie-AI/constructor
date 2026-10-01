@@ -5,6 +5,7 @@ const path = require("path");
 const AxeBuilder = require("@axe-core/playwright");
 
 const SCREENS = path.join(__dirname, "..", "..", "test-results", "screens");
+test.use({ video: "on" });
 function shot(name) {
   fs.mkdirSync(SCREENS, { recursive: true });
   return path.join(SCREENS, name);
@@ -32,7 +33,6 @@ async function boot(page) {
 }
 
 test.describe("try it and info popover", () => {
-  test.use({ video: "on" });
   let errors;
 
   test.beforeEach(async ({ page }) => {
@@ -149,10 +149,14 @@ test.describe("try it and info popover", () => {
     await page.locator("#open-ontology").click();
     await expect(page.getByTestId("ontology-studio")).toBeVisible();
     const studio = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
-    const out = {
-      planner: planner.violations.map((row) => ({ id: row.id, impact: row.impact, nodes: row.nodes.length, help: row.help })),
-      studio: studio.violations.map((row) => ({ id: row.id, impact: row.impact, nodes: row.nodes.length, help: row.help })),
-    };
+    const brief = (result) => result.violations.map((row) => ({
+      id: row.id,
+      impact: row.impact,
+      nodes: row.nodes.length,
+      help: row.help,
+      targets: row.nodes.slice(0, 3).map((node) => node.target.join(" ")),
+    }));
+    const out = { planner: brief(planner), studio: brief(studio) };
     fs.mkdirSync(SCREENS, { recursive: true });
     fs.writeFileSync(path.join(SCREENS, "axe-try-it.json"), JSON.stringify(out, null, 2));
     const serious = []
