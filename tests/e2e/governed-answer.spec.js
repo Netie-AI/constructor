@@ -94,7 +94,7 @@ test.describe("governed answer", () => {
     await expect(unlabelled.locator('[data-testid="ga-refusal-chip"]').first()).toHaveText("unlabelled");
     await expect(page.locator('[data-testid="ga-missing"]')).toHaveCount(0);
     await expect(page.locator('[data-testid="ga-would-answer"]')).toHaveCount(0);
-    await expect(unlabelled).not.toContainText("515151");
+    await expect(page.locator("#ga-list")).not.toContainText("515151");
     await unlabelled.first().screenshot({ path: shot("governed-answer-refused-unlabelled.png") });
     await filter.selectOption("refusals");
     await expect(page.locator('[data-testid="ga-card"]')).toHaveCount(5);
@@ -140,7 +140,6 @@ test.describe("governed answer", () => {
     expect(after.badge).toBe(false);
     expect(after.values).toEqual([]);
     await expect(page.locator("#governed-answer")).not.toContainText("999");
-    await page.locator("#governed-answer").screenshot({ path: shot("governed-answer-panel.png") });
   });
 
   test("URL load does not fetch on the Pages sketch", async ({ page }) => {

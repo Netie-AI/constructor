@@ -14,7 +14,7 @@ Main idea: Canvas panel classifies stored JSONL into governed / no-link / withhe
 
 ## Loader
 
-`governed-answer.js` (schema `netie.governed-answer/1`, v0.2.0). No DOM. No fetch.
+`governed-answer.js` (schema `netie.governed-answer/1`, v0.2.0). No DOM. No fetch. The panel sits in the inspect column so it does not cover the canvas or the planner.
 File picker uses FileReader in `app.js`.
 URL load is `engine.js` `loadGovernedAnswerUrl`, gated on cortex origin, credentials omitted, and `urlLoadError` refuses `/cortex`, `app.netie.ai`, and model hosts.
 
