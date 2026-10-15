@@ -1479,19 +1479,25 @@ def _jecho(data: Any) -> None:
     click.echo(json.dumps(data, default=str))
 
 
+# Status lines carry file paths. soft_wrap leaves wrapping to the terminal, so
+# a long path is never split by inserted newlines (it must stay copyable, and
+# callers parse these lines); Rich otherwise hard-wraps at the console width.
 def _ok(cli_ctx: CLIContext, text: str) -> None:
     if not cli_ctx.quiet:
         elapsed = time.perf_counter() - cli_ctx._start
-        console.print(f"[{_SUCCESS}] ✓[/{_SUCCESS}] {text}  [{_DIM}]{elapsed:.1f}s[/{_DIM}]")
+        console.print(
+            f"[{_SUCCESS}] ✓[/{_SUCCESS}] {text}  [{_DIM}]{elapsed:.1f}s[/{_DIM}]",
+            soft_wrap=True,
+        )
 
 
 def _info(cli_ctx: CLIContext, text: str) -> None:
     if not cli_ctx.quiet:
-        console.print(f"[{_DIM}] ·[/{_DIM}] {text}")
+        console.print(f"[{_DIM}] ·[/{_DIM}] {text}", soft_wrap=True)
 
 
 def _warn(cli_ctx: CLIContext, text: str) -> None:
-    console.print(f"[{_WARN_STY}] ⚠[/{_WARN_STY}] {text}")
+    console.print(f"[{_WARN_STY}] ⚠[/{_WARN_STY}] {text}", soft_wrap=True)
 
 
 def _dry(cli_ctx: CLIContext, action: str, *, json_out: bool = False, **fields: Any) -> None:

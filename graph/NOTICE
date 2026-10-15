@@ -31,6 +31,10 @@ Changes from upstream in this fork:
     import, which does not exist in the pinned weaviate-client 4.16 and so
     made the Weaviate store report "not available" with the client installed;
     resolve Filter through the module's own weaviate reference first.
+  - netiegraph/cli.py: status lines (_ok/_info/_warn) print with Rich
+    soft_wrap, so a long output path is no longer split by inserted newlines
+    at 80 columns (the "Wrote <path>" line was unreadable and uncopyable on
+    CI, where temp paths are long).
 - Test isolation fixes (upstream's CI runs a few subsets, never the whole
   suite in one process, so cross-test leaks went unseen):
   - tests/conftest.py (new): strip every *_API_KEY from the environment for
