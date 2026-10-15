@@ -1,6 +1,6 @@
 {
   "name": "constructor-skin",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "commonjs",
   "description": "Netie-native Constructor skin (consumer of Cortex) plus Netie Graph under graph/. Not n8n, not Activepieces, not Crew.",
@@ -17,6 +17,7 @@
     "node": ">=18"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
     "@playwright/test": "1.56.1",
     "http-server": "^14.1.1"
   }

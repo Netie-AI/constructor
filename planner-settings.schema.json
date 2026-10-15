@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "netie.planner-settings/1",
+  "title": "Planner settings",
+  "description": "Shared settings object for Constructor and DMS. Empty caps mean unlimited. This file is the contract. DMS is not implemented in this repo.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema"],
+  "properties": {
+    "schema": { "const": "netie.planner-settings/1" },
+    "effortMode": { "enum": ["auto", "low", "medium", "high", "max"] },
+    "confirm": { "type": "boolean" },
+    "paidCallUsd": { "type": ["number", "null"], "minimum": 0 },
+    "runUsd": { "type": ["number", "null"], "minimum": 0 },
+    "maxLevelBudgetUsd": { "type": ["number", "null"], "minimum": 0 },
+    "spentUsd": { "type": ["number", "null"], "minimum": 0 }
+  }
+}

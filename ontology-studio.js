@@ -221,8 +221,9 @@
       "<h2>Ontology Studio</h2>" +
       '<span class="os-rev" data-testid="os-rev"></span>' +
       '<span class="os-badge" data-testid="os-badge"></span>' +
+      '<span class="os-badge" data-testid="os-proposals"></span>' +
       '<span class="os-empty" data-testid="os-flash"></span>' +
-      '<input class="os-search" data-testid="os-search" type="search" placeholder="Search types  /" />' +
+      '<input class="os-search" data-testid="os-search" type="search" aria-label="Search types" placeholder="Search types  /" />' +
       '<button type="button" data-testid="os-validate">Validate</button>' +
       '<button type="button" data-testid="os-undo">Undo</button>' +
       '<button type="button" data-testid="os-redo">Redo</button>' +
@@ -238,15 +239,15 @@
       '<button type="button" data-testid="os-reset">Reset</button>' +
       '<button type="button" data-testid="os-close">Close</button>' +
       "</div>" +
-      '<aside class="os-rail"><div class="os-tabs" data-testid="os-tabs"></div>' +
-      '<div class="os-list" data-testid="os-list"></div>' +
+      '<aside class="os-rail"><div class="os-tabs" role="tablist" aria-label="Ontology kinds" data-testid="os-tabs"></div>' +
+      '<div class="os-list" tabindex="0" aria-label="Type list" data-testid="os-list"></div>' +
       '<button type="button" class="os-new" data-testid="os-new">New</button></aside>' +
-      '<div class="os-editor" data-testid="os-editor"></div>' +
+      '<div class="os-editor" tabindex="0" aria-label="Type editor" data-testid="os-editor"></div>' +
       '<div class="os-graph" data-testid="os-graph">' +
       '<div class="os-graph-tools"><button type="button" data-testid="os-layout">Auto layout</button></div>' +
       "</div>" +
-      '<div class="os-issues" data-testid="os-issues"></div>' +
-      '<div class="os-changelog" data-testid="os-changelog"></div>';
+      '<div class="os-issues" tabindex="0" aria-label="Validation issues" data-testid="os-issues"></div>' +
+      '<div class="os-changelog" tabindex="0" aria-label="Changelog" data-testid="os-changelog"></div>';
     document.body.appendChild(root);
 
     fileInput = tid("os-import-file");
@@ -409,6 +410,7 @@
           {
             type: "button",
             "data-testid": "os-tab-" + name,
+            role: "tab",
             "aria-selected": name === tab ? "true" : "false",
             onclick: function () {
               setTab(name, null);
@@ -431,21 +433,38 @@
     var map = mapOf(tab, onto);
     filterIds(map).forEach(function (id) {
       var row = map[id];
-      var sub = row.label && row.label !== id ? row.label : "";
-      if (tab === "objects") sub = keys(row.properties).length + " props · used " + usageCount(id);
-      if (tab === "links") sub = (row.from || "") + " → " + (row.to || "");
+      var sub = row.label && row.label !== id ? row.label : id;
+      if (tab === "objects") sub = keys(row.properties).length + " props";
+      if (tab === "links") sub = (row.from || "") + " to " + (row.to || "");
+      var status = issuesFor(tab === "objects" ? "objectTypes." + id : id).length ? "check" : "ok";
+      var wrap = el("div", { className: "os-row" + (id === selectedId ? " is-on" : ""), "data-id": id });
       var btn = el("button", {
         type: "button",
-        "data-id": id,
-        className: id === selectedId ? "is-on" : "",
+        className: "os-row-main",
         onclick: function () {
           selectedId = id;
           render();
         },
       });
       btn.appendChild(el("div", { className: "os-row-id", text: id }));
-      if (sub) btn.appendChild(el("div", { className: "os-row-sub", text: sub }));
-      list.appendChild(btn);
+      btn.appendChild(el("div", { className: "os-row-sub card-summary", text: sub }));
+      btn.appendChild(el("span", { className: "chip", text: status }));
+      wrap.appendChild(btn);
+      var popId = "info-os-" + tab + "-" + id;
+      var info = el("button", {
+        type: "button",
+        className: "info-btn",
+        "aria-label": "Details for " + id,
+        "aria-controls": popId,
+        "aria-expanded": "false",
+        text: "i",
+      });
+      var pop = el("div", { id: popId, className: "info-pop", role: "dialog", "aria-modal": "false", "aria-label": "Details for " + id });
+      pop.hidden = true;
+      pop.appendChild(el("p", { text: sub + (tab === "objects" ? ". Used " + usageCount(id) + "." : "") }));
+      wrap.appendChild(info);
+      wrap.appendChild(pop);
+      list.appendChild(wrap);
     });
   }
 
@@ -462,6 +481,10 @@
     var lab = el("label", null, [label]);
     var d = dot(path);
     if (d) lab.appendChild(d);
+    if (control) {
+      if (!control.id) control.id = "os-" + String(control.getAttribute("data-focus") || label).replace(/[^a-z0-9_-]+/gi, "-");
+      lab.htmlFor = control.id;
+    }
     return [lab, control];
   }
 
@@ -632,26 +655,26 @@
       var p = t.properties[pid];
       var ppath = path + ".properties." + pid;
       var tr = el("tr", { "data-prop": pid });
-      var idIn = input({ value: pid, "data-focus": "prop-" + pid + "-id" });
+      var idIn = input({ value: pid, "data-focus": "prop-" + pid + "-id", "aria-label": pid + " id" });
       idIn.addEventListener("blur", function () {
         var next = idIn.value.trim();
         if (next && next !== pid) ok(O().renameProperty(t.id, pid, next));
       });
-      var typeSel = el("select", { "data-focus": "prop-" + pid + "-type" }, selectOpts(TYPES, p.type, false));
+      var typeSel = el("select", { "data-focus": "prop-" + pid + "-type", "aria-label": pid + " type" }, selectOpts(TYPES, p.type, false));
       typeSel.addEventListener("change", function () {
         var patch = { type: typeSel.value };
         if (typeSel.value === "ref" && !p.ref) patch.ref = keys(O().get().objectTypes)[0] || "";
         ok(O().updateProperty(t.id, pid, patch));
       });
-      var req = input({ type: "checkbox", checked: !!p.required, "data-focus": "prop-" + pid + "-req" });
+      var req = input({ type: "checkbox", checked: !!p.required, "data-focus": "prop-" + pid + "-req", "aria-label": pid + " required" });
       req.addEventListener("change", function () {
         ok(O().updateProperty(t.id, pid, { required: req.checked }));
       });
-      var pii = input({ type: "checkbox", checked: !!p.pii, "data-focus": "prop-" + pid + "-pii" });
+      var pii = input({ type: "checkbox", checked: !!p.pii, "data-focus": "prop-" + pid + "-pii", "aria-label": pid + " pii" });
       pii.addEventListener("change", function () {
         ok(O().updateProperty(t.id, pid, { pii: pii.checked }));
       });
-      var desc = input({ value: p.description || "", "data-focus": "prop-" + pid + "-desc" });
+      var desc = input({ value: p.description || "", "data-focus": "prop-" + pid + "-desc", "aria-label": pid + " description" });
       desc.addEventListener("change", function () {
         ok(O().updateProperty(t.id, pid, { description: desc.value }));
       });
@@ -676,7 +699,7 @@
       if (p.type === "ref") {
         var extra = el("tr");
         var td = el("td", { colspan: "6" });
-        var refSel = el("select", { "data-focus": "prop-" + pid + "-ref" }, selectOpts(keys(O().get().objectTypes), p.ref, true));
+        var refSel = el("select", { "data-focus": "prop-" + pid + "-ref", "aria-label": pid + " ref" }, selectOpts(keys(O().get().objectTypes), p.ref, true));
         refSel.addEventListener("change", function () {
           ok(O().updateProperty(t.id, pid, { ref: refSel.value }));
         });
@@ -1158,6 +1181,13 @@
     var badge = tid("os-badge");
     badge.textContent = badgeText(v);
     badge.className = "os-badge " + (v.errors && v.errors.length ? "is-error" : v.warnings && v.warnings.length ? "is-warn" : "is-ok");
+    var proposals = tid("os-proposals");
+    if (proposals && window.SkinState) {
+      var snap = window.SkinState.get();
+      var cards = snap.proposals || [];
+      var accepted = cards.filter(function (card) { return card.status === "accepted"; }).length;
+      proposals.textContent = cards.length ? accepted + " accepted / " + cards.length + " proposals" : "";
+    }
     tid("os-undo").disabled = !(O() && O().canUndo && O().canUndo());
     tid("os-redo").disabled = !(O() && O().canRedo && O().canRedo());
     var search = tid("os-search");
@@ -1213,6 +1243,14 @@
     select: select,
     render: render,
   };
+
+  if (window.SkinState && !window.__studioSkinSub) {
+    window.__studioSkinSub = true;
+    window.SkinState.subscribe(function () {
+      if (!root || root.hidden) return;
+      renderChrome();
+    });
+  }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", build);
   else build();

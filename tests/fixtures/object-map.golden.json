@@ -1,0 +1,279 @@
+{
+  "schema": "netie.object-map/1",
+  "label": "synthetic object map, not a live catalog",
+  "objects": [
+    {
+      "id": "orders",
+      "label": "Order",
+      "status": "proposed",
+      "certified": false,
+      "sourceTable": "orders",
+      "columns": [
+        "order_id",
+        "status",
+        "region",
+        "amount"
+      ],
+      "keys": [
+        "order_id"
+      ],
+      "fields": [
+        {
+          "name": "order_id",
+          "role": "key",
+          "status": "proposed"
+        },
+        {
+          "name": "amount",
+          "role": "measure",
+          "status": "proposed"
+        },
+        {
+          "name": "region",
+          "role": "dimension",
+          "status": "proposed"
+        },
+        {
+          "name": "status",
+          "role": "dimension",
+          "status": "proposed"
+        }
+      ],
+      "valueLists": [
+        {
+          "name": "region",
+          "values": [
+            "north",
+            "south"
+          ]
+        },
+        {
+          "name": "status",
+          "values": [
+            "open",
+            "closed",
+            "held"
+          ]
+        }
+      ],
+      "x": 250,
+      "y": 22
+    },
+    {
+      "id": "purchase_orders",
+      "label": "PurchaseOrder",
+      "status": "proposed",
+      "certified": false,
+      "sourceTable": "purchase_orders",
+      "columns": [
+        "order_id",
+        "amount"
+      ],
+      "keys": [
+        "order_id"
+      ],
+      "fields": [
+        {
+          "name": "order_id",
+          "role": "key",
+          "status": "proposed"
+        },
+        {
+          "name": "amount",
+          "role": "measure",
+          "status": "proposed"
+        }
+      ],
+      "valueLists": [],
+      "x": 393,
+      "y": 126
+    },
+    {
+      "id": "shipments",
+      "label": "Shipment",
+      "status": "proposed",
+      "certified": false,
+      "sourceTable": "shipments",
+      "columns": [
+        "shipment_id",
+        "order_id",
+        "status"
+      ],
+      "keys": [
+        "shipment_id"
+      ],
+      "fields": [
+        {
+          "name": "shipment_id",
+          "role": "key",
+          "status": "proposed"
+        },
+        {
+          "name": "order_id",
+          "role": "dimension",
+          "status": "proposed"
+        },
+        {
+          "name": "status",
+          "role": "dimension",
+          "status": "proposed"
+        }
+      ],
+      "valueLists": [
+        {
+          "name": "status",
+          "values": [
+            "open",
+            "closed"
+          ]
+        }
+      ],
+      "x": 338,
+      "y": 293
+    },
+    {
+      "id": "suppliers",
+      "label": "Supplier",
+      "status": "proposed",
+      "certified": false,
+      "sourceTable": "suppliers",
+      "columns": [
+        "supplier_id",
+        "name",
+        "region"
+      ],
+      "keys": [
+        "supplier_id"
+      ],
+      "fields": [
+        {
+          "name": "supplier_id",
+          "role": "key",
+          "status": "proposed"
+        },
+        {
+          "name": "name",
+          "role": "dimension",
+          "status": "proposed"
+        },
+        {
+          "name": "region",
+          "role": "dimension",
+          "status": "proposed"
+        }
+      ],
+      "valueLists": [
+        {
+          "name": "region",
+          "values": [
+            "north",
+            "south"
+          ]
+        }
+      ],
+      "x": 162,
+      "y": 293
+    },
+    {
+      "id": "vendors",
+      "label": "Vendor",
+      "status": "proposed",
+      "certified": false,
+      "sourceTable": "suppliers",
+      "columns": [
+        "vendor_id",
+        "supplier_id",
+        "name"
+      ],
+      "keys": [
+        "supplier_id",
+        "vendor_id"
+      ],
+      "fields": [
+        {
+          "name": "supplier_id",
+          "role": "key",
+          "status": "proposed"
+        },
+        {
+          "name": "vendor_id",
+          "role": "key",
+          "status": "proposed"
+        },
+        {
+          "name": "name",
+          "role": "dimension",
+          "status": "proposed"
+        }
+      ],
+      "valueLists": [],
+      "x": 107,
+      "y": 126
+    }
+  ],
+  "links": [
+    {
+      "id": "purchase_orders.same-key.orders",
+      "from": "purchase_orders",
+      "to": "orders",
+      "type": "same-key",
+      "via": "order_id",
+      "label": {
+        "x": 352,
+        "y": 93,
+        "w": 80,
+        "h": 18
+      }
+    },
+    {
+      "id": "shipments.for-order.orders",
+      "from": "shipments",
+      "to": "orders",
+      "type": "for-order",
+      "via": "order_id",
+      "label": {
+        "x": 297,
+        "y": 184,
+        "w": 88,
+        "h": 18
+      }
+    },
+    {
+      "id": "vendors.same-party.suppliers",
+      "from": "vendors",
+      "to": "suppliers",
+      "type": "same-party",
+      "via": "supplier_id",
+      "label": {
+        "x": 157,
+        "y": 229,
+        "w": 96,
+        "h": 18
+      }
+    }
+  ],
+  "suggestions": [
+    {
+      "id": "suppliers~vendors",
+      "left": "suppliers",
+      "right": "vendors",
+      "leftLabel": "Supplier",
+      "rightLabel": "Vendor",
+      "reason": "name similarity; overlapping key supplier_id; shared source table suppliers",
+      "confidence": 0.95,
+      "applied": false,
+      "certified": false
+    },
+    {
+      "id": "orders~purchase_orders",
+      "left": "orders",
+      "right": "purchase_orders",
+      "leftLabel": "Order",
+      "rightLabel": "PurchaseOrder",
+      "reason": "name similarity; overlapping key order_id",
+      "confidence": 0.8,
+      "applied": false,
+      "certified": false
+    }
+  ]
+}
