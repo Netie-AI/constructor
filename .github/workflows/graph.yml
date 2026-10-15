@@ -1,0 +1,29 @@
+name: graph
+on:
+  pull_request:
+    paths: ["graph/**", ".github/workflows/graph.yml"]
+  push:
+    branches: [landing-9-first-path]
+    paths: ["graph/**", ".github/workflows/graph.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: graph-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: graph
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # Same install as upstream CI: every pinned extra, hash-checked.
+      - run: pip install -r requirements-ci.txt --require-hashes
+      - run: pip install --no-deps -e .
+      - run: python -m pytest tests -q -p no:cacheprovider -m "not integration"

@@ -1,0 +1,21 @@
+{
+  "name": "netiegraph-local",
+  "interface": {
+    "displayName": "NetieGraph Local Plugins"
+  },
+  "plugins": [
+    {
+      "name": "netiegraph-codex",
+      "description": "NetieGraph plugin for Codex: knowledge graph commands and analytics.",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+Netie Graph
+Copyright (c) 2026 Netie AI (modifications)
+
+Netie Graph is a fork of Semantica (https://github.com/semantica-agi/semantica),
+taken at upstream commit 6f1c3b3, and is distributed under the MIT License.
+The upstream copyright notice and license text are kept unchanged in LICENSE,
+as the MIT License requires. Upstream contributors are listed in
+UPSTREAM_CONTRIBUTORS.md.
+
+Changes from upstream in this fork:
+- Package renamed semantica -> netiegraph, semantica_mcp -> netiegraph_mcp;
+  environment variables SEMANTICA_* -> NETIE_GRAPH_*; RDF namespace
+  https://semantica.dev/ -> https://netie.ai/graph/.
+- Branding and logo replaced with Netie's. "Semantica" is upstream's name and
+  is used here only to attribute the origin of the code.
+- tests/context/test_drift_search.py uses the entity name "Netie" instead of
+  "NetieGraph": its pruning test scores token/substring overlap with a query
+  containing "graph", so the anchor name must not contain that word.
+- requirements-ci.txt and uv.lock were regenerated with uv (pins identical
+  to upstream) instead of carrying upstream's text with the old name.
+- Upstream tests fixed in this fork (upstream's CI does not run them, so they
+  had gone stale):
+  - tests/ingest/test_ingestors.py, tests/ingest/test_web_ingestor.py: mock
+    request_with_ssrf_guard, the layer the ingestors fetch through; they
+    mocked requests.get/Session.get and so reached the real network.
+  - tests/triplet_store/test_jena_store_empty_graph.py: give each thread a
+    unique index; thread idents are reused after a thread exits, so threads
+    could write the same triple.
+- Code fixes (bugs that showed once every pinned extra is installed):
+  - netiegraph/vector_store/weaviate_store.py: drop the unused QueryReturn
+    import, which does not exist in the pinned weaviate-client 4.16 and so
+    made the Weaviate store report "not available" with the client installed;
+    resolve Filter through the module's own weaviate reference first.
+  - netiegraph/cli.py: status lines (_ok/_info/_warn) print with Rich
+    soft_wrap, so a long output path is no longer split by inserted newlines
+    at 80 columns (the "Wrote <path>" line was unreadable and uncopyable on
+    CI, where temp paths are long).
+- Test isolation fixes (upstream's CI runs a few subsets, never the whole
+  suite in one process, so cross-test leaks went unseen):
+  - tests/conftest.py (new): strip every *_API_KEY from the environment for
+    non-integration tests (several LLM tests made live provider calls with
+    whatever key the machine had); give each test a fresh extraction config;
+    reset the progress-tracker singleton (including its one-way "disabled by
+    env" latch) per test; and scope each test module's import-time os.environ
+    changes (e.g. NETIE_GRAPH_DISABLE_PROGRESS=1) to that module's own tests.
+  - tests/test_huggingface_impl.py: its module-level sys.modules mocks
+    (including a MagicMock config module) stayed installed for the rest of
+    the session; they are now restored after import and re-applied only
+    around this file's tests.
+- Test fixes against the pinned dependencies:
+  - tests/explorer/test_explorer_entrypoints.py: FastAPI 0.141 mounts
+    included routers lazily (no ``route.path``); assert which route serves
+    each URL instead, including that an unknown URL reaches the SPA fallback.
+  - tests/vector_store/test_faiss_index.py: PQ with bits=4 (faiss-cpu 1.15
+    SIMD needs ksub % 8 == 0; bits=2 errors on AVX2).
+  - tests/export/test_distance_exporter.py: the "no warning" test counts
+    warnings only, not INFO records from other modules.
+  - tests/kg/test_integration_comprehensive.py: the performance benchmark
+    runs with garbage collection paused (thresholds unchanged); the timed
+    work takes ~10 ms, and a collection pause late in a long session pushed
+    it past 1 s.
+- Upstream project files that name upstream contacts or release history
+  (SECURITY, SUPPORT, CHANGELOG, RELEASE_NOTES, CITATION, CODE_OF_CONDUCT,
+  CONTRIBUTING, GROWTH) are not carried; see the upstream repository for them.

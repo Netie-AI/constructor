@@ -1,0 +1,121 @@
+/* ============================================================
+   NETIE_GRAPH DOCS — DESIGN SYSTEM
+   Dark-first (#080C10 bg, #10B981 emerald accent)
+   Minimal, static styling — no decorative motion.
+   ============================================================ */
+
+/* ── Global ─────────────────────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom text selection */
+::selection {
+  background: rgba(16, 185, 129, 0.22);
+  color: #fff;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar        { width: 5px; height: 5px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  {
+  background: rgba(16, 185, 129, 0.2);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(16, 185, 129, 0.4); }
+
+/* ── Focus rings (accessibility — kept) ─────────────────────── */
+*:focus-visible {
+  outline: 2px solid rgba(16, 185, 129, 0.55) !important;
+  outline-offset: 3px !important;
+  border-radius: 4px !important;
+}
+
+/* ── Headings ───────────────────────────────────────────────── */
+h1 {
+  letter-spacing: -0.025em;
+  position: relative;
+  padding-bottom: 0.6rem;
+}
+
+h1::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 44px;
+  height: 2px;
+  background: #10B981;
+  border-radius: 1px;
+}
+
+h2 { letter-spacing: -0.018em; }
+h3 { letter-spacing: -0.012em; }
+
+/* ── Content links ──────────────────────────────────────────── */
+article a,
+[class*="prose"] a {
+  text-decoration-color: rgba(16, 185, 129, 0.35);
+  text-underline-offset: 3px;
+}
+
+article a:hover,
+[class*="prose"] a:hover {
+  text-decoration-color: #10B981;
+}
+
+/* ── Blockquote ─────────────────────────────────────────────── */
+blockquote {
+  border-left: 2px solid rgba(16, 185, 129, 0.35) !important;
+  background: rgba(16, 185, 129, 0.04) !important;
+  border-radius: 0 6px 6px 0 !important;
+  padding: 0.9rem 1.2rem !important;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.68) !important;
+}
+
+/* ── HR / Divider ────────────────────────────────────────────── */
+hr {
+  border: none !important;
+  height: 1px !important;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(16, 185, 129, 0.25) 25%,
+    rgba(16, 185, 129, 0.25) 75%,
+    transparent 100%
+  ) !important;
+  margin: 2.5rem 0 !important;
+}
+
+/* ── TABLE ───────────────────────────────────────────────────── */
+table thead th {
+  color: #10B981 !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+  font-size: 0.72rem !important;
+  text-transform: uppercase !important;
+  border-bottom: 1px solid rgba(16, 185, 129, 0.18) !important;
+}
+
+/* ── NAVIGATION / SIDEBAR ────────────────────────────────────── */
+nav a,
+[class*="sidebar"] a,
+[class*="Sidebar"] a {
+  text-decoration: none;
+}
+
+/* ── HIDE THEME TOGGLE ───────────────────────────────────────── */
+button[aria-label="Switch to light mode"],
+button[aria-label="Switch to dark mode"],
+button[aria-label*="theme"],
+button[title*="theme"],
+button[title*="Theme"],
+[data-theme-toggle],
+[class*="ThemeToggle"],
+[class*="theme-toggle"],
+[class*="ColorModeToggle"],
+[class*="DarkModeToggle"] {
+  display: none !important;
+  pointer-events: none !important;
+}

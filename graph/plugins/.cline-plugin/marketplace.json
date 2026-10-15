@@ -1,0 +1,17 @@
+{
+  "name": "netiegraph-cline",
+  "plugins": [
+    {
+      "name": "netiegraph",
+      "description": "NetieGraph plugin for Cline: knowledge graph skills, reasoning, extraction, and visualization.",
+      "source": "./",
+      "category": "Productivity",
+      "tags": [
+        "knowledge-graph",
+        "reasoning",
+        "netiegraph",
+        "cline"
+      ]
+    }
+  ]
+}

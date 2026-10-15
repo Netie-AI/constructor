@@ -1,0 +1,17 @@
+{
+  "name": "netiegraph-vscode",
+  "plugins": [
+    {
+      "name": "netiegraph",
+      "description": "NetieGraph plugin for VS Code: knowledge graph skills, reasoning, extraction, and visualization.",
+      "source": "./",
+      "category": "Productivity",
+      "tags": [
+        "knowledge-graph",
+        "reasoning",
+        "netiegraph",
+        "vscode"
+      ]
+    }
+  ]
+}
