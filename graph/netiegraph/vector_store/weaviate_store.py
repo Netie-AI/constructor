@@ -45,14 +45,16 @@ from ..utils.progress_tracker import get_progress_tracker
 # Optional Weaviate import
 try:
     import weaviate
-    from weaviate.classes.query import MetadataQuery, QueryReturn
+    # QueryReturn was imported here but never used, and it does not exist in
+    # the pinned weaviate-client (4.16), which made WEAVIATE_AVAILABLE False
+    # even with the client installed.
+    from weaviate.classes.query import MetadataQuery
 
     WEAVIATE_AVAILABLE = True
 except (ImportError, OSError):
     WEAVIATE_AVAILABLE = False
     weaviate = None
     MetadataQuery = None
-    QueryReturn = None
 
 
 class WeaviateClient:
@@ -482,14 +484,18 @@ class WeaviateStore:
         if not filters or not WEAVIATE_AVAILABLE:
             return None
 
+        # Resolve Filter through the module's own weaviate reference first (the
+        # object this store talks to), then fall back to a fresh import.
         Filter = None
         try:
-            from weaviate.classes.query import Filter
-        except (ImportError, AttributeError):
+            if weaviate and hasattr(weaviate, "classes") and hasattr(weaviate.classes, "query"):
+                Filter = getattr(weaviate.classes.query, "Filter", None)
+        except AttributeError:
+            Filter = None
+        if Filter is None:
             try:
-                if weaviate and hasattr(weaviate, "classes") and hasattr(weaviate.classes, "query"):
-                    Filter = getattr(weaviate.classes.query, "Filter", None)
-            except AttributeError:
+                from weaviate.classes.query import Filter
+            except (ImportError, AttributeError):
                 Filter = None
 
         if Filter is None:

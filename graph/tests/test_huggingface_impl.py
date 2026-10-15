@@ -2,25 +2,35 @@
 import sys
 import os
 import traceback
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 print("Starting test script...", flush=True)
 
-# Mock transformers and torch BEFORE any project imports
+# Mock transformers and torch BEFORE any project imports. Everything injected
+# here is restored after the imports below (see the end of this block), and
+# netiegraph modules first imported under the mocks are evicted: left in place,
+# the mocked config leaked into every later test in the session.
+_MOCKED_MODULES = ["transformers", "torch", "spacy", "instructor", "netiegraph.semantic_extract.config"]
+_original_modules = {k: sys.modules.get(k) for k in _MOCKED_MODULES}
+_modules_before = set(sys.modules)
 try:
     mock_transformers = MagicMock()
     mock_pipeline = MagicMock()
     mock_transformers.pipeline = mock_pipeline
     sys.modules["transformers"] = mock_transformers
-    sys.modules["torch"] = MagicMock()
-    sys.modules["torch"].cuda.is_available.return_value = False
+    mock_torch = MagicMock()
+    mock_torch.cuda.is_available.return_value = False
+    sys.modules["torch"] = mock_torch
     
     # Mock spacy
     mock_spacy = MagicMock()
     sys.modules["spacy"] = mock_spacy
     
     # Mock instructor
-    sys.modules["instructor"] = MagicMock()
+    mock_instructor = MagicMock()
+    sys.modules["instructor"] = mock_instructor
     
     # Also mock netiegraph.semantic_extract.config to avoid initialization issues
     mock_config_module = MagicMock()
@@ -52,6 +62,29 @@ except Exception as e:
     print(f"Import failed: {e}", flush=True)
     traceback.print_exc()
     sys.exit(1)
+finally:
+    for _key, _original in _original_modules.items():
+        if _original is None:
+            sys.modules.pop(_key, None)
+        else:
+            sys.modules[_key] = _original
+    for _key in set(sys.modules) - _modules_before:
+        if _key == "netiegraph" or _key.startswith("netiegraph."):
+            sys.modules.pop(_key, None)
+
+@pytest.fixture(autouse=True)
+def _mocked_modules():
+    """Re-install this file's mocks only while its tests run (the extractor
+    imports ``transformers`` at call time); patch.dict restores sys.modules after."""
+    with patch.dict(sys.modules, {
+        "transformers": mock_transformers,
+        "torch": mock_torch,
+        "spacy": mock_spacy,
+        "instructor": mock_instructor,
+        "netiegraph.semantic_extract.config": mock_config_module,
+    }):
+        yield
+
 
 def test_enhanced_impl():
     print("Testing enhanced implementation...", flush=True)

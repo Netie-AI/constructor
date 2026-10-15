@@ -303,12 +303,13 @@ class TestJenaStoreEmptyGraph:
         store = JenaStore()
         errors = []
         
-        def add_triplet():
+        def add_triplet(i):
             try:
-                # Add triplet (may see other threads' triplets due to race condition)
+                # A unique index per thread: thread idents are reused once a
+                # thread exits, which made short-lived threads collide.
                 store.add_triplets([
                     Triplet(
-                        subject=f"http://example.org/Entity{threading.current_thread().ident}",
+                        subject=f"http://example.org/Entity{i}",
                         predicate="http://example.org/type",
                         object="Test"
                     )
@@ -317,7 +318,7 @@ class TestJenaStoreEmptyGraph:
                 errors.append(e)
         
         # Run 5 concurrent threads
-        threads = [threading.Thread(target=add_triplet) for _ in range(5)]
+        threads = [threading.Thread(target=add_triplet, args=(i,)) for i in range(5)]
         for t in threads:
             t.start()
         for t in threads:

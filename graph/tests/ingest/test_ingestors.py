@@ -58,14 +58,12 @@ class TestFileIngestor:
 
 class TestWebIngestor:
     def test_ingest_url(self):
-        # Patch Session to return a mock session
-        with patch("requests.Session") as MockSession:
-            mock_session_instance = MockSession.return_value
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.text = "<html><head><title>Test Page</title></head><body><p>Test content</p></body></html>"
-            mock_response.content = b"<html>...</html>"
-            mock_session_instance.get.return_value = mock_response
+        # Fetches go through the SSRF guard, not Session.get; mock that layer.
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "<html><head><title>Test Page</title></head><body><p>Test content</p></body></html>"
+        mock_response.content = b"<html>...</html>"
+        with patch("netiegraph.ingest.web_ingestor.request_with_ssrf_guard", return_value=mock_response):
 
             # Also patch RobotsChecker to avoid real network calls
             with patch("netiegraph.ingest.web_ingestor.RobotsChecker.can_fetch", return_value=True):
@@ -78,7 +76,7 @@ class TestWebIngestor:
                 assert "Test content" in result.text
 
 class TestFeedIngestor:
-    @patch("requests.get")
+    @patch("netiegraph.ingest.feed_ingestor.request_with_ssrf_guard")
     def test_ingest_feed(self, mock_get):
         ingestor = FeedIngestor()
         
@@ -132,13 +130,11 @@ class TestUnifiedIngest:
             os.remove(tmp_path)
 
     def test_ingest_web_dispatch(self):
-        # Patch Session to return a mock session
-        with patch("requests.Session") as MockSession:
-            mock_session_instance = MockSession.return_value
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.text = "<html><title>Web</title></html>"
-            mock_session_instance.get.return_value = mock_response
+        # Fetches go through the SSRF guard, not Session.get; mock that layer.
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "<html><title>Web</title></html>"
+        with patch("netiegraph.ingest.web_ingestor.request_with_ssrf_guard", return_value=mock_response):
 
             # Also patch RobotsChecker to avoid real network calls
             with patch("netiegraph.ingest.web_ingestor.RobotsChecker.can_fetch", return_value=True):

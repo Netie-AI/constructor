@@ -68,7 +68,22 @@ class TestExportGraphTool(unittest.TestCase):
                 self.assertIsInstance(result["data"], str)
 
     def test_progress_is_disabled_for_the_server_process(self):
-        self.assertEqual(os.environ.get("NETIE_GRAPH_DISABLE_PROGRESS"), "1")
+        # Check the import side effect in a fresh process: in a full test run
+        # this module may already have been imported (and its environment
+        # change scoped away) while another test file was collected.
+        import subprocess
+        import sys
+
+        env = {k: v for k, v in os.environ.items() if k != "NETIE_GRAPH_DISABLE_PROGRESS"}
+        out = subprocess.run(
+            [sys.executable, "-c",
+             "import os, netiegraph.mcp_server; "
+             "print(os.environ.get('NETIE_GRAPH_DISABLE_PROGRESS'))"],
+            env=env, capture_output=True, text=True, timeout=120,
+            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        )
+        self.assertEqual(out.returncode, 0, out.stderr[-2000:])
+        self.assertEqual(out.stdout.strip().splitlines()[-1], "1")
 
     def test_unsupported_format_returns_error_not_mislabeled_json(self):
         """A format outside the declared enum (typo, unsupported value, or a

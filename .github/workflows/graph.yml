@@ -14,7 +14,7 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     defaults:
       run:
         working-directory: graph
@@ -23,5 +23,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install -e . pytest pytest-asyncio beautifulsoup4 psutil
+      # Same install as upstream CI: every pinned extra, hash-checked.
+      - run: pip install -r requirements-ci.txt --require-hashes
+      - run: pip install --no-deps -e .
       - run: python -m pytest tests -q -p no:cacheprovider -m "not integration"

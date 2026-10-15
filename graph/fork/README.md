@@ -10,5 +10,6 @@ cp graph/README.md /tmp/graph_new/README.md && cp -r graph/fork /tmp/graph_new/f
 cp /tmp/up_clean/uv.lock /tmp/graph_new/uv.lock && (cd /tmp/graph_new && uv lock)   # regenerate, never hand-edit
 ```
 
-Then run the upstream test suite and the fork's, and compare failures: the fork
-must not fail any test that upstream passes.
+Then re-apply the fork's own commits on top (the test fixes listed in
+`graph/NOTICE`), run the upstream test suite and the fork's, and compare
+failures: the fork must not fail any test that upstream passes.

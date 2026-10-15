@@ -590,7 +590,9 @@ def test_builder_trains_pq_index():
     faiss = pytest.importorskip("faiss")
     vectors = np.random.default_rng(42).random((256, 4), dtype=np.float32)
     builder = FAISSIndexBuilder(dimension=4)
-    index = builder.build_index("pq", m=2, bits=2)
+    # bits=4 -> ksub=16: FAISS SIMD PQ distance tables need ksub % 8 == 0
+    # (bits=2, ksub=4, fails on AVX2 builds of the pinned faiss-cpu 1.15).
+    index = builder.build_index("pq", m=2, bits=4)
 
     assert not index.index.is_trained
 

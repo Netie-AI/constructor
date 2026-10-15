@@ -96,10 +96,29 @@ def test_legacy_server_mounts_editable_markdown_routes(monkeypatch):
 
     from netiegraph import server
 
-    paths = {route.path for route in server.app.routes}
-    assert "/api/markdown/{kind}/{resource_id:path}" in paths
-    assert "/api/memories" in paths
-    assert "/ws/graph-updates" in paths
+    # Ask the routes whether they match, instead of reading ``route.path``:
+    # FastAPI 0.141 mounts included routers lazily (``_IncludedRouter``),
+    # which has no ``path``.
+    from starlette.routing import Match
+
+    def first_match(path, kind="http"):
+        scope = {"type": kind, "path": path, "root_path": "", "method": "GET",
+                 "headers": [], "query_string": b""}
+        for route in server.app.router.routes:
+            if route.matches(scope)[0] == Match.FULL:
+                return route
+        return None
+
+    def is_spa_fallback(route):
+        return getattr(route, "path", None) == "/{full_path:path}"
+
+    # The real routes claim these paths before the SPA catch-all does.
+    for path in ("/api/markdown/note/some/resource-id", "/api/memories"):
+        route = first_match(path)
+        assert route is not None and not is_spa_fallback(route), path
+    assert getattr(first_match("/ws/graph-updates", kind="websocket"), "path", None) == "/ws/graph-updates"
+    # And an unknown path does fall through to the SPA, so the check can fail.
+    assert is_spa_fallback(first_match("/api/definitely-not-a-route"))
 
     with TestClient(server.app) as client:
         with client.websocket_connect("/ws/graph-updates") as websocket:

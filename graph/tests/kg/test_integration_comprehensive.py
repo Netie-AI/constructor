@@ -564,7 +564,21 @@ class TestComprehensiveIntegration:
     
     def test_performance_benchmarks(self, realistic_embeddings):
         """Test performance benchmarks with realistic data."""
+        import gc
         import time
+
+        # Time the algorithms, not a garbage-collection pause left over from
+        # earlier tests in a long session (the work itself takes ~10 ms).
+        gc.collect()
+        gc_was_enabled = gc.isenabled()
+        gc.disable()
+        try:
+            self._run_performance_benchmarks(realistic_embeddings, time)
+        finally:
+            if gc_was_enabled:
+                gc.enable()
+
+    def _run_performance_benchmarks(self, realistic_embeddings, time):
         
         # Create larger test data
         large_graph = nx.erdos_renyi_graph(100, 0.1, seed=42)

@@ -114,4 +114,6 @@ def test_hop_distance_no_warning_when_kg_unavailable(caplog):
     value, error = result
     assert value is None
     assert error is None
-    assert len(caplog.records) == 0
+    # Only warnings count: other modules may log INFO (e.g. "Centrality
+    # calculator initialized") depending on logging configuration.
+    assert [r for r in caplog.records if r.levelno >= logging.WARNING] == []
